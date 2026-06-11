@@ -299,7 +299,7 @@ Users authenticate once and can access resources managed by both FastAPI and Nes
 
 ---
 
-Authentication
+## Authentication
 
 FastAPI acts as the authentication provider for the entire platform.
 
@@ -307,153 +307,121 @@ Users authenticate once and receive a JWT access token.
 
 The same JWT token is later validated by both:
 
-FastAPI
-NestJS
+* FastAPI
+* NestJS
 
 This creates a Single Login Experience across services.
 
-JWT Claims
+**JWT Claims**
 
 Example:
-
+```text
 {
   "sub": "1",
   "email": "user@example.com",
   "role": "ADMIN"
 }
+```
 
-Claims include:
-
+**Claims include:**
+```text
 User ID
 Email
 Role
 Role-Based Access Control (RBAC)
+```
 
 The platform currently supports:
 
-ADMIN
+**ADMIN**
 
-Capabilities:
+*Capabilities:*
+- View all users
+- View all notes
+- Manage all notes
+- View system analytics
+- View activity logs
+- Access administrative dashboards
 
-View all users
-View all notes
-Manage all notes
-View system analytics
-View activity logs
-Access administrative dashboards
-MEMBER
 
-Capabilities:
+**MEMBER**
 
-Manage own notes
-View own information
-Access personal productivity data
-Notes Module
+*Capabilities:*
+- Manage own notes
+- View own information
+- Access personal productivity data
+
+**Notes Module**
 
 The Notes module serves as the knowledge-management component of the platform.
 
-Features:
+**Features:**
 
-Create Notes
-View Notes
-Update Notes
-Delete Notes
-Pagination
-Search Ready
-Sorting Ready
-Notes API
+- Create Notes
+- View Notes
+- Update Notes
+- Delete Notes
+- Pagination
+- Search Ready
+- Sorting Ready
+
+
+**Notes API**
 Create Note
 
+```text
 POST /api/v1/notes
+```
 
 Creates a note owned by the authenticated user.
 
-Get Notes
-
+**Get Notes**
+```text
 GET /api/v1/notes
+```
 
-Supports:
+*Supports:*
 
-Pagination
-Search (planned)
-Sorting (planned)
+- Pagination
+- Search (planned)
+- Sorting (planned)
 
 Example:
 
+```text
 GET /api/v1/notes?page=1&limit=10
+```
 
-Get Note By ID
-
+*Get Note By ID*
+```text
 GET /api/v1/notes/{note_id}
+```
 
-Access Rules:
+**Access Rules:**
 
-MEMBER → Own notes only
-ADMIN → Any note
-Update Note
+- MEMBER → Own notes only
+- ADMIN → Any note
 
+*Update Note*
+
+```text
 PUT /api/v1/notes/{note_id}
+```
 
-Access Rules:
+**Access Rules:**
 
-MEMBER → Own notes only
-ADMIN → Any note
-Delete Note
+- MEMBER → Own notes only
+- ADMIN → Any note
 
+*Delete Note*
+```text
 DELETE /api/v1/notes/{note_id}
+```
 
-Access Rules:
+**Access Rules:**
 
 MEMBER → Own notes only
 ADMIN → Any note
-Admin Notes Management
-
-An Admin-only endpoint is available for platform-wide note access.
-
-Get All Notes
-
-GET /api/v1/notes/admin/all
-
-Purpose:
-
-Admin Dashboard
-Analytics Dashboard
-Content Review
-System Monitoring
-
-Access:
-
-ADMIN only
-
-Example:
-
-GET /api/v1/notes/admin/all?page=1&limit=20
-
-Note-to-Task Conversion
-
-A note can later be converted into one or more tasks.
-
-Example:
-
-Note:
-
-Launch Product
-
-Design Landing Page
-Build APIs
-Deploy Application
-
-Converted Tasks:
-
-Design Landing Page
-Build APIs
-Deploy Application
-
-API Endpoint:
-
-POST /api/v1/notes/{note_id}/convert-to-task
-
-This endpoint will communicate with the NestJS Task Service.
 
 ---
 
@@ -464,6 +432,104 @@ This endpoint will communicate with the NestJS Task Service.
 * Better user experience for large datasets
 
 * Note: Pagination can be easily re-enabled in the API by adding `page` and `limit` query parameters in the `/notes` route.
+
+---
+
+## Shared JWT Contract
+
+JWT must work across FastAPI and NestJS.
+
+**Required payload:**
+```text
+{
+  "sub": "1",
+  "email": "user@example.com",
+  "role": "ADMIN",
+  "iss": "team-productivity-platform",
+  "aud": "team-productivity-users",
+  "type": "access"
+}
+```
+
+NestJS must be able to authorize users without additional database lookups.
+
+---
+
+## Database Layer
+
+The FastAPI service uses SQLAlchemy 2.x with PostgreSQL as the primary database.
+
+### Responsibilities
+
+The database layer is responsible for:
+
+* Managing PostgreSQL connections
+* Creating and managing SQLAlchemy sessions
+* Providing database dependencies to FastAPI routes and services
+* Supporting production-grade connection pooling
+* Enabling transaction-safe request handling
+
+### Database Configuration
+
+The application uses a centralized database configuration through environment variables:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=team_productivity
+DB_USER=postgres
+DB_PASSWORD=password
+```
+
+The SQLAlchemy engine is configured with:
+
+* Connection pooling
+* Automatic connection health checks (`pool_pre_ping`)
+* Connection recycling
+* Debug SQL logging in development environments
+
+### Session Management
+
+A dedicated `SessionLocal` factory creates database sessions for each request.
+
+FastAPI's dependency injection system ensures:
+
+* One session per request
+* Automatic cleanup after request completion
+* Safe transaction handling
+
+### Service Ownership
+
+FastAPI currently owns the following database modules:
+
+* Users
+* Authentication
+* Notes
+* Open Library Integrations
+
+NestJS may connect to the same PostgreSQL database using its own ORM (TypeORM or Prisma) while maintaining clear service boundaries.
+
+### Architecture
+
+```text
+Next.js Frontend
+        │
+        ▼
+     FastAPI
+        │
+        ▼
+   SQLAlchemy ORM
+        │
+        ▼
+    PostgreSQL
+
+NestJS
+   │
+   └── Can access the same PostgreSQL instance
+       through its own ORM layer
+```
+
+This architecture supports the Team Productivity Platform's multi-service design while maintaining a shared and scalable database infrastructure.
 
 ---
 
