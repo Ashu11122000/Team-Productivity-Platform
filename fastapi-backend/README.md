@@ -533,6 +533,248 @@ This architecture supports the Team Productivity Platform's multi-service design
 
 ---
 
+## User Model
+
+The User model is the central identity and authorization entity within the FastAPI service.
+
+FastAPI acts as the authentication authority and is responsible for issuing JWT tokens that are consumed by both FastAPI and NestJS services.
+
+### Responsibilities
+
+* User Registration
+* User Authentication
+* Role-Based Access Control (RBAC)
+* JWT Identity Source
+* User Ownership Validation
+
+### User Fields
+
+| Field           | Type     | Description                 |
+| --------------- | -------- | --------------------------- |
+| id              | Integer  | Primary Key                 |
+| email           | String   | Unique user email           |
+| hashed_password | String   | Securely hashed password    |
+| role            | String   | User role (ADMIN or MEMBER) |
+| is_active       | Boolean  | User account status         |
+| created_at      | DateTime | User creation timestamp     |
+| updated_at      | DateTime | Last update timestamp       |
+
+### Supported Roles
+
+#### ADMIN
+
+Permissions:
+
+* View all users
+* View all notes
+* Manage all notes
+* Access analytics dashboard
+* Access activity logs
+* Access administration features
+
+#### MEMBER
+
+Permissions:
+
+* Manage own notes
+* View own notes
+* Update own notes
+* Delete own notes
+* View personal analytics
+
+### JWT Integration
+
+FastAPI generates JWT tokens using user information.
+
+Example JWT Payload:
+
+```json
+{
+  "sub": "1",
+  "email": "admin@example.com",
+  "role": "ADMIN",
+  "iss": "team-productivity-platform",
+  "aud": "team-productivity-users",
+  "type": "access"
+}
+```
+
+This JWT is shared across:
+
+* Next.js Frontend
+* FastAPI Service
+* NestJS Service
+
+This enables a Single Login Experience across the platform.
+
+### Relationships
+
+User → Notes
+
+```text
+User
+ └── Notes (One-to-Many)
+```
+
+A user can own multiple notes.
+
+### Database Optimizations
+
+Indexes are created on:
+
+* email
+* role
+* is_active
+
+These indexes improve:
+
+* Authentication performance
+* Admin dashboard queries
+* Analytics reporting
+* User management operations
+
+---
+
+## Note Model
+
+The Note model is owned entirely by the FastAPI service.
+
+Notes represent user-created content and serve as the foundation for future task generation workflows.
+
+### Responsibilities
+
+* Note Creation
+* Note Updates
+* Note Deletion
+* Note Search
+* Note Filtering
+* Open Library Integration
+* Note-to-Task Conversion Source
+
+### Note Fields
+
+| Field                | Type     | Description              |
+| -------------------- | -------- | ------------------------ |
+| id                   | Integer  | Primary Key              |
+| title                | String   | Note title               |
+| content              | Text     | Note content             |
+| owner_id             | Integer  | User ownership reference |
+| book_reference_id    | String   | Open Library reference   |
+| is_converted_to_task | Boolean  | Task conversion status   |
+| created_at           | DateTime | Creation timestamp       |
+| updated_at           | DateTime | Last update timestamp    |
+
+### Ownership Rules
+
+#### MEMBER
+
+Can:
+
+* View own notes
+* Update own notes
+* Delete own notes
+
+#### ADMIN
+
+Can:
+
+* View any note
+* Update any note
+* Delete any note
+* Access all notes endpoint
+
+### Open Library Integration
+
+Notes can contain book references retrieved from the Open Library API.
+
+Example:
+
+```json
+{
+  "title": "Learning React",
+  "book_reference_id": "OL45883W"
+}
+```
+
+This allows users to associate learning resources directly with notes.
+
+### Note-to-Task Conversion
+
+A note can be converted into one or more tasks.
+
+Workflow:
+
+```text
+FastAPI Note
+        │
+        ▼
+Convert To Task
+        │
+        ▼
+NestJS Task Service
+        │
+        ▼
+Task Created
+        │
+        ▼
+is_converted_to_task = true
+```
+
+This preserves clear ownership boundaries:
+
+FastAPI owns:
+
+* Notes
+* Note Content
+* Book References
+
+NestJS owns:
+
+* Tasks
+* Task Status
+* Notifications
+* Analytics
+* Activity Logs
+
+### Relationships
+
+User → Notes
+
+```text
+User (1)
+   │
+   ▼
+Notes (Many)
+```
+
+### Database Optimizations
+
+Indexes are created on:
+
+* owner_id
+* title
+* created_at
+
+Benefits:
+
+* Faster note search
+* Faster pagination
+* Faster sorting
+* Improved analytics queries
+
+### Future M2 Integrations
+
+The Note model is prepared for:
+
+* Open Library API Integration
+* NestJS Task Creation
+* Analytics Dashboard
+* Activity Logging
+* Admin Monitoring Features
+* Next.js Notes Dashboard
+
+---
+
 ## Testing
 
 This project uses **Pytest** to ensure the correctness of core functionalities.
