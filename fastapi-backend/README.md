@@ -299,76 +299,163 @@ Users authenticate once and can access resources managed by both FastAPI and Nes
 
 ---
 
-## Authentication Flow
+Authentication
 
-```
-Client → Login → JWT Token
-        ↓
-Protected Route → Token Validation → User Access
-```
+FastAPI acts as the authentication provider for the entire platform.
 
-* Passwords hashed using bcrypt
-* JWT token contains user identity
-* Token required for protected routes
+Users authenticate once and receive a JWT access token.
+
+The same JWT token is later validated by both:
+
+FastAPI
+NestJS
+
+This creates a Single Login Experience across services.
+
+JWT Claims
+
+Example:
+
+{
+  "sub": "1",
+  "email": "user@example.com",
+  "role": "ADMIN"
+}
+
+Claims include:
+
+User ID
+Email
+Role
+Role-Based Access Control (RBAC)
+
+The platform currently supports:
+
+ADMIN
+
+Capabilities:
+
+View all users
+View all notes
+Manage all notes
+View system analytics
+View activity logs
+Access administrative dashboards
+MEMBER
+
+Capabilities:
+
+Manage own notes
+View own information
+Access personal productivity data
+Notes Module
+
+The Notes module serves as the knowledge-management component of the platform.
+
+Features:
+
+Create Notes
+View Notes
+Update Notes
+Delete Notes
+Pagination
+Search Ready
+Sorting Ready
+Notes API
+Create Note
+
+POST /api/v1/notes
+
+Creates a note owned by the authenticated user.
+
+Get Notes
+
+GET /api/v1/notes
+
+Supports:
+
+Pagination
+Search (planned)
+Sorting (planned)
+
+Example:
+
+GET /api/v1/notes?page=1&limit=10
+
+Get Note By ID
+
+GET /api/v1/notes/{note_id}
+
+Access Rules:
+
+MEMBER → Own notes only
+ADMIN → Any note
+Update Note
+
+PUT /api/v1/notes/{note_id}
+
+Access Rules:
+
+MEMBER → Own notes only
+ADMIN → Any note
+Delete Note
+
+DELETE /api/v1/notes/{note_id}
+
+Access Rules:
+
+MEMBER → Own notes only
+ADMIN → Any note
+Admin Notes Management
+
+An Admin-only endpoint is available for platform-wide note access.
+
+Get All Notes
+
+GET /api/v1/notes/admin/all
+
+Purpose:
+
+Admin Dashboard
+Analytics Dashboard
+Content Review
+System Monitoring
+
+Access:
+
+ADMIN only
+
+Example:
+
+GET /api/v1/notes/admin/all?page=1&limit=20
+
+Note-to-Task Conversion
+
+A note can later be converted into one or more tasks.
+
+Example:
+
+Note:
+
+Launch Product
+
+Design Landing Page
+Build APIs
+Deploy Application
+
+Converted Tasks:
+
+Design Landing Page
+Build APIs
+Deploy Application
+
+API Endpoint:
+
+POST /api/v1/notes/{note_id}/convert-to-task
+
+This endpoint will communicate with the NestJS Task Service.
 
 ---
-
-## Notes Flow
-
-```
-Request → Route → Service → DB → Response
-```
-
-* Ownership enforced at service layer
-* Users can only access their own notes
-
----
-
-## Important Notes
-
-* `owner_id` is used instead of `user_id` in database
-* Pydantic V2 uses `ConfigDict` instead of `Config`
-* Docker does NOT generate requirements (only installs)
-
----
-
-## Pagination (Concept & Usage)
-
-Pagination helps in efficiently handling large datasets by returning results in smaller chunks instead of loading everything at once.
-
-### How it works?
-
-```bash
-GET /notes?page=1&limit=10
-```
-
-* `page` → Page number (starts from 1)
-* `limit` → Number of records per page
-
-### Internal Logic
-
-```python
-skip = (page - 1) * limit
-```
-
-* Page 1 → skip = 0
-* Page 2 → skip = 10
-* Page 3 → skip = 20
-
-### Example Response
-
-```json
-[
-  {
-    "id": 1,
-    "title": "My Note",
-    "content": "Hello World",
-    "owner_id": 1,
-    "created_at": "2026-05-01T10:00:00",
-    "updated_at": null
-  }
-]
-```
 
 ### Benefits
 
