@@ -755,23 +755,213 @@ Indexes are created on:
 * title
 * created_at
 
-Benefits:
+**Benefits:**
 
 * Faster note search
 * Faster pagination
 * Faster sorting
 * Improved analytics queries
 
-### Future M2 Integrations
+---
 
-The Note model is prepared for:
+## User Management & Authentication Schemas
 
-* Open Library API Integration
-* NestJS Task Creation
-* Analytics Dashboard
-* Activity Logging
-* Admin Monitoring Features
-* Next.js Notes Dashboard
+The User module provides the foundation for authentication, authorization, and cross-service identity management within the Team Productivity Platform.
+
+FastAPI acts as the authentication provider and JWT issuer, while NestJS consumes and validates the same JWT for authorization across platform services.
+
+---
+
+## User Registration
+
+Users can create an account using their email address and password.
+
+### Request
+
+```json
+{
+  "email": "john.doe@example.com",
+  "password": "StrongPassword123!"
+}
+```
+
+Validation:
+
+* Email must be a valid email address
+* Password length: 8–128 characters
+
+---
+
+## User Login
+
+Users authenticate using their registered credentials.
+
+### Request
+
+```json
+{
+  "email": "john.doe@example.com",
+  "password": "StrongPassword123!"
+}
+```
+
+### Response
+
+```json
+{
+  "access_token": "<jwt-token>",
+  "token_type": "bearer"
+}
+```
+
+The returned JWT is used for all authenticated requests to both FastAPI and NestJS services.
+
+---
+
+## User Profile Response
+
+Authenticated user information is returned through profile endpoints.
+
+### Example Response
+
+```json
+{
+  "id": 1,
+  "email": "john.doe@example.com",
+  "role": "MEMBER",
+  "is_active": true,
+  "created_at": "2026-06-11T10:00:00Z",
+  "updated_at": "2026-06-11T10:00:00Z"
+}
+```
+
+Fields:
+
+| Field      | Description                |
+| ---------- | -------------------------- |
+| id         | Unique user identifier     |
+| email      | User email address         |
+| role       | User role                  |
+| is_active  | Account status             |
+| created_at | Account creation timestamp |
+| updated_at | Last update timestamp      |
+
+---
+
+## Role-Based Access Control (RBAC)
+
+The platform supports two user roles.
+
+### ADMIN
+
+Permissions:
+
+* View all users
+* View all notes
+* Manage all notes
+* Manage all tasks
+* Access analytics dashboard
+* Access activity logs
+* Access admin dashboard
+
+### MEMBER
+
+Permissions:
+
+* Manage own notes
+* Manage own tasks
+* View personal analytics
+
+---
+
+## Shared JWT Contract
+
+FastAPI is the single JWT issuer for the entire platform.
+
+NestJS validates the same token to provide a seamless authentication experience.
+
+### JWT Payload
+
+```json
+{
+  "sub": "1",
+  "email": "user@example.com",
+  "role": "ADMIN",
+  "iss": "team-productivity-platform",
+  "aud": "team-productivity-users",
+  "type": "access"
+}
+```
+
+### JWT Claims
+
+| Claim | Description       |
+| ----- | ----------------- |
+| sub   | User ID           |
+| email | User email        |
+| role  | User role         |
+| iss   | Token issuer      |
+| aud   | Intended audience |
+| type  | Token type        |
+
+---
+
+## Authentication Flow
+
+```text
+User
+  │
+  ▼
+FastAPI Login Endpoint
+  │
+  ▼
+JWT Issued
+  │
+  ▼
+Next.js Frontend
+  │
+  ├──────────────► FastAPI APIs
+  │
+  └──────────────► NestJS APIs
+                        │
+                        ▼
+                JWT Validation
+```
+
+This architecture provides a single login experience across all backend services.
+
+---
+
+## Frontend Integration
+
+The Next.js frontend stores the JWT after login and attaches it to every authenticated request.
+
+Example Authorization Header:
+
+```http
+Authorization: Bearer <jwt-token>
+```
+
+The same token is accepted by:
+
+* FastAPI
+* NestJS
+
+No secondary login flow is required.
+
+---
+
+## M2 Architecture Benefits
+
+This authentication architecture enables:
+
+* Common authentication across services
+* Role-based authorization
+* Admin and Member dashboards
+* Secure API access
+* NestJS integration without duplicate authentication
+* Future microservice expansion
+* Strong TypeScript type generation from OpenAPI schemas
 
 ---
 
