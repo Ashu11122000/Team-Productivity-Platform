@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer # type: ignore
 from sqlalchemy.orm import Session # type: ignore
 
 from app.db.session import get_db
-from app.services.user_service import get_user_by_email
+from app.services.user_service import UserService
 from app.core.security import decode_access_token
 from app.models.user import User
 
@@ -38,7 +38,7 @@ def get_current_user(
             detail="Invalid token payload"
         )
 
-    user = get_user_by_email(db, email)
+    user = UserService.get_user_by_email(db, email)
 
     if not user:
         raise HTTPException(

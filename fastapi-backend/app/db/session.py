@@ -34,7 +34,7 @@ from app.core.config import settings
 password = quote_plus(settings.DB_PASSWORD)
 
 DATABASE_URL = (
-    f"postgreSQL+psycopg2://{settings.DB_USER}:{password}"
+    f"postgresql+psycopg2://{settings.DB_USER}:{password}"
     f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 )
 
