@@ -11,9 +11,6 @@ password_hash = PasswordHash.recommended()
 
 
 def hash_password(password: str) -> str:
-    print("HASH FUNCTION CALLED")
-    print("HASHER =", password_hash)
-    print("TYPE =", type(password_hash))
     return password_hash.hash(password)
 
 def verify_password(
