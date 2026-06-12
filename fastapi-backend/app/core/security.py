@@ -1,31 +1,43 @@
 from datetime import datetime, timedelta, timezone
 
-from jose import jwt
+from jose import JWTError, jwt
 from pwdlib import PasswordHash
 
 from app.core.config import settings
 
 
+# Password Hashing (Argon2)
 password_hash = PasswordHash.recommended()
 
 
 def hash_password(password: str) -> str:
+    """
+    Hash plain password using Argon2.
+    """
     return password_hash.hash(password)
 
 
 def verify_password(
     plain_password: str,
-    hashed_password: str
+    hashed_password: str,
 ) -> bool:
+    """
+    Verify password against stored hash.
+    """
     return password_hash.verify(
         plain_password,
-        hashed_password
+        hashed_password,
     )
 
 
 def create_access_token(
-    subject: str
+    user_id: str,
+    email: str,
+    role: str,
 ) -> str:
+    """
+    Create JWT access token.
+    """
 
     expire = datetime.now(
         timezone.utc
@@ -34,12 +46,38 @@ def create_access_token(
     )
 
     payload = {
-        "sub": subject,
-        "exp": expire
+        "sub": email,
+        "user_id": user_id,
+        "role": role,
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "exp": expire,
     }
 
     return jwt.encode(
         payload,
-        settings.JWT_SECRET_KEY,
-        algorithm=settings.JWT_ALGORITHM
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
     )
+
+
+def decode_access_token(
+    token: str,
+):
+    """
+    Decode and validate JWT token.
+    """
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
+        )
+
+        return payload
+
+    except JWTError:
+        return None
