@@ -6,7 +6,7 @@ from app.core.config import settings
 from app.api.routes import auth, note
 
 from app.db.base import Base
-from app.db.base import engine
+from app.db.session import engine
 
 from app.models.user import User
 from app.models.note import Note
