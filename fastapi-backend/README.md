@@ -965,6 +965,319 @@ This authentication architecture enables:
 
 ---
 
+## User Service Layer
+
+The User Service Layer contains all business logic related to user management and serves as the primary source of user identity information for authentication, authorization, and role-based access control.
+
+Location:
+
+```text
+app/services/user_service.py
+```
+
+### Responsibilities
+
+The User Service is responsible for:
+
+* User creation
+* User retrieval
+* Email uniqueness validation
+* User activation and deactivation
+* Role-based access control (RBAC)
+* User listing for administrators
+* Providing user information for JWT authentication
+
+---
+
+## Supported Roles
+
+### ADMIN
+
+Administrators can:
+
+* View all users
+* Activate users
+* Deactivate users
+* Access administrative dashboards
+* View system analytics
+* Access activity logs
+
+### MEMBER
+
+Members can:
+
+* Access their own profile
+* Manage their own notes
+* Manage their own tasks
+* View personal analytics
+
+---
+
+## User Creation
+
+Service Method:
+
+```python
+UserService.create_user()
+```
+
+Features:
+
+* Password hashing using bcrypt
+* Duplicate email validation
+* Default role assignment
+* Active account creation
+
+Default Role:
+
+```text
+MEMBER
+```
+
+---
+
+## User Retrieval
+
+### Get User By Email
+
+Used during authentication.
+
+```python
+UserService.get_user_by_email()
+```
+
+Purpose:
+
+* Login validation
+* Registration validation
+* JWT authentication
+
+---
+
+### Get User By ID
+
+```python
+UserService.get_user_by_id()
+```
+
+Purpose:
+
+* User lookup
+* Ownership validation
+* Profile retrieval
+
+---
+
+### Get Active User By ID
+
+```python
+UserService.get_active_user_by_id()
+```
+
+Purpose:
+
+* JWT authentication
+* Current user retrieval
+* Security validation
+
+Validation:
+
+* User exists
+* User account is active
+
+---
+
+## User Administration
+
+### Get All Users
+
+```python
+UserService.get_all_users()
+```
+
+Supports:
+
+* Admin dashboard
+* User monitoring
+* Analytics reporting
+
+Features:
+
+* Pagination
+* Sorting by creation date
+
+---
+
+### Deactivate User
+
+```python
+UserService.deactivate_user()
+```
+
+Access:
+
+```text
+ADMIN only
+```
+
+Purpose:
+
+* User moderation
+* Account suspension
+* Administrative actions
+
+---
+
+### Activate User
+
+```python
+UserService.activate_user()
+```
+
+Access:
+
+```text
+ADMIN only
+```
+
+Purpose:
+
+* Restore suspended accounts
+* User reactivation
+
+---
+
+## Role-Based Access Control (RBAC)
+
+Centralized RBAC validation is implemented through:
+
+```python
+UserService.validate_admin()
+```
+
+Validation:
+
+```text
+ADMIN → Allowed
+MEMBER → Forbidden
+```
+
+Used by:
+
+* User administration endpoints
+* Analytics endpoints
+* Activity log endpoints
+* Administrative dashboards
+
+---
+
+## JWT Integration
+
+The User Service provides the identity information used to generate JWT tokens.
+
+JWT Payload:
+
+```json
+{
+  "sub": "1",
+  "email": "user@example.com",
+  "role": "ADMIN",
+  "iss": "team-productivity-platform",
+  "aud": "team-productivity-users",
+  "type": "access"
+}
+```
+
+Fields sourced from:
+
+```python
+user.id
+user.email
+user.role
+```
+
+---
+
+## Shared Authentication Architecture
+
+FastAPI acts as the JWT issuer.
+
+NestJS acts as the JWT validator.
+
+The User Service provides the identity information consumed by both services.
+
+```text
+User
+  ↓
+FastAPI Authentication
+  ↓
+JWT Token
+  ↓
+Next.js Frontend
+  ↓
+FastAPI APIs
+NestJS APIs
+```
+
+This enables a single-login experience across the platform.
+
+---
+
+## Frontend Integration
+
+The Next.js frontend uses user information for:
+
+* Role-based UI rendering
+* Profile pages
+* Dashboard personalization
+* Access control
+
+Examples:
+
+### Admin Dashboard
+
+Visible only to:
+
+```text
+ADMIN
+```
+
+Features:
+
+* User Management
+* Analytics
+* Activity Logs
+
+### Member Dashboard
+
+Visible to:
+
+```text
+MEMBER
+```
+
+Features:
+
+* Notes
+* Tasks
+* Personal Analytics
+
+---
+
+## M2 Readiness
+
+The User Service is prepared for:
+
+* Shared JWT authentication
+* FastAPI ↔ NestJS integration
+* Role-based access control
+* Admin dashboards
+* Analytics reporting
+* User management features
+* Next.js frontend integration
+
+---
+
 ## Testing
 
 This project uses **Pytest** to ensure the correctness of core functionalities.
