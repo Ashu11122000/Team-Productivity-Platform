@@ -18,6 +18,7 @@ import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TagsModule } from './tags/tags.module';
+import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { TagsModule } from './tags/tags.module';
     TasksModule,
     CategoriesModule,
     TagsModule,
+    ActivityLogsModule,
   ],
 })
 export class AppModule {}

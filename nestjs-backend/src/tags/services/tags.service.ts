@@ -21,11 +21,20 @@ import { CreateTagDto } from '../dto/create-tag.dto';
 import { UpdateTagDto } from '../dto/update-tag.dto';
 import { TagQueryDto } from '../dto/tag-query.dto';
 
+import { ActivityLogsService } from '../../activity-logs/services/activity-logs.service';
+
+import { ActivityAction } from '../../common/enums/activity-action.enum';
+import { ActivityEntityType } from '../../common/enums/activity-entity-type.enum';
+
 @Injectable()
 export class TagsService {
     constructor(
         @InjectRepository(Tag)
-        private readonly tagRepository: Repository<Tag>,
+        private readonly tagRepository:
+            Repository<Tag>,
+
+        private readonly activityLogsService:
+            ActivityLogsService,
     ) {}
 
     async create(
@@ -38,9 +47,33 @@ export class TagsService {
                 userId,
             });
 
-        return this.tagRepository.save(
-            tag,
-        );
+        const savedTag =
+            await this.tagRepository.save(
+                tag,
+            );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.TAG_CREATED,
+
+            entityType:
+                ActivityEntityType.TAG,
+
+            entityId:
+                savedTag.id,
+
+            metadata: {
+                name:
+                    savedTag.name,
+
+                color:
+                    savedTag.color,
+            },
+
+            userId,
+        });
+
+        return savedTag;
     }
 
     async findAll(
@@ -61,9 +94,10 @@ export class TagsService {
             sortOrder = 'DESC',
         } = query;
 
-        const where: FindOptionsWhere<Tag> = {
-            userId,
-        };
+        const where:
+            FindOptionsWhere<Tag> = {
+                userId,
+            };
 
         if (search) {
             const [data, total] =
@@ -78,11 +112,13 @@ export class TagsService {
                     ],
 
                     order: {
-                        [sortBy]: sortOrder,
+                        [sortBy]:
+                            sortOrder,
                     },
 
                     skip:
-                        (page - 1) * limit,
+                        (page - 1) *
+                        limit,
 
                     take: limit,
                 });
@@ -92,6 +128,7 @@ export class TagsService {
                 total,
                 page,
                 limit,
+
                 totalPages:
                     Math.ceil(
                         total / limit,
@@ -104,11 +141,13 @@ export class TagsService {
                 where,
 
                 order: {
-                    [sortBy]: sortOrder,
+                    [sortBy]:
+                        sortOrder,
                 },
 
                 skip:
-                    (page - 1) * limit,
+                    (page - 1) *
+                    limit,
 
                 take: limit,
             });
@@ -118,6 +157,7 @@ export class TagsService {
             total,
             page,
             limit,
+
             totalPages:
                 Math.ceil(
                     total / limit,
@@ -157,14 +197,50 @@ export class TagsService {
                 userId,
             );
 
+        const previousName =
+            tag.name;
+
+        const previousColor =
+            tag.color;
+
         Object.assign(
             tag,
             updateTagDto,
         );
 
-        return this.tagRepository.save(
-            tag,
-        );
+        const updatedTag =
+            await this.tagRepository.save(
+                tag,
+            );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.TAG_UPDATED,
+
+            entityType:
+                ActivityEntityType.TAG,
+
+            entityId:
+                updatedTag.id,
+
+            metadata: {
+                oldName:
+                    previousName,
+
+                newName:
+                    updatedTag.name,
+
+                oldColor:
+                    previousColor,
+
+                newColor:
+                    updatedTag.color,
+            },
+
+            userId,
+        });
+
+        return updatedTag;
     }
 
     async remove(
@@ -176,6 +252,27 @@ export class TagsService {
                 id,
                 userId,
             );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.TAG_DELETED,
+
+            entityType:
+                ActivityEntityType.TAG,
+
+            entityId:
+                tag.id,
+
+            metadata: {
+                name:
+                    tag.name,
+
+                color:
+                    tag.color,
+            },
+
+            userId,
+        });
 
         await this.tagRepository.remove(
             tag,

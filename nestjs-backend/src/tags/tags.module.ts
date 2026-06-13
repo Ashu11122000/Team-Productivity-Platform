@@ -10,11 +10,15 @@ import { TagsController } from './controllers/tags.controller';
 
 import { TagsService } from './services/tags.service';
 
+import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
+
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             Tag,
         ]),
+
+        ActivityLogsModule,
     ],
 
     controllers: [

@@ -10,11 +10,15 @@ import { CategoriesController } from './controllers/categories.controller';
 
 import { CategoriesService } from './services/categories.service';
 
+import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
+
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             Category,
         ]),
+
+        ActivityLogsModule,
     ],
 
     controllers: [

@@ -23,6 +23,11 @@ import { CreateTaskDto } from '../dto/create-task.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TaskQueryDto } from '../dto/task-query.dto';
 
+import { ActivityLogsService } from '../../activity-logs/services/activity-logs.service';
+
+import { ActivityAction } from '../../common/enums/activity-action.enum';
+import { ActivityEntityType } from '../../common/enums/activity-entity-type.enum';
+
 @Injectable()
 export class TasksService {
     constructor(
@@ -31,6 +36,8 @@ export class TasksService {
 
         @InjectRepository(Tag)
         private readonly tagRepository: Repository<Tag>,
+
+        private readonly activityLogsService: ActivityLogsService,
     ) {}
 
     async create(
@@ -64,8 +71,8 @@ export class TasksService {
                 dueDate:
                     createTaskDto.dueDate
                         ? new Date(
-                              createTaskDto.dueDate,
-                          )
+                            createTaskDto.dueDate,
+                        )
                         : null,
 
                 userId,
@@ -73,9 +80,36 @@ export class TasksService {
                 tags,
             });
 
-        return this.taskRepository.save(
-            task,
-        );
+        const savedTask =
+            await this.taskRepository.save(
+                task,
+            );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.TASK_CREATED,
+
+            entityType:
+                ActivityEntityType.TASK,
+
+            entityId:
+                savedTask.id,
+
+            metadata: {
+                title:
+                    savedTask.title,
+
+                status:
+                    savedTask.status,
+
+                priority:
+                    savedTask.priority,
+            },
+
+            userId,
+        });
+
+        return savedTask;
     }
 
     async findAll(
@@ -133,7 +167,9 @@ export class TasksService {
                         [sortBy]: sortOrder,
                     },
 
-                    skip: (page - 1) * limit,
+                    skip:
+                        (page - 1) *
+                        limit,
 
                     take: limit,
                 });
@@ -143,6 +179,7 @@ export class TasksService {
                 total,
                 page,
                 limit,
+
                 totalPages:
                     Math.ceil(
                         total / limit,
@@ -163,7 +200,8 @@ export class TasksService {
                     [sortBy]: sortOrder,
                 },
 
-                skip: (page - 1) * limit,
+                skip:
+                    (page - 1) * limit,
 
                 take: limit,
             });
@@ -173,8 +211,11 @@ export class TasksService {
             total,
             page,
             limit,
+
             totalPages:
-                Math.ceil(total / limit),
+                Math.ceil(
+                    total / limit,
+                ),
         };
     }
 
@@ -220,6 +261,12 @@ export class TasksService {
             ...taskData
         } = updateTaskDto;
 
+        const previousStatus =
+            task.status;
+
+        const previousPriority =
+            task.priority;
+
         Object.assign(task, {
             ...taskData,
 
@@ -241,9 +288,42 @@ export class TasksService {
                 });
         }
 
-        return this.taskRepository.save(
-            task,
-        );
+        const updatedTask =
+            await this.taskRepository.save(
+                task,
+            );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.TASK_UPDATED,
+
+            entityType:
+                ActivityEntityType.TASK,
+
+            entityId:
+                updatedTask.id,
+
+            metadata: {
+                title:
+                    updatedTask.title,
+
+                oldStatus:
+                    previousStatus,
+
+                newStatus:
+                    updatedTask.status,
+
+                oldPriority:
+                    previousPriority,
+
+                newPriority:
+                    updatedTask.priority,
+            },
+
+            userId,
+        });
+
+        return updatedTask;
     }
 
     async remove(
@@ -255,6 +335,30 @@ export class TasksService {
                 id,
                 userId,
             );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.TASK_DELETED,
+
+            entityType:
+                ActivityEntityType.TASK,
+
+            entityId:
+                task.id,
+
+            metadata: {
+                title:
+                    task.title,
+
+                status:
+                    task.status,
+
+                priority:
+                    task.priority,
+            },
+
+            userId,
+        });
 
         await this.taskRepository.remove(
             task,
@@ -280,8 +384,35 @@ export class TasksService {
                 sourceNoteId: noteId,
             });
 
-        return this.taskRepository.save(
-            task,
-        );
+        const savedTask =
+            await this.taskRepository.save(
+                task,
+            );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.TASK_CREATED,
+
+            entityType:
+                ActivityEntityType.TASK,
+
+            entityId:
+                savedTask.id,
+
+            metadata: {
+                title:
+                    savedTask.title,
+
+                sourceNoteId:
+                    noteId,
+
+                convertedFromNote:
+                    true,
+            },
+
+            userId,
+        });
+
+        return savedTask;
     }
 }
