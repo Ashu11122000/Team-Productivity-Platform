@@ -12,7 +12,7 @@ import {
   type StrategyOptionsWithoutRequest,
 } from 'passport-jwt';
 
-import { JwtPayload } from '../../common/interfaces/jwt-payload.interfaces';
+import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(
