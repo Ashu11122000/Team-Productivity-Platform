@@ -5,7 +5,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoggerModule } from 'nestjs-pino';
 
 import { configuration } from './config';
+
 import { HealthModule } from './health/health.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -54,6 +56,7 @@ import { HealthModule } from './health/health.module';
       }),
     }),
 
+    AuthModule,
     HealthModule,
   ],
 })
