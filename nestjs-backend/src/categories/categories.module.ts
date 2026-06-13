@@ -1,5 +1,3 @@
-/* eslint-disable prettier/prettier */
-
 import { Module } from '@nestjs/common';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -12,25 +10,20 @@ import { CategoriesService } from './services/categories.service';
 
 import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
 
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([
-            Category,
-        ]),
+  imports: [
+    TypeOrmModule.forFeature([Category]),
+    ActivityLogsModule,
 
-        ActivityLogsModule,
-    ],
+    NotificationsModule,
+  ],
 
-    controllers: [
-        CategoriesController,
-    ],
+  controllers: [CategoriesController],
 
-    providers: [
-        CategoriesService,
-    ],
+  providers: [CategoriesService],
 
-    exports: [
-        CategoriesService,
-    ],
+  exports: [CategoriesService],
 })
 export class CategoriesModule {}

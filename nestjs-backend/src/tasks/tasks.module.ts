@@ -1,5 +1,3 @@
-/* eslint-disable prettier/prettier */
-
 import { Module } from '@nestjs/common';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -14,27 +12,21 @@ import { TasksService } from './services/task.service';
 
 import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
 
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([
-            Task,
-            Category,
-            Tag,
-        ]),
+  imports: [
+    TypeOrmModule.forFeature([Task, Category, Tag]),
 
-        ActivityLogsModule,
-    ],
+    ActivityLogsModule,
 
-    controllers: [
-        TasksController,
-    ],
+    NotificationsModule,
+  ],
 
-    providers: [
-        TasksService,
-    ],
+  controllers: [TasksController],
 
-    exports: [
-        TasksService,
-    ],
+  providers: [TasksService],
+
+  exports: [TasksService],
 })
 export class TasksModule {}

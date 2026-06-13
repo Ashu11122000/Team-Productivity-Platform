@@ -1,19 +1,8 @@
-/* eslint-disable prettier/prettier */
+import { Injectable, NotFoundException } from '@nestjs/common';
 
-import {
-    Injectable,
-    NotFoundException,
-} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 
-import {
-    InjectRepository,
-} from '@nestjs/typeorm';
-
-import {
-    FindOptionsWhere,
-    ILike,
-    Repository,
-} from 'typeorm';
+import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 
 import { Category } from '../entities/category.entity';
 
@@ -23,263 +12,208 @@ import { CategoryQueryDto } from '../dto/category-query.dto';
 
 import { ActivityLogsService } from '../../activity-logs/services/activity-logs.service';
 
+import { NotificationsService } from '../../notifications/services/notifications.service';
+
 import { ActivityAction } from '../../common/enums/activity-action.enum';
 import { ActivityEntityType } from '../../common/enums/activity-entity-type.enum';
 
+import { NotificationType } from '../../common/enums/notification-type.enum';
+
 @Injectable()
 export class CategoriesService {
-    constructor(
-        @InjectRepository(Category)
-        private readonly categoryRepository:
-            Repository<Category>,
+  constructor(
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
 
-        private readonly activityLogsService:
-            ActivityLogsService,
-    ) {}
+    private readonly activityLogsService: ActivityLogsService,
 
-    async create(
-        createCategoryDto: CreateCategoryDto,
-        userId: string,
-    ): Promise<Category> {
-        const category =
-            this.categoryRepository.create({
-                ...createCategoryDto,
-                userId,
-            });
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
-        const savedCategory =
-            await this.categoryRepository.save(
-                category,
-            );
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    userId: string,
+  ): Promise<Category> {
+    const category = this.categoryRepository.create({
+      ...createCategoryDto,
+      userId,
+    });
 
-        await this.activityLogsService.log({
-            action:
-                ActivityAction.CATEGORY_CREATED,
+    const savedCategory = await this.categoryRepository.save(category);
 
-            entityType:
-                ActivityEntityType.CATEGORY,
+    await this.activityLogsService.log({
+      action: ActivityAction.CATEGORY_CREATED,
 
-            entityId:
-                savedCategory.id,
+      entityType: ActivityEntityType.CATEGORY,
 
-            metadata: {
-                name:
-                    savedCategory.name,
+      entityId: savedCategory.id,
 
-                color:
-                    savedCategory.color,
-            },
+      metadata: {
+        name: savedCategory.name,
 
+        color: savedCategory.color,
+      },
+
+      userId,
+    });
+
+    return savedCategory;
+  }
+
+  async findAll(
+    query: CategoryQueryDto,
+    userId: string,
+  ): Promise<{
+    data: Category[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+    } = query;
+
+    const where: FindOptionsWhere<Category> = {
+      userId,
+    };
+
+    if (search) {
+      const [data, total] = await this.categoryRepository.findAndCount({
+        where: [
+          {
             userId,
-        });
+            name: ILike(`%${search}%`),
+          },
+        ],
 
-        return savedCategory;
+        order: {
+          [sortBy]: sortOrder,
+        },
+
+        skip: (page - 1) * limit,
+
+        take: limit,
+      });
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+
+        totalPages: Math.ceil(total / limit),
+      };
     }
 
-    async findAll(
-        query: CategoryQueryDto,
-        userId: string,
-    ): Promise<{
-        data: Category[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
-    }> {
-        const {
-            page = 1,
-            limit = 10,
-            search,
-            sortBy = 'createdAt',
-            sortOrder = 'DESC',
-        } = query;
+    const [data, total] = await this.categoryRepository.findAndCount({
+      where,
 
-        const where:
-            FindOptionsWhere<Category> = {
-                userId,
-            };
+      order: {
+        [sortBy]: sortOrder,
+      },
 
-        if (search) {
-            const [data, total] =
-                await this.categoryRepository.findAndCount(
-                    {
-                        where: [
-                            {
-                                userId,
-                                name: ILike(
-                                    `%${search}%`,
-                                ),
-                            },
-                        ],
+      skip: (page - 1) * limit,
 
-                        order: {
-                            [sortBy]:
-                                sortOrder,
-                        },
+      take: limit,
+    });
 
-                        skip:
-                            (page - 1) *
-                            limit,
+    return {
+      data,
+      total,
+      page,
+      limit,
 
-                        take: limit,
-                    },
-                );
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
-            return {
-                data,
-                total,
-                page,
-                limit,
+  async findOne(id: string, userId: string): Promise<Category> {
+    const category = await this.categoryRepository.findOne({
+      where: {
+        id,
+        userId,
+      },
+    });
 
-                totalPages:
-                    Math.ceil(
-                        total / limit,
-                    ),
-            };
-        }
-
-        const [data, total] =
-            await this.categoryRepository.findAndCount(
-                {
-                    where,
-
-                    order: {
-                        [sortBy]:
-                            sortOrder,
-                    },
-
-                    skip:
-                        (page - 1) *
-                        limit,
-
-                    take: limit,
-                },
-            );
-
-        return {
-            data,
-            total,
-            page,
-            limit,
-
-            totalPages:
-                Math.ceil(
-                    total / limit,
-                ),
-        };
+    if (!category) {
+      throw new NotFoundException('Category not found');
     }
 
-    async findOne(
-        id: string,
-        userId: string,
-    ): Promise<Category> {
-        const category =
-            await this.categoryRepository.findOne({
-                where: {
-                    id,
-                    userId,
-                },
-            });
+    return category;
+  }
 
-        if (!category) {
-            throw new NotFoundException(
-                'Category not found',
-            );
-        }
+  async update(
+    id: string,
+    updateCategoryDto: UpdateCategoryDto,
+    userId: string,
+  ): Promise<Category> {
+    const category = await this.findOne(id, userId);
 
-        return category;
-    }
+    const previousName = category.name;
 
-    async update(
-        id: string,
-        updateCategoryDto: UpdateCategoryDto,
-        userId: string,
-    ): Promise<Category> {
-        const category =
-            await this.findOne(
-                id,
-                userId,
-            );
+    const previousColor = category.color;
 
-        const previousName =
-            category.name;
+    Object.assign(category, updateCategoryDto);
 
-        const previousColor =
-            category.color;
+    const updatedCategory = await this.categoryRepository.save(category);
 
-        Object.assign(
-            category,
-            updateCategoryDto,
-        );
+    await this.notificationsService.create({
+      title: 'Category Updated',
 
-        const updatedCategory =
-            await this.categoryRepository.save(
-                category,
-            );
+      message: `Category "${updatedCategory.name}" was updated.`,
 
-        await this.activityLogsService.log({
-            action:
-                ActivityAction.CATEGORY_UPDATED,
+      type: NotificationType.CATEGORY_UPDATED,
 
-            entityType:
-                ActivityEntityType.CATEGORY,
+      userId,
+    });
 
-            entityId:
-                updatedCategory.id,
+    await this.activityLogsService.log({
+      action: ActivityAction.CATEGORY_UPDATED,
 
-            metadata: {
-                oldName:
-                    previousName,
+      entityType: ActivityEntityType.CATEGORY,
 
-                newName:
-                    updatedCategory.name,
+      entityId: updatedCategory.id,
 
-                oldColor:
-                    previousColor,
+      metadata: {
+        oldName: previousName,
 
-                newColor:
-                    updatedCategory.color,
-            },
+        newName: updatedCategory.name,
 
-            userId,
-        });
+        oldColor: previousColor,
 
-        return updatedCategory;
-    }
+        newColor: updatedCategory.color,
+      },
 
-    async remove(
-        id: string,
-        userId: string,
-    ): Promise<void> {
-        const category =
-            await this.findOne(
-                id,
-                userId,
-            );
+      userId,
+    });
 
-        await this.activityLogsService.log({
-            action:
-                ActivityAction.CATEGORY_DELETED,
+    return updatedCategory;
+  }
 
-            entityType:
-                ActivityEntityType.CATEGORY,
+  async remove(id: string, userId: string): Promise<void> {
+    const category = await this.findOne(id, userId);
 
-            entityId:
-                category.id,
+    await this.activityLogsService.log({
+      action: ActivityAction.CATEGORY_DELETED,
 
-            metadata: {
-                name:
-                    category.name,
+      entityType: ActivityEntityType.CATEGORY,
 
-                color:
-                    category.color,
-            },
+      entityId: category.id,
 
-            userId,
-        });
+      metadata: {
+        name: category.name,
 
-        await this.categoryRepository.remove(
-            category,
-        );
-    }
+        color: category.color,
+      },
+
+      userId,
+    });
+
+    await this.categoryRepository.remove(category);
+  }
 }
