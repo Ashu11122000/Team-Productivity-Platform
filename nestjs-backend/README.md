@@ -2319,3 +2319,322 @@ Fix Login Bug
 ```
 
 ---
+
+# Phase 8 - Activity Logs Module
+
+## Overview
+
+The Activity Logs Module provides a complete audit trail system for the Team Productivity Platform.
+
+Every important user action is automatically recorded and can be retrieved later for:
+
+* Activity Feeds
+* User History
+* Analytics
+* Notifications
+* Audit Tracking
+* Monitoring
+
+The module is read-only from the API perspective.
+
+Activity logs are generated internally by the application whenever users create, update, or delete resources.
+
+---
+
+## Folder Structure
+
+```text
+src/activity-logs/
+
+├── controllers/
+│   └── activity-logs.controller.ts
+│
+├── services/
+│   └── activity-logs.service.ts
+│
+├── entities/
+│   └── activity-log.entity.ts
+│
+├── dto/
+│   ├── activity-log-query.dto.ts
+│   └── activity-log-response.dto.ts
+│
+├── enums/
+│   ├── activity-action.enum.ts
+│   └── activity-entity-type.enum.ts
+│
+└── activity-logs.module.ts
+```
+
+---
+
+## Database Migration
+
+```text
+src/database/migrations/
+
+04-create-activity-logs.ts
+```
+
+Creates:
+
+```text
+activity_logs
+```
+
+---
+
+## Activity Log Entity
+
+### Columns
+
+| Column     | Type      |
+| ---------- | --------- |
+| id         | UUID      |
+| action     | ENUM      |
+| entityType | ENUM      |
+| entityId   | UUID      |
+| metadata   | JSONB     |
+| userId     | VARCHAR   |
+| createdAt  | TIMESTAMP |
+
+---
+
+### Example Record
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440010",
+  "action": "TASK_CREATED",
+  "entityType": "TASK",
+  "entityId": "550e8400-e29b-41d4-a716-446655440001",
+  "metadata": {
+    "title": "Complete NestJS Phase 8"
+  },
+  "userId": "1",
+  "createdAt": "2026-06-13T08:00:00.000Z"
+}
+```
+
+---
+
+## Activity Actions
+
+### Task Events
+
+```text
+TASK_CREATED
+TASK_UPDATED
+TASK_DELETED
+```
+
+### Category Events
+
+```text
+CATEGORY_CREATED
+CATEGORY_UPDATED
+CATEGORY_DELETED
+```
+
+### Tag Events
+
+```text
+TAG_CREATED
+TAG_UPDATED
+TAG_DELETED
+```
+
+---
+
+## Entity Types
+
+```text
+TASK
+CATEGORY
+TAG
+```
+
+---
+
+## Automatic Activity Tracking
+
+### Tasks
+
+Activities generated automatically for:
+
+```text
+Create Task
+Update Task
+Delete Task
+Convert Note → Task
+```
+
+---
+
+### Categories
+
+Activities generated automatically for:
+
+```text
+Create Category
+Update Category
+Delete Category
+```
+
+---
+
+### Tags
+
+Activities generated automatically for:
+
+```text
+Create Tag
+Update Tag
+Delete Tag
+```
+
+---
+
+## API Endpoints
+
+### Get User Activity Logs
+
+```http
+GET /api/activity-logs
+```
+
+Query Parameters:
+
+```http
+?page=1
+&limit=10
+&action=TASK_CREATED
+&entityType=TASK
+&sortBy=createdAt
+&sortOrder=DESC
+```
+
+---
+
+### Get Activity Log By ID
+
+```http
+GET /api/activity-logs/:id
+```
+
+---
+
+## Security
+
+All endpoints require authentication.
+
+```http
+Authorization: Bearer <token>
+```
+
+Protection:
+
+```text
+JWT Authentication
+Ownership Enforcement
+User Isolation
+```
+
+Users can only access their own activity logs.
+
+---
+
+## Pagination
+
+Response Format:
+
+```json
+{
+  "data": [],
+  "total": 25,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 3
+}
+```
+
+---
+
+## Filtering
+
+Supported Filters:
+
+```text
+action
+entityType
+```
+
+Examples:
+
+```http
+GET /api/activity-logs?action=TASK_CREATED
+```
+
+```http
+GET /api/activity-logs?entityType=CATEGORY
+```
+
+---
+
+## Sorting
+
+Supported Parameters:
+
+```http
+sortBy
+sortOrder
+```
+
+Example:
+
+```http
+GET /api/activity-logs?sortBy=createdAt&sortOrder=DESC
+```
+
+---
+
+## Database Indexes
+
+```text
+IDX_ACTIVITY_USER_ID
+IDX_ACTIVITY_ACTION
+IDX_ACTIVITY_ENTITY_TYPE
+IDX_ACTIVITY_ENTITY_ID
+IDX_ACTIVITY_CREATED_AT
+```
+
+These indexes improve:
+
+```text
+Filtering
+Pagination
+Analytics Queries
+Audit Queries
+Activity Feed Performance
+```
+
+---
+
+## Integration Points
+
+The Activity Logs Module is integrated with:
+
+```text
+Tasks Module
+Categories Module
+Tags Module
+```
+
+via:
+
+```ts
+ActivityLogsService
+```
+
+---
+

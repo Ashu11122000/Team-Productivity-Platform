@@ -21,11 +21,20 @@ import { CreateCategoryDto } from '../dto/create-category.dto';
 import { UpdateCategoryDto } from '../dto/update-category.dto';
 import { CategoryQueryDto } from '../dto/category-query.dto';
 
+import { ActivityLogsService } from '../../activity-logs/services/activity-logs.service';
+
+import { ActivityAction } from '../../common/enums/activity-action.enum';
+import { ActivityEntityType } from '../../common/enums/activity-entity-type.enum';
+
 @Injectable()
 export class CategoriesService {
     constructor(
         @InjectRepository(Category)
-        private readonly categoryRepository: Repository<Category>,
+        private readonly categoryRepository:
+            Repository<Category>,
+
+        private readonly activityLogsService:
+            ActivityLogsService,
     ) {}
 
     async create(
@@ -38,9 +47,33 @@ export class CategoriesService {
                 userId,
             });
 
-        return this.categoryRepository.save(
-            category,
-        );
+        const savedCategory =
+            await this.categoryRepository.save(
+                category,
+            );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.CATEGORY_CREATED,
+
+            entityType:
+                ActivityEntityType.CATEGORY,
+
+            entityId:
+                savedCategory.id,
+
+            metadata: {
+                name:
+                    savedCategory.name,
+
+                color:
+                    savedCategory.color,
+            },
+
+            userId,
+        });
+
+        return savedCategory;
     }
 
     async findAll(
@@ -61,37 +94,43 @@ export class CategoriesService {
             sortOrder = 'DESC',
         } = query;
 
-        const where: FindOptionsWhere<Category> = {
-            userId,
-        };
+        const where:
+            FindOptionsWhere<Category> = {
+                userId,
+            };
 
         if (search) {
             const [data, total] =
-                await this.categoryRepository.findAndCount({
-                    where: [
-                        {
-                            userId,
-                            name: ILike(
-                                `%${search}%`,
-                            ),
+                await this.categoryRepository.findAndCount(
+                    {
+                        where: [
+                            {
+                                userId,
+                                name: ILike(
+                                    `%${search}%`,
+                                ),
+                            },
+                        ],
+
+                        order: {
+                            [sortBy]:
+                                sortOrder,
                         },
-                    ],
 
-                    order: {
-                        [sortBy]: sortOrder,
+                        skip:
+                            (page - 1) *
+                            limit,
+
+                        take: limit,
                     },
-
-                    skip:
-                        (page - 1) * limit,
-
-                    take: limit,
-                });
+                );
 
             return {
                 data,
                 total,
                 page,
                 limit,
+
                 totalPages:
                     Math.ceil(
                         total / limit,
@@ -100,24 +139,29 @@ export class CategoriesService {
         }
 
         const [data, total] =
-            await this.categoryRepository.findAndCount({
-                where,
+            await this.categoryRepository.findAndCount(
+                {
+                    where,
 
-                order: {
-                    [sortBy]: sortOrder,
+                    order: {
+                        [sortBy]:
+                            sortOrder,
+                    },
+
+                    skip:
+                        (page - 1) *
+                        limit,
+
+                    take: limit,
                 },
-
-                skip:
-                    (page - 1) * limit,
-
-                take: limit,
-            });
+            );
 
         return {
             data,
             total,
             page,
             limit,
+
             totalPages:
                 Math.ceil(
                     total / limit,
@@ -157,14 +201,50 @@ export class CategoriesService {
                 userId,
             );
 
+        const previousName =
+            category.name;
+
+        const previousColor =
+            category.color;
+
         Object.assign(
             category,
             updateCategoryDto,
         );
 
-        return this.categoryRepository.save(
-            category,
-        );
+        const updatedCategory =
+            await this.categoryRepository.save(
+                category,
+            );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.CATEGORY_UPDATED,
+
+            entityType:
+                ActivityEntityType.CATEGORY,
+
+            entityId:
+                updatedCategory.id,
+
+            metadata: {
+                oldName:
+                    previousName,
+
+                newName:
+                    updatedCategory.name,
+
+                oldColor:
+                    previousColor,
+
+                newColor:
+                    updatedCategory.color,
+            },
+
+            userId,
+        });
+
+        return updatedCategory;
     }
 
     async remove(
@@ -176,6 +256,27 @@ export class CategoriesService {
                 id,
                 userId,
             );
+
+        await this.activityLogsService.log({
+            action:
+                ActivityAction.CATEGORY_DELETED,
+
+            entityType:
+                ActivityEntityType.CATEGORY,
+
+            entityId:
+                category.id,
+
+            metadata: {
+                name:
+                    category.name,
+
+                color:
+                    category.color,
+            },
+
+            userId,
+        });
 
         await this.categoryRepository.remove(
             category,

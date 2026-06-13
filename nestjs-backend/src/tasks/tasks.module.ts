@@ -12,6 +12,8 @@ import { TasksController } from './controllers/tasks.controller';
 
 import { TasksService } from './services/task.service';
 
+import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
+
 @Module({
     imports: [
         TypeOrmModule.forFeature([
@@ -19,6 +21,8 @@ import { TasksService } from './services/task.service';
             Category,
             Tag,
         ]),
+
+        ActivityLogsModule,
     ],
 
     controllers: [
