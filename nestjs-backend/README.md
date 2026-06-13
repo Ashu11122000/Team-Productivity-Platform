@@ -535,14 +535,278 @@ Includes:
 
 ---
 
-# License
+# Architecture
 
-This project is developed as part of a Full Stack Evaluation Assignment demonstrating:
+```text
+Next.js Frontend
+        │
+        ▼
 
-- NestJS Development
-- FastAPI Integration
-- Shared Authentication
-- PostgreSQL Design
-- API Architecture
-- TypeScript Development
-- Production-Ready Backend Design
+     FastAPI
+        │
+        ├── Authentication
+        ├── Users
+        ├── Notes
+        ├── Open Library
+        └── Note → Task Conversion
+
+        ▼
+
+      NestJS
+        │
+        ├── Tasks
+        ├── Categories
+        ├── Tags
+        ├── Notifications
+        ├── Analytics
+        └── Activity Logs
+
+        ▼
+
+     PostgreSQL
+```
+
+---
+
+# Authentication Strategy
+
+FastAPI is the authentication owner.
+
+NestJS does NOT provide:
+
+* Login APIs
+* Registration APIs
+* Password Management
+
+Authentication Flow:
+
+1. User logs in via FastAPI.
+2. FastAPI generates JWT.
+3. Frontend stores JWT.
+4. Frontend sends JWT to FastAPI.
+5. Frontend sends the same JWT to NestJS.
+6. NestJS validates the token.
+7. User accesses protected NestJS APIs.
+
+Single Login Experience.
+
+---
+
+# Shared JWT Contract
+
+FastAPI JWT Payload:
+
+```json
+{
+  "sub": "1",
+  "email": "user@example.com",
+  "role": "ADMIN",
+  "iss": "team-productivity-platform",
+  "aud": "team-productivity-users",
+  "type": "access"
+}
+```
+
+NestJS will validate:
+
+* JWT Signature
+* Issuer
+* Audience
+* Expiration
+
+---
+
+# Installed Dependencies
+
+Core:
+
+```bash
+npm install @nestjs/config
+npm install @nestjs/typeorm typeorm pg
+npm install @nestjs/jwt @nestjs/passport passport passport-jwt
+npm install class-validator class-transformer
+npm install @nestjs/swagger swagger-ui-express
+npm install helmet
+npm install nestjs-pino pino pino-pretty
+npm install dotenv
+npm install uuid
+```
+
+Testing:
+
+```bash
+npm install --save-dev supertest
+```
+
+TypeORM CLI:
+
+```bash
+npm install --save-dev typeorm-ts-node-commonjs
+```
+
+---
+
+# Environment Variables
+
+Create a .env file:
+
+```env
+NODE_ENV=development
+
+PORT=3001
+
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+DATABASE_NAME=team_productivity
+
+JWT_SECRET=super-secret-key
+
+JWT_ISSUER=team-productivity-platform
+JWT_AUDIENCE=team-productivity-users
+
+FRONTEND_URL=http://localhost:3000
+```
+
+---
+
+# Phase 1 - Configuration Layer
+
+Files Created:
+
+```text
+src/config/app.config.ts
+src/config/database.config.ts
+src/config/jwt.config.ts
+src/config/swagger.config.ts
+src/config/index.ts
+```
+
+Purpose:
+
+## app.config.ts
+
+Application configuration:
+
+* NODE_ENV
+* PORT
+* FRONTEND_URL
+
+---
+
+## database.config.ts
+
+Database configuration:
+
+* DATABASE_HOST
+* DATABASE_PORT
+* DATABASE_USER
+* DATABASE_PASSWORD
+* DATABASE_NAME
+
+---
+
+## jwt.config.ts
+
+JWT configuration:
+
+* JWT_SECRET
+* JWT_ISSUER
+* JWT_AUDIENCE
+
+Used later for FastAPI JWT validation.
+
+---
+
+## swagger.config.ts
+
+Swagger setup configuration.
+
+Will expose:
+
+```text
+/api/docs
+```
+
+Provides:
+
+* OpenAPI Documentation
+* JWT Authorization Support
+* API Testing Interface
+
+---
+
+## index.ts
+
+Centralized configuration exports.
+
+---
+
+# Phase 2 - Database Layer
+
+Files Created:
+
+```text
+src/database/data-source.ts
+```
+
+Purpose:
+
+* PostgreSQL Connection
+* TypeORM DataSource
+* Migration Support
+* CLI Integration
+
+Configuration Highlights:
+
+```typescript
+synchronize: false
+```
+
+Production-safe configuration.
+
+Database changes will be managed using migrations.
+
+---
+
+# Migration Strategy
+
+Future Structure:
+
+```text
+src/database/
+
+├── migrations/
+│   ├── create-tasks.ts
+│   ├── create-categories.ts
+│   ├── create-tags.ts
+│   ├── create-task-tags.ts
+│   ├── create-notifications.ts
+│   └── create-activity-logs.ts
+│
+└── data-source.ts
+```
+
+No migrations have been created yet because entities are not implemented.
+
+---
+
+# TypeORM Scripts
+
+package.json:
+
+```json
+{
+  "scripts": {
+    "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
+    "migration:create": "npm run typeorm -- migration:create src/database/migrations/Migration",
+    "migration:generate": "npm run typeorm -- migration:generate src/database/migrations/AutoMigration",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert"
+  }
+}
+```
+
+---
+
