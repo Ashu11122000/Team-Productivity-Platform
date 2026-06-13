@@ -2930,3 +2930,353 @@ Analytics Metrics:
 - Task Status Distribution
 - Task Priority Distribution
 - Completion Rate
+
+---
+
+# Phase 11 – Testing
+
+## Overview
+
+This phase focuses on validating the NestJS backend through unit tests, controller tests, and integration tests. The goal is to ensure business logic correctness, API reliability, authentication behavior, and database interactions.
+
+---
+
+## Testing Stack
+
+* Jest
+* Supertest
+* NestJS Testing Module
+* TypeORM Test Database
+* Mock Repositories
+* Mock JWT Authentication
+
+---
+
+## Unit Tests
+
+### Authentication
+
+Tested Components:
+
+* JwtStrategy
+* JwtAuthGuard
+* RolesGuard
+
+Covered Scenarios:
+
+* Valid JWT payload validation
+* Invalid JWT rejection
+* Role authorization checks
+* User extraction from request
+
+---
+
+### Services
+
+Tested Services:
+
+* TasksService
+* CategoriesService
+* TagsService
+* NotificationsService
+* AnalyticsService
+
+Covered Scenarios:
+
+* Create operations
+* Read operations
+* Update operations
+* Delete operations
+* Ownership enforcement
+* Pagination logic
+* Search functionality
+* Analytics calculations
+
+---
+
+## Controller Tests
+
+Tested Controllers:
+
+* TasksController
+* CategoriesController
+* TagsController
+* NotificationsController
+* AnalyticsController
+
+Covered Scenarios:
+
+* Request validation
+* Successful responses
+* Error responses
+* Authorization checks
+* Query parameter handling
+
+---
+
+## Integration Tests
+
+### Tasks Module
+
+Verified:
+
+* Task creation
+* Task retrieval
+* Task update
+* Task deletion
+
+### Categories Module
+
+Verified:
+
+* Category CRUD operations
+* Ownership restrictions
+
+### Tags Module
+
+Verified:
+
+* Tag CRUD operations
+* Search and pagination
+
+### Notifications Module
+
+Verified:
+
+* Notification retrieval
+* Mark as read
+* Mark all as read
+
+---
+
+## Test Results
+
+```text
+Test Suites: 17 Passed
+Tests: 54 Passed
+Failures: 0
+```
+
+---
+
+## Running Tests
+
+Run all tests:
+
+```bash
+npm run test
+```
+
+Run tests in watch mode:
+
+```bash
+npm run test:watch
+```
+
+Run coverage:
+
+```bash
+npm run test:cov
+```
+
+Run e2e tests:
+
+```bash
+npm run test:e2e
+```
+
+---
+
+## Outcome
+
+All major business modules, authentication mechanisms, analytics endpoints, and notification workflows were successfully validated.
+
+---
+
+# Phase 12 – Dockerization
+
+## Overview
+
+This phase containerizes the NestJS backend and PostgreSQL database to ensure consistent deployment and local development environments.
+
+---
+
+## Components
+
+### Dockerfile
+
+Used to build the NestJS application container.
+
+Responsibilities:
+
+* Install dependencies
+* Build TypeScript application
+* Expose application port
+* Start NestJS server
+
+---
+
+### Docker Compose
+
+Provides multi-container orchestration for:
+
+* NestJS Backend
+* PostgreSQL Database
+
+---
+
+## Container Architecture
+
+```text
++----------------------+
+| NestJS Backend       |
+| Port: 3001           |
++----------+-----------+
+           |
+           |
+           v
++----------------------+
+| PostgreSQL           |
+| Port: 5432           |
++----------------------+
+```
+
+---
+
+## Dockerfile
+
+```dockerfile
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+EXPOSE 3001
+
+CMD ["node", "dist/main.js"]
+```
+
+---
+
+## Docker Compose
+
+```yaml
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: team-productivity-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: productivity_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nestjs-backend:
+    build: .
+    container_name: team-productivity-nestjs
+
+    restart: unless-stopped
+
+    depends_on:
+      - postgres
+
+    ports:
+      - "3001:3001"
+
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:
+```
+
+---
+
+## Docker Commands
+
+Build containers:
+
+```bash
+docker compose build
+```
+
+Start containers:
+
+```bash
+docker compose up -d
+```
+
+View logs:
+
+```bash
+docker compose logs -f
+```
+
+Stop containers:
+
+```bash
+docker compose down
+```
+
+Stop and remove volumes:
+
+```bash
+docker compose down -v
+```
+
+---
+
+## Verification
+
+Check running containers:
+
+```bash
+docker ps
+```
+
+Expected Containers:
+
+```text
+team-productivity-postgres
+team-productivity-nestjs
+```
+
+Verify API:
+
+```http
+GET http://localhost:3001/health
+```
+
+Expected Response:
+
+```json
+{
+  "status": "ok",
+  "service": "nestjs-backend"
+}
+```
+
+---
+
+## Outcome
+
+The NestJS backend and PostgreSQL database can be deployed using Docker with a single command, providing a reproducible and portable development environment.
+
+
