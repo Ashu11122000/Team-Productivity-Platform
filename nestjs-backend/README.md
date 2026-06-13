@@ -1,98 +1,548 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Team Productivity Platform - NestJS Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Overview
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The NestJS Backend is the second backend service of the Team Productivity Platform.
 
-## Description
+This service is responsible for task management, categorization, tagging, notifications, analytics, and activity tracking.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+The application follows a microservice-inspired architecture where:
 
-## Project setup
+- FastAPI owns Authentication and Notes
+- NestJS owns Productivity Features
+- Next.js acts as the unified frontend
+- PostgreSQL is the shared database
 
-```bash
-$ npm install
+NestJS does not perform user authentication.
+
+Authentication is delegated to FastAPI, while NestJS validates the JWT issued by FastAPI to provide a seamless single-login experience.
+
+---
+
+# Responsibilities
+
+## NestJS Service Owns
+
+### Tasks
+
+- Create Tasks
+- Update Tasks
+- Delete Tasks
+- Task Status Management
+- Task Priority Management
+- Task Querying & Filtering
+
+### Categories
+
+- Create Categories
+- Update Categories
+- Delete Categories
+- Organize Tasks
+
+### Tags
+
+- Create Tags
+- Update Tags
+- Delete Tags
+- Task Tagging
+
+### Notifications
+
+- Notification Listing
+- Mark Notifications as Read
+
+### Activity Logs
+
+- Activity History
+- User Actions Tracking
+
+### Analytics
+
+- Productivity Dashboard
+- Task Statistics
+- Completion Metrics
+
+### Public Holiday Integration
+
+- Holiday Awareness
+- Due Date Validation
+- Sprint Planning Support
+
+---
+
+# Architecture
+
+```text
+Next.js Frontend
+        │
+        ▼
+
+     FastAPI
+        │
+        ├── Authentication
+        ├── User Management
+        ├── Notes
+        └── Note → Task Conversion
+
+        ▼
+
+      NestJS
+        │
+        ├── Tasks
+        ├── Categories
+        ├── Tags
+        ├── Notifications
+        ├── Analytics
+        └── Activity Logs
+
+        ▼
+
+     PostgreSQL
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+# Authentication Flow
 
-# watch mode
-$ npm run start:dev
+FastAPI is the JWT issuer.
 
-# production mode
-$ npm run start:prod
+Flow:
+
+1. User logs in through FastAPI
+2. FastAPI generates JWT
+3. Frontend stores JWT
+4. Frontend sends JWT to FastAPI APIs
+5. Frontend sends same JWT to NestJS APIs
+6. NestJS validates JWT
+7. User accesses all services without re-authentication
+
+---
+
+# Shared JWT Contract
+
+```json
+{
+  "sub": "1",
+  "email": "user@example.com",
+  "role": "ADMIN",
+  "iss": "team-productivity-platform",
+  "aud": "team-productivity-users",
+  "type": "access"
+}
 ```
 
-## Run tests
+NestJS validates:
 
-```bash
-# unit tests
-$ npm run test
+- JWT Signature
+- Issuer
+- Audience
+- Expiration
+- User Role
 
-# e2e tests
-$ npm run test:e2e
+---
 
-# test coverage
-$ npm run test:cov
+# API Ownership
+
+## FastAPI
+
+### Authentication
+
+```http
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+GET  /api/v1/auth/me
 ```
 
-## Deployment
+### Notes
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```http
+POST   /api/v1/notes
+GET    /api/v1/notes
+GET    /api/v1/notes/{id}
+PUT    /api/v1/notes/{id}
+DELETE /api/v1/notes/{id}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Admin
 
-## Resources
+```http
+GET /api/v1/notes/admin/all
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### Conversion
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```http
+POST /api/v1/notes/{id}/convert-to-task
+```
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## NestJS
 
-## Stay in touch
+### Tasks
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```http
+POST   /api/v1/tasks
+GET    /api/v1/tasks
+GET    /api/v1/tasks/:id
+PATCH  /api/v1/tasks/:id
+DELETE /api/v1/tasks/:id
+```
 
-## License
+### Categories
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```http
+POST   /api/v1/categories
+GET    /api/v1/categories
+GET    /api/v1/categories/:id
+PATCH  /api/v1/categories/:id
+DELETE /api/v1/categories/:id
+```
+
+### Tags
+
+```http
+POST   /api/v1/tags
+GET    /api/v1/tags
+GET    /api/v1/tags/:id
+PATCH  /api/v1/tags/:id
+DELETE /api/v1/tags/:id
+```
+
+### Notifications
+
+```http
+GET   /api/v1/notifications
+PATCH /api/v1/notifications/:id/read
+```
+
+### Analytics
+
+```http
+GET /api/v1/analytics/dashboard
+```
+
+### Activity Logs
+
+```http
+GET /api/v1/activity-logs
+```
+
+---
+
+# Database Ownership
+
+## FastAPI Tables
+
+```text
+users
+notes
+```
+
+## NestJS Tables
+
+```text
+tasks
+categories
+tags
+task_tags
+notifications
+activity_logs
+```
+
+---
+
+# Technology Stack
+
+## Framework
+
+- NestJS
+
+## Language
+
+- TypeScript
+
+## Database
+
+- PostgreSQL
+
+## ORM
+
+- TypeORM
+
+## Authentication
+
+- Passport JWT
+- Shared JWT Validation
+
+## Validation
+
+- class-validator
+- class-transformer
+
+## Documentation
+
+- Swagger
+
+## Containerization
+
+- Docker
+
+## Testing
+
+- Jest
+- Supertest
+
+---
+
+# Dependencies Installed
+
+## Core NestJS
+
+```bash
+npm install @nestjs/config
+```
+
+## Database
+
+```bash
+npm install @nestjs/typeorm typeorm pg
+```
+
+## Authentication
+
+```bash
+npm install @nestjs/jwt
+npm install passport
+npm install passport-jwt
+npm install @nestjs/passport
+```
+
+Development Types:
+
+```bash
+npm install -D @types/passport-jwt
+```
+
+## Validation
+
+```bash
+npm install class-validator
+npm install class-transformer
+```
+
+## Swagger
+
+```bash
+npm install @nestjs/swagger
+npm install swagger-ui-express
+```
+
+## Environment Variables
+
+```bash
+npm install dotenv
+```
+
+## UUID
+
+```bash
+npm install uuid
+```
+
+## Security
+
+```bash
+npm install helmet
+```
+
+## Logging
+
+```bash
+npm install nestjs-pino
+npm install pino
+npm install pino-pretty
+```
+
+## Testing
+
+```bash
+npm install -D supertest
+```
+
+## Formatting
+
+```bash
+npm install -D prettier
+```
+
+## Linting
+
+```bash
+npm install -D eslint
+npm install -D eslint-config-prettier
+npm install -D eslint-plugin-prettier
+```
+
+---
+
+# Setup
+
+## Clone Repository
+
+```bash
+git clone https://github.com/Ashu11122000/Team-Productivity-Platform.git
+```
+
+## Navigate to NestJS Backend
+
+```bash
+cd Team-Productivity-Platform/nestjs-backend
+```
+
+## Install Dependencies
+
+```bash
+npm install
+```
+
+## Create Environment File
+
+Create:
+
+```text
+.env
+```
+
+Example:
+
+```env
+NODE_ENV=development
+
+PORT=3001
+
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+
+DATABASE_NAME=team_productivity
+
+JWT_SECRET=super-secret-key
+
+JWT_ISSUER=team-productivity-platform
+JWT_AUDIENCE=team-productivity-users
+
+FRONTEND_URL=http://localhost:3000
+```
+
+---
+
+# Run Development Server
+
+```bash
+npm run start:dev
+```
+
+Server:
+
+```text
+http://localhost:3001
+```
+
+---
+
+# Current Development Status
+
+## Completed
+
+### Project Setup
+
+- NestJS Application Created
+- TypeScript Configuration
+- Dependency Installation
+- Folder Structure Design
+- Docker Files Added
+- Environment Configuration
+- Testing Structure Created
+
+### Architecture
+
+- API Ownership Defined
+- Authentication Strategy Defined
+- Database Ownership Defined
+- Shared JWT Contract Defined
+
+### Project Structure
+
+- Configuration Layer
+- Database Layer
+- Authentication Layer
+- Common Utilities Layer
+- Feature Modules Layer
+- Integrations Layer
+- Testing Layer
+
+---
+
+# Next Development Phase
+
+The following modules will now be implemented:
+
+## Configuration
+
+- app.config.ts
+- database.config.ts
+- jwt.config.ts
+- swagger.config.ts
+
+## Database
+
+- TypeORM Configuration
+- PostgreSQL Connection
+
+## Bootstrap
+
+- main.ts
+- app.module.ts
+
+## Authentication
+
+- JwtStrategy
+- JwtAuthGuard
+- RolesGuard
+- CurrentUser Decorator
+
+## Health Module
+
+```http
+GET /health
+```
+
+## Tasks Module
+
+First fully implemented business module.
+
+Includes:
+
+- Entity
+- DTOs
+- CRUD APIs
+- Swagger Documentation
+- RBAC Support
+- Ownership Validation
+
+---
+
+# License
+
+This project is developed as part of a Full Stack Evaluation Assignment demonstrating:
+
+- NestJS Development
+- FastAPI Integration
+- Shared Authentication
+- PostgreSQL Design
+- API Architecture
+- TypeScript Development
+- Production-Ready Backend Design
