@@ -1407,3 +1407,333 @@ Completed:
 
 ---
 
+# Phase 5 - Tasks Module
+
+## Overview
+
+Phase 5 introduces the first business module of the NestJS Backend:
+
+```text
+Tasks Module
+```
+
+This module is responsible for managing user tasks and serves as the foundation for future productivity features such as Categories, Tags, Notifications, Analytics, and Activity Logs.
+
+The module is fully protected using JWT authentication and enforces task ownership using the user identity provided by the FastAPI-issued access token.
+
+---
+
+# Features Implemented
+
+## Task Entity
+
+Implemented a production-ready Task entity with:
+
+* UUID Primary Key
+* Title
+* Description
+* Status
+* Priority
+* Due Date
+* User Ownership
+* Created Timestamp
+* Updated Timestamp
+
+---
+
+## JWT Ownership Enforcement
+
+Every task belongs to a specific user.
+
+Ownership is determined using:
+
+```ts
+user.sub
+```
+
+from the validated FastAPI JWT payload.
+
+Example:
+
+```json
+{
+  "sub": "1",
+  "email": "user@example.com",
+  "role": "USER"
+}
+```
+
+This ensures:
+
+* Users can only access their own tasks
+* Cross-user data access is prevented
+* Multi-tenant task isolation is enforced
+
+---
+
+## CRUD Operations
+
+Implemented:
+
+### Create Task
+
+```http
+POST /api/tasks
+```
+
+### Get User Tasks
+
+```http
+GET /api/tasks
+```
+
+### Get Task By ID
+
+```http
+GET /api/tasks/:id
+```
+
+### Update Task
+
+```http
+PATCH /api/tasks/:id
+```
+
+### Delete Task
+
+```http
+DELETE /api/tasks/:id
+```
+
+---
+
+# Pagination
+
+Supported query parameters:
+
+```http
+GET /api/tasks?page=1&limit=10
+```
+
+Response includes:
+
+* Data
+* Total Records
+* Current Page
+* Page Size
+* Total Pages
+
+---
+
+# Filtering
+
+Tasks can be filtered by:
+
+## Status
+
+```http
+GET /api/tasks?status=TODO
+```
+
+Supported values:
+
+* TODO
+* IN_PROGRESS
+* COMPLETED
+* CANCELLED
+
+---
+
+## Priority
+
+```http
+GET /api/tasks?priority=HIGH
+```
+
+Supported values:
+
+* LOW
+* MEDIUM
+* HIGH
+* URGENT
+
+---
+
+# Search
+
+Search by task title:
+
+```http
+GET /api/tasks?search=nestjs
+```
+
+---
+
+# Sorting
+
+Supported query parameters:
+
+```http
+GET /api/tasks?sortBy=createdAt&sortOrder=DESC
+```
+
+Example:
+
+```http
+GET /api/tasks?sortBy=priority&sortOrder=ASC
+```
+
+---
+
+# Swagger Documentation
+
+All endpoints are documented using NestJS Swagger.
+
+Swagger URL:
+
+```text
+http://localhost:3001/api/docs
+```
+
+Authentication:
+
+```text
+Bearer Token (FastAPI JWT)
+```
+
+---
+
+# Folder Structure
+
+```text
+src/tasks/
+
+├── controllers/
+│   └── tasks.controller.ts
+│
+├── services/
+│   └── tasks.service.ts
+│
+├── entities/
+│   └── task.entity.ts
+│
+├── dto/
+│   ├── create-task.dto.ts
+│   ├── update-task.dto.ts
+│   ├── task-query.dto.ts
+│   └── task-response.dto.ts
+│
+├── enums/
+│   ├── task-priority.enum.ts
+│   └── task-status.enum.ts
+│
+└── tasks.module.ts
+```
+
+---
+
+# Database Schema
+
+Table:
+
+```sql
+tasks
+```
+
+Columns:
+
+| Column      | Type         |
+| ----------- | ------------ |
+| id          | UUID         |
+| title       | VARCHAR(255) |
+| description | TEXT         |
+| status      | ENUM         |
+| priority    | ENUM         |
+| dueDate     | TIMESTAMP    |
+| userId      | VARCHAR(100) |
+| createdAt   | TIMESTAMP    |
+| updatedAt   | TIMESTAMP    |
+
+---
+
+# Security
+
+Protected by:
+
+```ts
+JwtAuthGuard
+```
+
+JWT Validation:
+
+* Signature Validation
+* Issuer Validation
+* Audience Validation
+* Expiration Validation
+
+RBAC foundation is available through:
+
+```ts
+RolesGuard
+```
+
+for future authorization requirements.
+
+---
+
+# Migration
+
+Migration created:
+
+```text
+src/database/migrations/00-create-tasks.ts
+```
+
+Apply migrations:
+
+```bash
+npm run migration:run
+```
+
+Rollback:
+
+```bash
+npm run migration:revert
+```
+
+---
+
+# Future Enhancements
+
+Phase 5 intentionally excludes:
+
+* Categories
+* Tags
+* Task-Tag Relations
+* Notifications
+* Analytics
+* Activity Logs
+
+These will be implemented in later phases.
+
+---
+
+# Phase 5 Completion
+
+Completed:
+
+* Task Entity
+* DTO Validation
+* Swagger Documentation
+* CRUD APIs
+* JWT Protection
+* Ownership Enforcement
+* Pagination
+* Filtering
+* Search
+* Sorting
+* TypeORM Integration
+* PostgreSQL Migration
+
+---
+
