@@ -13,7 +13,6 @@ import { LoggerModule } from 'nestjs-pino';
 
 import { configuration } from './config';
 
-import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -84,7 +83,6 @@ import { AnalyticsModule } from './analytics/analytics.module';
     }),
 
     AuthModule,
-    HealthModule,
     TasksModule,
     CategoriesModule,
     TagsModule,
