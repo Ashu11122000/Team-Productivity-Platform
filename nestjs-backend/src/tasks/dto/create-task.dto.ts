@@ -1,12 +1,17 @@
 /* eslint-disable prettier/prettier */
 
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+    ApiProperty,
+    ApiPropertyOptional,
+} from '@nestjs/swagger';
 
 import {
+    IsArray,
+    IsDateString,
     IsEnum,
     IsOptional,
     IsString,
-    IsDateString,
+    IsUUID,
     MaxLength,
 } from 'class-validator';
 
@@ -22,7 +27,8 @@ export class CreateTaskDto {
     title!: string;
 
     @ApiPropertyOptional({
-        example: 'Implement Tasks module with CRUD operations',
+        example:
+            'Implement Tasks module with CRUD operations',
     })
     @IsOptional()
     @IsString()
@@ -45,9 +51,26 @@ export class CreateTaskDto {
     priority?: TaskPriority;
 
     @ApiPropertyOptional({
-        example: '2026-06-30T18:00:00.000Z',
+        example:
+            '2026-06-30T18:00:00.000Z',
     })
     @IsOptional()
     @IsDateString()
     dueDate?: string;
+
+    @ApiPropertyOptional({
+        type: [String],
+        example: [
+            '550e8400-e29b-41d4-a716-446655440001',
+            '550e8400-e29b-41d4-a716-446655440002',
+        ],
+        description:
+            'Tag IDs to associate with the task',
+    })
+    @IsOptional()
+    @IsArray()
+    @IsUUID('4', {
+        each: true,
+    })
+    tagIds?: string[];
 }

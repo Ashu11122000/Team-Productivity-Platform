@@ -17,6 +17,7 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
 import { CategoriesModule } from './categories/categories.module';
+import { TagsModule } from './tags/tags.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { CategoriesModule } from './categories/categories.module';
     HealthModule,
     TasksModule,
     CategoriesModule,
+    TagsModule,
   ],
 })
 export class AppModule {}
