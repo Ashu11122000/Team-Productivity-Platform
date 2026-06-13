@@ -5,47 +5,55 @@ import { ApiProperty } from '@nestjs/swagger';
 import { TaskPriority } from '../../common/enums/task-priority.enum';
 import { TaskStatus } from '../../common/enums/task-status.enum';
 
+import { Tag } from '../../tags/entities/tag.entity';
+
 export class TaskResponseDto {
-  @ApiProperty()
-  id!: string;
+    @ApiProperty()
+    id!: string;
 
-  @ApiProperty()
-  title!: string;
+    @ApiProperty()
+    title!: string;
 
-  @ApiProperty({
-    nullable: true,
-  })
-  description?: string | null;
+    @ApiProperty({
+        nullable: true,
+    })
+    description?: string | null;
 
-  @ApiProperty({
-    enum: TaskStatus,
-  })
-  status!: TaskStatus;
+    @ApiProperty({
+        enum: TaskStatus,
+    })
+    status!: TaskStatus;
 
-  @ApiProperty({
-    enum: TaskPriority,
-  })
-  priority!: TaskPriority;
+    @ApiProperty({
+        enum: TaskPriority,
+    })
+    priority!: TaskPriority;
 
-  @ApiProperty({
-    nullable: true,
-  })
-  dueDate?: Date | null;
+    @ApiProperty({
+        nullable: true,
+    })
+    dueDate?: Date | null;
 
-  @ApiProperty()
-  userId!: string;
+    @ApiProperty()
+    userId!: string;
 
-  @ApiProperty()
-  isConvertedFromNote!: boolean;
+    @ApiProperty()
+    isConvertedFromNote!: boolean;
 
-  @ApiProperty({
-    nullable: true,
-  })
-  sourceNoteId?: string | null;
+    @ApiProperty({
+        nullable: true,
+    })
+    sourceNoteId?: string | null;
 
-  @ApiProperty()
-  createdAt!: Date;
+    @ApiProperty({
+        type: () => [Tag],
+        required: false,
+    })
+    tags?: Tag[];
 
-  @ApiProperty()
-  updatedAt!: Date;
+    @ApiProperty()
+    createdAt!: Date;
+
+    @ApiProperty()
+    updatedAt!: Date;
 }

@@ -9,6 +9,8 @@ import {
     Index,
     ManyToOne,
     JoinColumn,
+    ManyToMany,
+    JoinTable,
 } from 'typeorm';
 
 import { ApiProperty } from '@nestjs/swagger';
@@ -17,6 +19,7 @@ import { TaskStatus } from '../../common/enums/task-status.enum';
 import { TaskPriority } from '../../common/enums/task-priority.enum';
 
 import { Category } from '../../categories/entities/category.entity';
+import { Tag } from '../../tags/entities/tag.entity';
 
 @Entity({
     name: 'tasks',
@@ -137,6 +140,27 @@ export class Task {
         name: 'categoryId',
     })
     category?: Category | null;
+
+    @ApiProperty({
+        type: () => [Tag],
+        required: false,
+    })
+    @ManyToMany(
+        () => Tag,
+        (tag) => tag.tasks,
+    )
+    @JoinTable({
+        name: 'task_tags',
+        joinColumn: {
+            name: 'taskId',
+            referencedColumnName: 'id',
+        },
+        inverseJoinColumn: {
+            name: 'tagId',
+            referencedColumnName: 'id',
+        },
+    })
+    tags?: Tag[];
 
     @ApiProperty({
         example: '2026-06-13T08:00:00.000Z',

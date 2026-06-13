@@ -12,10 +12,12 @@ import {
 import {
     FindOptionsWhere,
     ILike,
+    In,
     Repository,
 } from 'typeorm';
 
 import { Task } from '../entities/task.entity';
+import { Tag } from '../../tags/entities/tag.entity';
 
 import { CreateTaskDto } from '../dto/create-task.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
@@ -26,31 +28,54 @@ export class TasksService {
     constructor(
         @InjectRepository(Task)
         private readonly taskRepository: Repository<Task>,
+
+        @InjectRepository(Tag)
+        private readonly tagRepository: Repository<Tag>,
     ) {}
 
     async create(
         createTaskDto: CreateTaskDto,
         userId: string,
     ): Promise<Task> {
-        const task = this.taskRepository.create({
-            ...createTaskDto,
+        const {
+            tagIds,
+            ...taskData
+        } = createTaskDto;
 
-            dueDate: createTaskDto.dueDate
-                ? new Date(createTaskDto.dueDate)
-                : null,
+        let tags: Tag[] = [];
 
-            userId,
-        });
+        if (
+            tagIds &&
+            tagIds.length > 0
+        ) {
+            tags =
+                await this.tagRepository.find({
+                    where: {
+                        id: In(tagIds),
+                        userId,
+                    },
+                });
+        }
 
-        const savedTask =
-            await this.taskRepository.save(task);
+        const task =
+            this.taskRepository.create({
+                ...taskData,
 
-        /**
-         * Phase 8
-         * ActivityLogsService Integration
-         */
+                dueDate:
+                    createTaskDto.dueDate
+                        ? new Date(
+                              createTaskDto.dueDate,
+                          )
+                        : null,
 
-        return savedTask;
+                userId,
+
+                tags,
+            });
+
+        return this.taskRepository.save(
+            task,
+        );
     }
 
     async findAll(
@@ -93,9 +118,16 @@ export class TasksService {
                             userId,
                             status,
                             priority,
-                            title: ILike(`%${search}%`),
+                            title: ILike(
+                                `%${search}%`,
+                            ),
                         },
                     ],
+
+                    relations: {
+                        category: true,
+                        tags: true,
+                    },
 
                     order: {
                         [sortBy]: sortOrder,
@@ -112,13 +144,20 @@ export class TasksService {
                 page,
                 limit,
                 totalPages:
-                    Math.ceil(total / limit),
+                    Math.ceil(
+                        total / limit,
+                    ),
             };
         }
 
         const [data, total] =
             await this.taskRepository.findAndCount({
                 where,
+
+                relations: {
+                    category: true,
+                    tags: true,
+                },
 
                 order: {
                     [sortBy]: sortOrder,
@@ -149,6 +188,11 @@ export class TasksService {
                     id,
                     userId,
                 },
+
+                relations: {
+                    category: true,
+                    tags: true,
+                },
             });
 
         if (!task) {
@@ -171,8 +215,13 @@ export class TasksService {
                 userId,
             );
 
+        const {
+            tagIds,
+            ...taskData
+        } = updateTaskDto;
+
         Object.assign(task, {
-            ...updateTaskDto,
+            ...taskData,
 
             dueDate:
                 updateTaskDto.dueDate
@@ -182,15 +231,19 @@ export class TasksService {
                     : task.dueDate,
         });
 
-        const updatedTask =
-            await this.taskRepository.save(task);
+        if (tagIds) {
+            task.tags =
+                await this.tagRepository.find({
+                    where: {
+                        id: In(tagIds),
+                        userId,
+                    },
+                });
+        }
 
-        /**
-         * Phase 8
-         * ActivityLogsService Integration
-         */
-
-        return updatedTask;
+        return this.taskRepository.save(
+            task,
+        );
     }
 
     async remove(
@@ -206,11 +259,6 @@ export class TasksService {
         await this.taskRepository.remove(
             task,
         );
-
-        /**
-         * Phase 8
-         * ActivityLogsService Integration
-         */
     }
 
     async convertNoteToTask(
@@ -232,16 +280,8 @@ export class TasksService {
                 sourceNoteId: noteId,
             });
 
-        const savedTask =
-            await this.taskRepository.save(
-                task,
-            );
-
-        /**
-         * Phase 8
-         * ActivityLogsService Integration
-         */
-
-        return savedTask;
+        return this.taskRepository.save(
+            task,
+        );
     }
 }
