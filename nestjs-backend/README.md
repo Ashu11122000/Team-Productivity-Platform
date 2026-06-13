@@ -2025,28 +2025,297 @@ JWT validation includes:
 
 ---
 
-## Phase 6 Completion Checklist
-
-```text
-✅ Category Entity
-✅ Category DTOs
-✅ Category Service
-✅ Category Controller
-✅ Categories Module
-✅ Category Migration
-✅ Pagination
-✅ Search
-✅ Sorting
-✅ Swagger Documentation
-✅ JWT Protection
-✅ Ownership Enforcement
-✅ Task ↔ Category Relationship
-```
-
----
-
 ## Result
 
 The Categories Module is fully integrated into the NestJS backend and provides task organization capabilities through a secure user-owned category system.
 
 This completes Phase 6 of the NestJS backend roadmap.
+
+---
+
+## Phase 7 - Tags Module
+
+### Overview
+
+The Tags Module introduces reusable labels that can be attached to tasks.
+
+Tags allow users to organize, filter, and categorize tasks beyond a single category relationship.
+
+Examples:
+
+```text
+Backend
+Frontend
+Bug
+Feature
+Research
+Urgent
+Personal
+Work
+```
+
+---
+
+### Folder Structure
+
+```text
+src/tags/
+
+├── controllers/
+│   └── tags.controller.ts
+│
+├── services/
+│   └── tags.service.ts
+│
+├── entities/
+│   └── tag.entity.ts
+│
+├── dto/
+│   ├── create-tag.dto.ts
+│   ├── update-tag.dto.ts
+│   ├── tag-query.dto.ts
+│   └── tag-response.dto.ts
+│
+└── tags.module.ts
+```
+
+---
+
+### Database Migrations
+
+```text
+src/database/migrations/
+
+02-create-tags.ts
+03-create-task-tags.ts
+```
+
+---
+
+### Tag Entity
+
+The Tag entity contains:
+
+```text
+id
+name
+color
+userId
+createdAt
+updatedAt
+```
+
+Ownership is enforced through:
+
+```ts
+userId = JWT.sub
+```
+
+---
+
+### Task ↔ Tag Relationship
+
+Implemented using a many-to-many relationship.
+
+```text
+Task (Many)
+      ↔
+Tag (Many)
+```
+
+Database structure:
+
+```text
+tasks
+tags
+task_tags
+```
+
+The junction table stores task and tag associations.
+
+```text
+taskId
+tagId
+```
+
+Example:
+
+```text
+Task:
+Fix Login Bug
+
+Tags:
+Backend
+Bug
+Urgent
+```
+
+---
+
+### Tag CRUD APIs
+
+Create Tag
+
+```http
+POST /api/tags
+```
+
+Get User Tags
+
+```http
+GET /api/tags
+```
+
+Get Tag By ID
+
+```http
+GET /api/tags/:id
+```
+
+Update Tag
+
+```http
+PATCH /api/tags/:id
+```
+
+Delete Tag
+
+```http
+DELETE /api/tags/:id
+```
+
+---
+
+### Features
+
+Implemented:
+
+* JWT Protected Endpoints
+* Ownership Enforcement
+* Pagination
+* Search
+* Sorting
+* Swagger Documentation
+* Tag CRUD Operations
+* Many-to-Many Task ↔ Tag Relationship
+* Task Tag Assignment
+* Task Tag Updates
+* Task Tag Retrieval
+
+---
+
+### Task Module Enhancements
+
+The Tasks Module was updated to support tags.
+
+#### Create Task
+
+```json
+{
+  "title": "Fix Login Bug",
+  "priority": "HIGH",
+  "tagIds": [
+    "tag-uuid-1",
+    "tag-uuid-2"
+  ]
+}
+```
+
+#### Update Task
+
+```json
+{
+  "tagIds": [
+    "tag-uuid-3",
+    "tag-uuid-4"
+  ]
+}
+```
+
+#### Task Response
+
+```json
+{
+  "id": "...",
+  "title": "Fix Login Bug",
+  "tags": [
+    {
+      "id": "...",
+      "name": "Backend"
+    },
+    {
+      "id": "...",
+      "name": "Urgent"
+    }
+  ]
+}
+```
+
+---
+
+### Security
+
+All endpoints require authentication.
+
+```ts
+JwtAuthGuard
+```
+
+Tag ownership is enforced by validating:
+
+```ts
+userId === JWT.sub
+```
+
+Users can only access and manage their own tags.
+
+---
+
+### FastAPI Integration
+
+No FastAPI changes were required.
+
+FastAPI remains responsible for:
+
+```text
+Authentication
+Notes
+Admin Notes
+Health
+```
+
+NestJS continues validating FastAPI-issued JWTs.
+
+---
+
+### Frontend Impact
+
+The task creation and update forms now support tag assignment.
+
+Example:
+
+```text
+Title
+Description
+Priority
+Status
+Category
+
+Tags
+☑ Backend
+☑ Bug
+☑ Urgent
+☐ Research
+```
+
+Tasks can display multiple labels:
+
+```text
+Fix Login Bug
+
+[Backend]
+[Bug]
+[Urgent]
+```
+
+---
