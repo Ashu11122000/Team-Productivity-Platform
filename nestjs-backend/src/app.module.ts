@@ -20,6 +20,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { TagsModule } from './tags/tags.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     TagsModule,
     ActivityLogsModule,
     NotificationsModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}
