@@ -5,12 +5,15 @@ import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 
 import { Logger } from 'nestjs-pino';
-
 import { ConfigService } from '@nestjs/config';
 
 import { AppModule } from './app.module';
 
 import { setupSwagger } from './config/swagger.config';
+
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -36,6 +39,15 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  app.useGlobalFilters(
+    new HttpExceptionFilter(),
+  );
+
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    new TransformInterceptor(),
+  );
+
   setupSwagger(app);
 
   const port = configService.get<number>('port') ?? 3001;
@@ -43,6 +55,7 @@ async function bootstrap(): Promise<void> {
   await app.listen(port);
 
   const logger = app.get(Logger);
+
   logger.log(
     `Application running on port ${port}`,
     'Bootstrap',

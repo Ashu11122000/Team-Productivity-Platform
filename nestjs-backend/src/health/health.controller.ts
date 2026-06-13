@@ -1,13 +1,17 @@
 /* eslint-disable prettier/prettier */
+
 import { Controller, Get } from '@nestjs/common';
 
-@Controller('health') 
+import { HealthService } from './health.service';
+
+@Controller('health')
 export class HealthController {
-    @Get()
-    getHealth() {
-        return {
-            status: 'ok',
-            service: 'nestjs-backend'
-        };
-    }
+  constructor(
+    private readonly healthService: HealthService,
+  ) {}
+
+  @Get()
+  health() {
+    return this.healthService.getHealth();
+  }
 }
