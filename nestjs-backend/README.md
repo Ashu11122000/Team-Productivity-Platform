@@ -2638,3 +2638,253 @@ ActivityLogsService
 
 ---
 
+# Phase 9 - Notifications Module
+
+## Overview
+
+Phase 9 introduces the Notifications Module for the Team Productivity Platform.
+
+This module provides in-app notifications that allow users to stay informed about important actions and events occurring within the system.
+
+Notifications are user-specific and protected through JWT authentication.
+
+---
+
+## Folder Structure
+
+```text
+src/notifications/
+
+├── controllers/
+│   └── notifications.controller.ts
+│
+├── services/
+│   └── notifications.service.ts
+│
+├── entities/
+│   └── notification.entity.ts
+│
+├── dto/
+│   ├── notification-query.dto.ts
+│   ├── notification-response.dto.ts
+│   └── mark-notification-read.dto.ts
+│
+├── enums/
+│   ├── notification-type.enum.ts
+│   └── notification-status.enum.ts
+│
+└── notifications.module.ts
+```
+
+---
+
+## Database Migration
+
+```text
+05-create-notifications.ts
+```
+
+Creates:
+
+```text
+notifications
+```
+
+Table Columns:
+
+```text
+id
+title
+message
+type
+status
+userId
+createdAt
+updatedAt
+```
+
+Indexes:
+
+```text
+IDX_NOTIFICATION_USER_ID
+IDX_NOTIFICATION_STATUS
+IDX_NOTIFICATION_TYPE
+```
+
+---
+
+## Notification Types
+
+Supported notification types:
+
+```text
+TASK_DUE
+TASK_OVERDUE
+TASK_COMPLETED
+CATEGORY_UPDATED
+TAG_ASSIGNED
+SYSTEM
+```
+
+---
+
+## Notification Status
+
+```text
+UNREAD
+READ
+```
+
+---
+
+## Features
+
+Implemented:
+
+```text
+Notification Persistence
+Notification Listing
+Notification Filtering
+Notification Pagination
+Notification Sorting
+Notification Ownership Enforcement
+JWT Protection
+Mark Notification As Read
+Mark All Notifications As Read
+```
+
+---
+
+## Automatic Notification Generation
+
+Implemented integrations:
+
+### Task Notifications
+
+Generated when:
+
+```text
+Task Status Changes To COMPLETED
+```
+
+Notification:
+
+```text
+TASK_COMPLETED
+```
+
+---
+
+### Category Notifications
+
+Generated when:
+
+```text
+Category Updated
+```
+
+Notification:
+
+```text
+CATEGORY_UPDATED
+```
+
+---
+
+### Tag Assignment Notifications
+
+Generated when:
+
+```text
+Tags Assigned To Task
+```
+
+Notification:
+
+```text
+TAG_ASSIGNED
+```
+
+---
+
+## API Endpoints
+
+### Get User Notifications
+
+```http
+GET /api/notifications
+```
+
+Query Parameters:
+
+```text
+page
+limit
+status
+type
+sortBy
+sortOrder
+```
+
+---
+
+### Get Notification By ID
+
+```http
+GET /api/notifications/:id
+```
+
+---
+
+### Mark Notification As Read
+
+```http
+PATCH /api/notifications/:id/read
+```
+
+---
+
+### Mark All Notifications As Read
+
+```http
+PATCH /api/notifications/read-all
+```
+
+---
+
+## Security
+
+All notification endpoints require authentication.
+
+```text
+JwtAuthGuard
+```
+
+Notifications are restricted to the authenticated user.
+
+Ownership validation is enforced using:
+
+```ts
+userId = JWT.sub
+```
+
+Users cannot access notifications belonging to other users.
+
+---
+
+## Integration Points
+
+Integrated Modules:
+
+```text
+Tasks Module
+Categories Module
+```
+
+Notification creation occurs through:
+
+```ts
+NotificationsService.create()
+```
+
+---
