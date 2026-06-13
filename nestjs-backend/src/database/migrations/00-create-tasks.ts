@@ -14,6 +14,10 @@ export class CreateTasks00
         queryRunner: QueryRunner,
     ): Promise<void> {
         await queryRunner.query(`
+            CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+        `);
+
+        await queryRunner.query(`
             CREATE TYPE "public"."tasks_status_enum"
             AS ENUM (
                 'TODO',
@@ -56,6 +60,14 @@ export class CreateTasks00
                 "userId"
                     character varying(100)
                     NOT NULL,
+
+                "isConvertedFromNote"
+                    boolean
+                    NOT NULL
+                    DEFAULT false,
+
+                "sourceNoteId"
+                    character varying(100),
 
                 "createdAt"
                     timestamp

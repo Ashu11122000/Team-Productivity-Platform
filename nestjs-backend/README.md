@@ -1737,3 +1737,316 @@ Completed:
 
 ---
 
+# Phase 6 - Categories Module
+
+## Overview
+
+Phase 6 introduces the Categories Module to the Team Productivity Platform.
+
+Categories allow users to organize tasks into logical groups such as:
+
+* Work
+* Personal
+* Learning
+* Health
+* Shopping
+
+Each category belongs to a specific authenticated user and is protected through JWT-based ownership enforcement.
+
+The module follows the same architecture and security patterns established in the Tasks Module.
+
+---
+
+## Features Implemented
+
+### Category Entity
+
+Implemented a Category entity with:
+
+* UUID Primary Key
+* Name
+* Description
+* Color
+* User Ownership
+* Created Timestamp
+* Updated Timestamp
+
+```text
+Category
+├── id
+├── name
+├── description
+├── color
+├── userId
+├── createdAt
+└── updatedAt
+```
+
+---
+
+### CRUD Operations
+
+Implemented complete Category CRUD functionality.
+
+Endpoints:
+
+```http
+POST   /api/categories
+GET    /api/categories
+GET    /api/categories/:id
+PATCH  /api/categories/:id
+DELETE /api/categories/:id
+```
+
+---
+
+### JWT Ownership Enforcement
+
+Categories are owned by authenticated users.
+
+Ownership is derived from:
+
+```ts
+userId = JWT.sub
+```
+
+Users can:
+
+* Create their own categories
+* View their own categories
+* Update their own categories
+* Delete their own categories
+
+Users cannot access categories belonging to other users.
+
+---
+
+### Pagination
+
+Supported query parameters:
+
+```http
+GET /api/categories?page=1&limit=10
+```
+
+Response includes:
+
+```json
+{
+  "data": [],
+  "total": 0,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 0
+}
+```
+
+---
+
+### Search
+
+Supported category name search:
+
+```http
+GET /api/categories?search=work
+```
+
+Search is case-insensitive.
+
+---
+
+### Sorting
+
+Supported sorting parameters:
+
+```http
+GET /api/categories?sortBy=createdAt&sortOrder=DESC
+```
+
+Available fields:
+
+* createdAt
+* updatedAt
+* name
+
+---
+
+### Swagger Documentation
+
+All endpoints include Swagger documentation.
+
+Swagger URL:
+
+```text
+http://localhost:3001/api/docs
+```
+
+Categories are available under:
+
+```text
+Categories
+```
+
+section.
+
+---
+
+## Database Changes
+
+### New Table
+
+```text
+categories
+```
+
+Columns:
+
+```text
+id
+name
+description
+color
+userId
+createdAt
+updatedAt
+```
+
+---
+
+### Indexes
+
+Created:
+
+```text
+IDX_CATEGORY_USER_ID
+```
+
+Used for efficient ownership filtering.
+
+---
+
+## Task ↔ Category Relationship
+
+Implemented:
+
+```text
+Category (1)
+      |
+      |
+      └─────> (Many) Tasks
+```
+
+### Task Entity Updates
+
+Added:
+
+```text
+categoryId
+```
+
+Relationship:
+
+```ts
+@ManyToOne(() => Category)
+```
+
+---
+
+### Category Entity Updates
+
+Added:
+
+```ts
+@OneToMany(() => Task)
+```
+
+allowing future task-category navigation.
+
+---
+
+## Folder Structure
+
+```text
+src/categories/
+
+├── controllers/
+│   └── categories.controller.ts
+│
+├── services/
+│   └── categories.service.ts
+│
+├── entities/
+│   └── category.entity.ts
+│
+├── dto/
+│   ├── create-category.dto.ts
+│   ├── update-category.dto.ts
+│   ├── category-query.dto.ts
+│   └── category-response.dto.ts
+│
+└── categories.module.ts
+```
+
+---
+
+## Migration
+
+Created:
+
+```text
+src/database/migrations/01-create-categories.ts
+```
+
+Responsibilities:
+
+* Create categories table
+* Create ownership index
+* Add categoryId column to tasks table
+* Create Task → Category foreign key
+
+---
+
+## Security
+
+Protected using:
+
+```ts
+JwtAuthGuard
+```
+
+All Category endpoints require a valid JWT issued by FastAPI.
+
+JWT validation includes:
+
+* Signature Validation
+* Issuer Validation
+* Audience Validation
+* Expiration Validation
+
+---
+
+## Phase 6 Completion Checklist
+
+```text
+✅ Category Entity
+✅ Category DTOs
+✅ Category Service
+✅ Category Controller
+✅ Categories Module
+✅ Category Migration
+✅ Pagination
+✅ Search
+✅ Sorting
+✅ Swagger Documentation
+✅ JWT Protection
+✅ Ownership Enforcement
+✅ Task ↔ Category Relationship
+```
+
+---
+
+## Result
+
+The Categories Module is fully integrated into the NestJS backend and provides task organization capabilities through a secure user-owned category system.
+
+This completes Phase 6 of the NestJS backend roadmap.

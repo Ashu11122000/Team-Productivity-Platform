@@ -7,12 +7,16 @@ import {
     UpdateDateColumn,
     PrimaryGeneratedColumn,
     Index,
+    ManyToOne,
+    JoinColumn,
 } from 'typeorm';
 
 import { ApiProperty } from '@nestjs/swagger';
 
 import { TaskStatus } from '../../common/enums/task-status.enum';
 import { TaskPriority } from '../../common/enums/task-priority.enum';
+
+import { Category } from '../../categories/entities/category.entity';
 
 @Entity({
     name: 'tasks',
@@ -22,7 +26,6 @@ export class Task {
         example: '550e8400-e29b-41d4-a716-446655440000',
         description: 'Task unique identifier',
     })
-
     @PrimaryGeneratedColumn('uuid')
     id!: string;
 
@@ -30,7 +33,6 @@ export class Task {
         example: 'Complete NestJS Assignment',
         description: 'Task title',
     })
-
     @Column({
         type: 'varchar',
         length: 255,
@@ -52,7 +54,6 @@ export class Task {
         enum: TaskStatus,
         example: TaskStatus.TODO,
     })
-    
     @Column({
         type: 'enum',
         enum: TaskStatus,
@@ -85,7 +86,6 @@ export class Task {
         example: '1',
         description: 'User ID from FastAPI JWT',
     })
-
     @Index('IDX_TASK_USER_ID')
     @Column({
         type: 'varchar',
@@ -97,7 +97,6 @@ export class Task {
         example: false,
         description: 'Whether task originated from note conversion',
     })
-    
     @Column({
         type: 'boolean',
         default: false,
@@ -109,7 +108,6 @@ export class Task {
         required: false,
         description: 'Original FastAPI note ID',
     })
-    
     @Column({
         type: 'varchar',
         length: 100,
@@ -118,19 +116,39 @@ export class Task {
     sourceNoteId?: string | null;
 
     @ApiProperty({
+        example: '550e8400-e29b-41d4-a716-446655440001',
+        required: false,
+    })
+    @Column({
+        type: 'uuid',
+        nullable: true,
+    })
+    categoryId?: string | null;
+
+    @ManyToOne(
+        () => Category,
+        (category) => category.tasks,
+        {
+            nullable: true,
+            onDelete: 'SET NULL',
+        },
+    )
+    @JoinColumn({
+        name: 'categoryId',
+    })
+    category?: Category | null;
+
+    @ApiProperty({
         example: '2026-06-13T08:00:00.000Z',
     })
-
     @CreateDateColumn({
         type: 'timestamp',
     })
     createdAt!: Date;
 
-
     @ApiProperty({
         example: '2026-06-13T10:30:00.000Z',
     })
-
     @UpdateDateColumn({
         type: 'timestamp',
     })
