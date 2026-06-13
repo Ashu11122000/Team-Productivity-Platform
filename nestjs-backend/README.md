@@ -810,3 +810,265 @@ package.json:
 
 ---
 
+# Phase 3 - Application Bootstrap
+
+## Overview
+
+Phase 3 establishes the foundational application bootstrap layer for the NestJS backend.
+
+The goal of this phase is to configure the application startup process, database integration, security middleware, logging, validation, API documentation, and health monitoring.
+
+At the end of this phase, the NestJS application can:
+
+* Start successfully
+* Connect to PostgreSQL
+* Expose Swagger documentation
+* Apply security headers
+* Enable CORS
+* Validate incoming requests globally
+* Log requests using Pino
+* Provide a health check endpoint
+
+---
+
+## Features Implemented
+
+### ConfigModule
+
+Global configuration management is enabled using:
+
+* @nestjs/config
+* Environment variables
+* Centralized configuration files
+
+Loaded configurations:
+
+* app.config.ts
+* database.config.ts
+* jwt.config.ts
+
+---
+
+### TypeORM Integration
+
+Database connection is configured using:
+
+* PostgreSQL
+* TypeORM
+* ConfigService
+* Async initialization
+
+Configuration includes:
+
+* Host
+* Port
+* Username
+* Password
+* Database Name
+
+Database synchronization remains disabled:
+
+```ts
+synchronize: false
+```
+
+to ensure migration-driven schema management.
+
+---
+
+### Helmet Security
+
+Helmet middleware is enabled globally.
+
+Provides protection through security headers such as:
+
+* X-Content-Type-Options
+* X-Frame-Options
+* Content-Security-Policy
+* Referrer-Policy
+
+---
+
+### CORS Configuration
+
+Cross-Origin Resource Sharing (CORS) is enabled.
+
+Allowed origin:
+
+```env
+FRONTEND_URL=http://localhost:3000
+```
+
+Credentials support is enabled for future authenticated requests.
+
+---
+
+### Global ValidationPipe
+
+A global validation pipeline is configured.
+
+Features:
+
+* DTO validation
+* Automatic transformation
+* Payload sanitization
+* Unknown property rejection
+
+Configuration:
+
+```ts
+whitelist: true
+forbidNonWhitelisted: true
+transform: true
+```
+
+---
+
+### Pino Logger
+
+Structured request logging is configured using:
+
+* nestjs-pino
+* pino
+* pino-pretty
+
+Provides:
+
+* HTTP request logs
+* Response logs
+* Error logs
+* Development-friendly output
+
+---
+
+### Swagger Documentation
+
+Swagger UI is configured for API documentation.
+
+Features:
+
+* API Explorer
+* Request/Response Schemas
+* JWT Bearer Authentication Support
+
+Swagger URL:
+
+```text
+http://localhost:3001/api/docs
+```
+
+Bearer authentication is preconfigured for future FastAPI-issued JWT integration.
+
+---
+
+### Health Check Endpoint
+
+A dedicated health module is implemented.
+
+Endpoint:
+
+```http
+GET /health
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "service": "nestjs-backend"
+}
+```
+
+Purpose:
+
+* Service monitoring
+* Docker health checks
+* Load balancer verification
+* Deployment validation
+
+---
+
+## Files Created
+
+```text
+src/
+
+├── health/
+│   ├── health.controller.ts
+│   └── health.module.ts
+```
+
+---
+
+## Files Updated
+
+```text
+src/
+
+├── main.ts
+├── app.module.ts
+```
+
+---
+
+## Files Removed
+
+Default NestJS starter files were removed:
+
+```text
+src/
+
+├── app.controller.ts
+├── app.controller.spec.ts
+└── app.service.ts
+```
+
+---
+
+## Verification
+
+Start the application:
+
+```bash
+npm run start:dev
+```
+
+Verify health endpoint:
+
+```http
+GET http://localhost:3001/health
+```
+
+Verify Swagger:
+
+```text
+http://localhost:3001/api/docs
+```
+
+Verify database connectivity:
+
+Application startup should complete successfully without TypeORM connection errors.
+
+---
+
+## Phase 3 Completion Status
+
+Completed:
+
+* ConfigModule
+* TypeOrmModule
+* Helmet
+* CORS
+* ValidationPipe
+* Pino Logger
+* Swagger
+* Health Endpoint
+
+Result:
+
+The NestJS backend is successfully bootstrapped and ready for authentication integration and feature module development.
+
+---
+
+
