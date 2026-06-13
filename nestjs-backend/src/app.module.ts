@@ -19,6 +19,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { CategoriesModule } from './categories/categories.module';
 import { TagsModule } from './tags/tags.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
     CategoriesModule,
     TagsModule,
     ActivityLogsModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
