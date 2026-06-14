@@ -5,4 +5,4 @@ export const QUERY_KEYS = {
     CATEGORIES: ['categories'],
     TAGS: ['tags'],
     NOTIFICATIONS: ['notifications'],
-};
+} as const;
