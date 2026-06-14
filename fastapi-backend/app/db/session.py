@@ -38,6 +38,10 @@ DATABASE_URL = (
     f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 )
 
+print("=" * 80)
+print("DATABASE_URL =", DATABASE_URL)
+print("=" * 80)
+
 # SQLAlchemy Engine
 engine = create_engine(
     DATABASE_URL,

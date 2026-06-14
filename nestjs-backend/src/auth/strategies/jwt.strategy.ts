@@ -21,6 +21,21 @@ export class JwtStrategy extends PassportStrategy(
   constructor(
     private readonly configService: ConfigService,
   ) {
+    console.log(
+      'JWT_SECRET:',
+      configService.get<string>('jwt.secret'),
+    );
+
+    console.log(
+      'JWT_ISSUER:',
+      configService.get<string>('jwt.issuer'),
+    );
+
+    console.log(
+      'JWT_AUDIENCE:',
+      configService.get<string>('jwt.audience'),
+    );
+
     const options: StrategyOptionsWithoutRequest = {
       jwtFromRequest:
         ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -49,6 +64,11 @@ export class JwtStrategy extends PassportStrategy(
   validate(
     payload: JwtPayload,
   ): JwtPayload {
+    console.log(
+      'JWT PAYLOAD:',
+      JSON.stringify(payload, null, 2),
+    );
+
     return payload;
   }
 }

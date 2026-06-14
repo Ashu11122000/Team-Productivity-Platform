@@ -73,7 +73,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 
         autoLoadEntities: true,
 
-        synchronize: false,
+        synchronize: true,
 
         logging:
           configService.get<string>(

@@ -3,6 +3,7 @@
 import {
     Injectable,
     NotFoundException,
+    Logger,
 } from '@nestjs/common';
 
 import {
@@ -23,6 +24,11 @@ import { ActivityLogQueryDto } from '../dto/activity-log-query.dto';
 
 @Injectable()
 export class ActivityLogsService {
+    private readonly logger =
+        new Logger(
+            ActivityLogsService.name,
+        );
+
     constructor(
         @InjectRepository(ActivityLog)
         private readonly activityLogRepository:
@@ -39,27 +45,57 @@ export class ActivityLogsService {
         >;
         userId: string;
     }): Promise<ActivityLog> {
-        const activityLog =
-            this.activityLogRepository.create({
-                action:
-                    params.action,
+        try {
+            this.logger.log(
+                `Creating activity log`,
+            );
 
-                entityType:
-                    params.entityType,
+            const activityLog =
+                this.activityLogRepository.create({
+                    action:
+                        params.action,
 
-                entityId:
-                    params.entityId,
+                    entityType:
+                        params.entityType,
 
-                metadata:
-                    params.metadata,
+                    entityId:
+                        params.entityId,
 
-                userId:
-                    params.userId,
-            });
+                    metadata:
+                        params.metadata,
 
-        return this.activityLogRepository.save(
-            activityLog,
-        );
+                    userId:
+                        params.userId,
+                });
+
+            this.logger.debug(
+                JSON.stringify(
+                    activityLog,
+                    null,
+                    2,
+                ),
+            );
+
+            const savedLog =
+                await this.activityLogRepository.save(
+                    activityLog,
+                );
+
+            this.logger.log(
+                `Activity log created: ${savedLog.id}`,
+            );
+
+            return savedLog;
+        } catch (error) {
+            this.logger.error(
+                'Failed to create activity log',
+                error instanceof Error
+                    ? error.stack
+                    : String(error),
+            );
+
+            throw error;
+        }
     }
 
     async findAll(
@@ -123,7 +159,6 @@ export class ActivityLogsService {
             total,
             page,
             limit,
-
             totalPages:
                 Math.ceil(
                     total / limit,
