@@ -952,3 +952,370 @@ Verified:
 * Environment variables configured
 
 ---
+
+# Frontend Phase 2 – Authentication Module
+
+## Overview
+
+Phase 2 implements the complete authentication flow for the Team Productivity Platform frontend using the FastAPI backend.
+
+The frontend now supports:
+
+* User Registration
+* User Login
+* JWT Authentication
+* Current User Fetching
+* Authentication State Management
+* Protected Routes
+* Role-Based Route Protection
+* Logout Functionality
+* React Query Integration
+* Zustand Authentication Persistence
+
+---
+
+## Authentication Flow
+
+```text
+Register
+   ↓
+Login
+   ↓
+FastAPI Returns JWT
+   ↓
+JWT Stored in Zustand
+   ↓
+AuthInitializer Executes
+   ↓
+GET /auth/me
+   ↓
+User Stored in Zustand
+   ↓
+Protected Routes Enabled
+   ↓
+Same JWT Used For NestJS APIs
+```
+
+---
+
+## FastAPI Authentication Endpoints
+
+```http
+POST /auth/register
+POST /auth/login
+POST /auth/logout
+POST /auth/refresh
+GET  /auth/me
+```
+
+---
+
+## Folder Structure
+
+```text
+src/
+├── features/
+│   └── auth/
+│       ├── api/
+│       │   ├── login.ts
+│       │   ├── register.ts
+│       │   ├── logout.ts
+│       │   ├── refresh-token.ts
+│       │   └── current-user.ts
+│       │
+│       ├── hooks/
+│       │   ├── use-login.ts
+│       │   ├── use-register.ts
+│       │   ├── use-current-user.ts
+│       │   └── use-logout.ts
+│       │
+│       ├── schemas/
+│       │   ├── login.schema.ts
+│       │   └── register.schema.ts
+│       │
+│       ├── types/
+│       │   ├── auth.types.ts
+│       │   ├── login.types.ts
+│       │   ├── register.types.ts
+│       │   └── user.types.ts
+│       │
+│       └── components/
+│           ├── auth-guard.tsx
+│           ├── auth-initializer.tsx
+│           ├── login-form.tsx
+│           ├── register-form.tsx
+│           └── role-guard.tsx
+│
+├── app/
+│   ├── (auth)/
+│   │   ├── layout.tsx
+│   │   ├── login/
+│   │   │   └── page.tsx
+│   │   └── register/
+│   │       └── page.tsx
+│   │
+│   └── (protected)/
+│       └── layout.tsx
+```
+
+---
+
+## Implemented Features
+
+### Authentication Types
+
+Created:
+
+```text
+auth.types.ts
+login.types.ts
+register.types.ts
+user.types.ts
+```
+
+Responsibilities:
+
+* Request Types
+* Response Types
+* User Model
+* Authentication State Types
+
+---
+
+### Validation Schemas
+
+Created using Zod:
+
+```text
+login.schema.ts
+register.schema.ts
+```
+
+Features:
+
+* Email Validation
+* Password Validation
+* Confirm Password Validation
+* Type Inference
+
+---
+
+### API Layer
+
+Created:
+
+```text
+login.ts
+register.ts
+logout.ts
+refresh-token.ts
+current-user.ts
+```
+
+Responsibilities:
+
+* FastAPI Communication
+* Authentication Requests
+* Current User Fetching
+* Token Refresh Requests
+
+---
+
+### Authentication Hooks
+
+Created:
+
+```text
+use-login.ts
+use-register.ts
+use-current-user.ts
+use-logout.ts
+```
+
+Responsibilities:
+
+* React Query Mutations
+* React Query Queries
+* Sonner Notifications
+* Zustand Integration
+* Authentication Lifecycle Management
+
+---
+
+### Authentication Components
+
+Created:
+
+```text
+login-form.tsx
+register-form.tsx
+auth-guard.tsx
+role-guard.tsx
+auth-initializer.tsx
+```
+
+Responsibilities:
+
+* Login UI
+* Registration UI
+* Route Protection
+* Role Validation
+* User Hydration
+
+---
+
+### Authentication Pages
+
+Created:
+
+```text
+/ login
+/ register
+```
+
+Features:
+
+* Shadcn Card Layout
+* Form Validation
+* API Integration
+* Navigation Links
+
+---
+
+### Zustand Integration
+
+Enhanced Authentication Store:
+
+```text
+accessToken
+user
+isAuthenticated
+```
+
+Actions:
+
+```text
+setAccessToken()
+setUser()
+logout()
+```
+
+Persistence:
+
+```text
+localStorage
+```
+
+Storage Key:
+
+```text
+NEXT_PUBLIC_AUTH_STORAGE_KEY
+```
+
+---
+
+### Route Protection
+
+Implemented:
+
+```text
+AuthGuard
+RoleGuard
+Protected Layout
+```
+
+Capabilities:
+
+* Redirect Unauthenticated Users
+* Protect Private Pages
+* Restrict Role-Based Pages
+
+---
+
+### User Hydration
+
+Implemented:
+
+```text
+AuthInitializer
+```
+
+Responsibilities:
+
+* Execute on App Load
+* Fetch Current User
+* Store User in Zustand
+* Restore Authentication State
+
+---
+
+## Authentication State
+
+```ts
+{
+  accessToken: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+}
+```
+
+---
+
+## Current Routes
+
+```text
+/
+/login
+/register
+```
+
+Protected Routes (Upcoming):
+
+```text
+/dashboard
+/notes
+/tasks
+/analytics
+/settings
+```
+
+---
+
+## Testing Checklist
+
+### Registration
+
+* Create New User
+* Validate Form Inputs
+* Display Success Message
+
+### Login
+
+* Authenticate User
+* Store JWT
+* Redirect User
+
+### Current User
+
+* Fetch /auth/me
+* Store User Information
+
+### Logout
+
+* Clear Zustand Store
+* Clear React Query Cache
+* Remove JWT
+
+### Protected Routes
+
+* Block Unauthenticated Access
+* Redirect to Login
+
+### Role Protection
+
+* Allow Authorized Roles
+* Deny Unauthorized Roles
+
+---
+
+
