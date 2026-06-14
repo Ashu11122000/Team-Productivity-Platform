@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/store/auth-store';
 
 export const fastapiClient = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_FASTAPI_URL,
+    baseURL: `${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/v1`,
     headers: {
         'Content-Type': 'application/json'
     },
