@@ -1,6 +1,5 @@
-version: '3.9'
-
 services:
+
   postgres:
     image: postgres:17-alpine
 
@@ -19,7 +18,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-
   nestjs-backend:
     build:
       context: .
@@ -37,6 +35,10 @@ services:
 
     ports:
       - "3001:3001"
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
 
 volumes:
   postgres_data:
