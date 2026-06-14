@@ -673,3 +673,282 @@ Completed:
 * API Layer Foundation
 * Environment Configuration
 * Folder Structure Design
+
+---
+
+# Frontend Phase 1 – Project Foundation Setup
+
+## Objective
+
+Establish the frontend foundation for the Team Productivity Platform using Next.js 15, TypeScript, Tailwind CSS, Shadcn UI, TanStack Query, Zustand, and Axios.
+
+This phase focuses on project setup, architecture, environment configuration, state management, API clients, and shared providers.
+
+---
+
+## Technologies Installed
+
+### Core Framework
+
+* Next.js 15 (App Router)
+* React 19
+* TypeScript
+
+### Styling
+
+* Tailwind CSS
+* Shadcn UI
+* Radix UI
+
+### State Management
+
+* Zustand
+
+### Data Fetching
+
+* Axios
+* TanStack Query
+
+### Forms & Validation
+
+* React Hook Form
+* Zod
+* @hookform/resolvers
+
+### Notifications
+
+* Sonner
+
+### Icons
+
+* Lucide React
+
+### Utilities
+
+* clsx
+* tailwind-merge
+* class-variance-authority
+* date-fns
+
+### Charts
+
+* Recharts
+
+### Drag and Drop
+
+* @dnd-kit/core
+* @dnd-kit/sortable
+* @dnd-kit/utilities
+
+### Analytics
+
+* @next/third-parties
+
+---
+
+## Environment Configuration
+
+Created:
+
+```text
+.env.local
+```
+
+Contents:
+
+```env
+NEXT_PUBLIC_APP_NAME=Team Productivity Platform
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+NEXT_PUBLIC_FASTAPI_URL=http://localhost:8000
+NEXT_PUBLIC_NESTJS_URL=http://localhost:3001
+
+NEXT_PUBLIC_AUTH_STORAGE_KEY=tpp_access_token
+
+NEXT_PUBLIC_GA_ID=
+
+NEXT_PUBLIC_ENABLE_ANALYTICS=true
+NEXT_PUBLIC_ENABLE_NOTIFICATIONS=true
+NEXT_PUBLIC_ENABLE_DRAG_AND_DROP=true
+
+NEXT_PUBLIC_DEFAULT_PAGE_SIZE=10
+NEXT_PUBLIC_MAX_PAGE_SIZE=100
+```
+
+---
+
+## API Client Setup
+
+### FastAPI Client
+
+File:
+
+```text
+src/services/fastapi/client.ts
+```
+
+Purpose:
+
+* Authentication APIs
+* User APIs
+* Notes APIs
+
+---
+
+### NestJS Client
+
+File:
+
+```text
+src/services/nestjs/client.ts
+```
+
+Purpose:
+
+* Tasks APIs
+* Categories APIs
+* Tags APIs
+* Notifications APIs
+* Analytics APIs
+* Activity Logs APIs
+
+---
+
+## State Management
+
+### Zustand Store
+
+File:
+
+```text
+src/store/auth-store.ts
+```
+
+Responsibilities:
+
+* Store JWT Access Token
+* Logout Handling
+* Authentication State
+
+---
+
+## Data Fetching
+
+### TanStack Query Provider
+
+File:
+
+```text
+src/providers/query-provider.tsx
+```
+
+Responsibilities:
+
+* Query Client Configuration
+* API Caching
+* Request Management
+* Data Synchronization
+
+---
+
+## Shared Constants
+
+Files:
+
+```text
+src/constants/api-routes.ts
+src/constants/query-keys.ts
+src/constants/roles.ts
+```
+
+Responsibilities:
+
+* API Route Constants
+* React Query Keys
+* Role Definitions
+
+---
+
+## Shared Utilities
+
+File:
+
+```text
+src/lib/utils.ts
+```
+
+Responsibilities:
+
+* Tailwind Class Merging
+* Common Utility Functions
+
+---
+
+## Application Layout
+
+Updated:
+
+```text
+src/app/layout.tsx
+```
+
+Features:
+
+* Global Metadata
+* Query Provider Integration
+* Sonner Notifications
+* Application Font Configuration
+
+---
+
+## Folder Architecture
+
+```text
+src/
+├── app/
+├── components/
+├── features/
+├── services/
+├── providers/
+├── store/
+├── hooks/
+├── schemas/
+├── types/
+├── constants/
+├── lib/
+├── middleware/
+└── utils/
+```
+
+---
+
+## Shadcn UI Components Installed
+
+```text
+badge
+button
+card
+dialog
+dropdown-menu
+input
+select
+sheet
+skeleton
+table
+textarea
+```
+
+---
+
+## Application Verification
+
+Verified:
+
+* Application compiles successfully
+* Development server runs successfully
+* Root layout configured correctly
+* Providers integrated correctly
+* Folder architecture established
+* Environment variables configured
+
+---
