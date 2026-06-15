@@ -1,21 +1,50 @@
-import { nestjsClient } from '@/services/nestjs/client';
+'use client';
 
-import { API_ROUTES } from '@/lib/constants/api-routes';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 
-import { Task, TaskStatus } from '../types/task.types';
+import { toast } from 'sonner';
 
-interface UpdateTaskStatusParams {
+import { updateTaskStatus } from '../api/update-task-status';
+
+import type {
+  TaskStatus,
+} from '../types/task.types';
+
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
+
+interface Variables {
   id: string;
   status: TaskStatus;
 }
 
-export async function updateTaskStatus({
-  id,
-  status,
-}: UpdateTaskStatusParams): Promise<Task> {
-  const response = await nestjsClient.patch<Task>(`${API_ROUTES.TASKS}/${id}`, {
-    status,
-  });
+export function useUpdateTaskStatus() {
+  const queryClient =
+    useQueryClient();
 
-  return response.data;
+  return useMutation({
+    mutationFn: (
+      variables: Variables,
+    ) =>
+      updateTaskStatus(
+        variables,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey:
+          QUERY_KEYS.TASKS,
+      });
+
+      toast.success(
+        'Status updated',
+      );
+    },
+
+    onError: () => {
+      toast.error(
+        'Failed to update status',
+      );
+    },
+  });
 }

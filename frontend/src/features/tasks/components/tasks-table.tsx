@@ -13,6 +13,8 @@ import {
 
 import { Task } from '../types/task.types';
 
+import { TaskActions } from './task-actions';
+
 import { TaskStatusBadge } from './task-status-badge';
 
 interface TasksTableProps {
@@ -31,13 +33,16 @@ export function TasksTable({ tasks }: TasksTableProps) {
           <TableHead>Priority</TableHead>
 
           <TableHead>Due Date</TableHead>
+
+          <TableHead>Actions</TableHead>
+
         </TableRow>
       </TableHeader>
 
       <TableBody>
         {tasks.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={4} className="text-center">
+            <TableCell colSpan={5} className="text-center">
               No tasks found
             </TableCell>
           </TableRow>
@@ -61,6 +66,12 @@ export function TasksTable({ tasks }: TasksTableProps) {
                   ? new Date(task.dueDate).toLocaleDateString()
                   : '-'}
               </TableCell>
+
+              <TableCell>
+  <TaskActions
+    task={task}
+  />
+</TableCell>
             </TableRow>
           ))
         )}

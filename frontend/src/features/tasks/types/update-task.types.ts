@@ -1,4 +1,4 @@
-import {
+import type {
   TaskPriority,
   TaskStatus,
 } from './task.types';
@@ -12,7 +12,9 @@ export interface UpdateTaskRequest {
 
   priority?: TaskPriority;
 
-  dueDate?: string;
+  dueDate?: string | null;
+
+  categoryId?: string | null;
 
   tagIds?: string[];
 }
