@@ -4,27 +4,19 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getCurrentUser } from '../api/current-user';
 
-import { QUERY_KEYS } from '@/constants/query-keys';
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
 import { useAuthStore } from '@/store/auth-store';
 
 export function useCurrentUser() {
-  const accessToken =
-    useAuthStore(
-      (state) => state.accessToken,
-    );
+  const accessToken = useAuthStore((state) => state.accessToken);
 
-  const setUser =
-    useAuthStore(
-      (state) => state.setUser,
-    );
+  const setUser = useAuthStore((state) => state.setUser);
 
   return useQuery({
-    queryKey:
-      QUERY_KEYS.CURRENT_USER,
+    queryKey: QUERY_KEYS.CURRENT_USER,
 
     queryFn: async () => {
-      const user =
-        await getCurrentUser();
+      const user = await getCurrentUser();
 
       setUser(user);
 

@@ -2,15 +2,11 @@
 
 import { nestjsClient } from '@/services/nestjs/client';
 
-import { API_ROUTES } from '@/constants/api-routes';
+import { API_ROUTES } from '@/lib/constants/api-routes';
 
-import {
-  UpdateTaskRequest,
-} from '../types/update-task.types';
+import { UpdateTaskRequest } from '../types/update-task.types';
 
-import {
-  Task,
-} from '../types/task.types';
+import { Task } from '../types/task.types';
 
 interface UpdateTaskParams {
   id: string;
@@ -21,11 +17,10 @@ export async function updateTask({
   id,
   data,
 }: UpdateTaskParams): Promise<Task> {
-  const response =
-    await nestjsClient.patch<Task>(
-      `${API_ROUTES.TASKS}/${id}`,
-      data,
-    );
+  const response = await nestjsClient.patch<Task>(
+    `${API_ROUTES.TASKS}/${id}`,
+    data,
+  );
 
   return response.data;
 }

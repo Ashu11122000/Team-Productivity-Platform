@@ -1,17 +1,18 @@
 import { nestjsClient } from '@/services/nestjs/client';
 
-import type { Task } from '../types/task.types';
-import type { TaskQueryParams } from '../types/task-query.types';
+import type {
+  TasksResponse,
+} from '../types/task.types';
 
-export interface TasksResponse {
-  data: Task[];
-}
+import type {
+  TaskQueryParams,
+} from '../types/task-query.types';
 
 export async function getTasks(
   params?: TaskQueryParams,
 ): Promise<TasksResponse> {
   const response =
-    await nestjsClient.get(
+    await nestjsClient.get<TasksResponse>(
       '/tasks',
       {
         params,

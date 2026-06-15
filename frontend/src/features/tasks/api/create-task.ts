@@ -1,25 +1,24 @@
-// features/tasks/api/create-task.ts
-
 import { nestjsClient } from '@/services/nestjs/client';
 
-import { API_ROUTES } from '@/constants/api-routes';
+import { API_ROUTES } from '@/lib/constants/api-routes';
 
-import {
-  CreateTaskRequest,
-} from '../types/create-task.types';
+import type { CreateTaskRequest } from '../types/create-task.types';
+import type { Task } from '../types/task.types';
 
-import {
-  Task,
-} from '../types/task.types';
+interface CreateTaskResponse {
+  success: boolean;
+  message: string;
+  data: Task;
+}
 
 export async function createTask(
-  data: CreateTaskRequest,
+  payload: CreateTaskRequest,
 ): Promise<Task> {
   const response =
-    await nestjsClient.post<Task>(
+    await nestjsClient.post<CreateTaskResponse>(
       API_ROUTES.TASKS,
-      data,
+      payload,
     );
 
-  return response.data;
+  return response.data.data;
 }

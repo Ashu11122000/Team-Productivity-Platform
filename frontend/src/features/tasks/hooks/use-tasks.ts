@@ -4,12 +4,18 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getTasks } from '../api/get-tasks';
 
-import type { TaskQueryParams } from '../types/task-query.types';
+import type {
+  TasksResponse,
+} from '../types/task.types';
+
+import type {
+  TaskQueryParams,
+} from '../types/task-query.types';
 
 export function useTasks(
   params?: TaskQueryParams,
 ) {
-  return useQuery({
+  return useQuery<TasksResponse>({
     queryKey: ['tasks', params],
 
     queryFn: () =>

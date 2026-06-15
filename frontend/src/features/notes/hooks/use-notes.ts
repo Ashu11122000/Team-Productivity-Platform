@@ -4,12 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getNotes } from '../api/get-notes';
 
-import { QUERY_KEYS } from '@/constants/query-keys';
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
 export function useNotes() {
-    return useQuery({
-        queryKey: QUERY_KEYS.NOTES,
+  return useQuery({
+    queryKey: QUERY_KEYS.NOTES,
 
-        queryFn: getNotes,
-    });
+    queryFn: getNotes,
+  });
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { notFound } from 'next/navigation';
+// import { notFound } from 'next/navigation';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,14 +17,8 @@ interface TaskDetailsPageProps {
   };
 }
 
-export default function TaskDetailsPage({
-  params,
-}: TaskDetailsPageProps) {
-  const {
-    data: task,
-    isLoading,
-    isError,
-  } = useTask(params.id);
+export default function TaskDetailsPage({ params }: TaskDetailsPageProps) {
+  const { data: task, isLoading, isError } = useTask(params.id);
 
   if (isLoading) {
     return (
@@ -36,111 +30,79 @@ export default function TaskDetailsPage({
     );
   }
 
-  if (isError || !task) {
-    notFound();
+  if (isError) {
+    return <div className="rounded-md border p-6">Failed to load task.</div>;
+  }
+
+  if (!task) {
+    return <div className="rounded-md border p-6">Task not found.</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold">
-            {task.title}
-          </h1>
+          <h1 className="text-3xl font-bold">{task.title}</h1>
 
-          <p className="text-muted-foreground">
-            Task Details
-          </p>
+          <p className="text-muted-foreground">Task Details</p>
         </div>
 
         <div className="flex gap-2">
           <UpdateTaskDialog task={task} />
 
-          <DeleteTaskDialog
-            taskId={task.id}
-          />
+          <DeleteTaskDialog taskId={task.id} />
         </div>
       </div>
 
       <Card>
         <CardContent className="space-y-6 pt-6">
           <div>
-            <h3 className="mb-2 text-sm font-medium">
-              Status
-            </h3>
+            <h3 className="mb-2 text-sm font-medium">Status</h3>
 
-            <TaskStatusBadge
-              status={task.status}
-            />
+            <TaskStatusBadge status={task.status} />
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-medium">
-              Priority
-            </h3>
+            <h3 className="mb-2 text-sm font-medium">Priority</h3>
 
             <p>{task.priority}</p>
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-medium">
-              Description
-            </h3>
+            <h3 className="mb-2 text-sm font-medium">Description</h3>
 
             <p className="text-muted-foreground">
-              {task.description ||
-                'No description provided'}
+              {task.description || 'No description provided'}
             </p>
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-medium">
-              Due Date
-            </h3>
+            <h3 className="mb-2 text-sm font-medium">Due Date</h3>
 
             <p>
               {task.dueDate
-                ? new Date(
-                    task.dueDate,
-                  ).toLocaleString()
+                ? new Date(task.dueDate).toLocaleString()
                 : 'No due date'}
             </p>
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-medium">
-              Created At
-            </h3>
+            <h3 className="mb-2 text-sm font-medium">Created At</h3>
 
-            <p>
-              {new Date(
-                task.createdAt,
-              ).toLocaleString()}
-            </p>
+            <p>{new Date(task.createdAt).toLocaleString()}</p>
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-medium">
-              Last Updated
-            </h3>
+            <h3 className="mb-2 text-sm font-medium">Last Updated</h3>
 
-            <p>
-              {new Date(
-                task.updatedAt,
-              ).toLocaleString()}
-            </p>
+            <p>{new Date(task.updatedAt).toLocaleString()}</p>
           </div>
 
           {task.isConvertedFromNote && (
             <div>
-              <h3 className="mb-2 text-sm font-medium">
-                Source Note
-              </h3>
+              <h3 className="mb-2 text-sm font-medium">Source Note</h3>
 
-              <p>
-                Converted from Note ID:{' '}
-                {task.sourceNoteId}
-              </p>
+              <p>Converted from Note ID: {task.sourceNoteId}</p>
             </div>
           )}
         </CardContent>
