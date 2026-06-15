@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const taskSchema = z.object({
+export const createTaskSchema = z.object({
   title: z
     .string()
     .min(1, 'Title is required')
@@ -31,5 +31,5 @@ export const taskSchema = z.object({
     .optional(),
 });
 
-export type TaskFormValues =
-  z.infer<typeof taskSchema>;
+export type CreateTaskSchemaType =
+  z.infer<typeof createTaskSchema>;

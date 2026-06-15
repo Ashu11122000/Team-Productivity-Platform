@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
@@ -12,6 +13,7 @@ password_hash = PasswordHash.recommended()
 
 def hash_password(password: str) -> str:
     return password_hash.hash(password)
+
 
 def verify_password(
     plain_password: str,
@@ -35,10 +37,11 @@ def create_access_token(
     Create JWT access token.
     """
 
-    expire = datetime.now(
-        timezone.utc
-    ) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    expire = (
+        datetime.now(timezone.utc)
+        + timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     )
 
     payload = {
@@ -50,6 +53,26 @@ def create_access_token(
         "exp": expire,
     }
 
+    print(
+        "FASTAPI SECRET =",
+        repr(settings.SECRET_KEY),
+    )
+
+    print(
+        "FASTAPI SECRET LENGTH =",
+        len(settings.SECRET_KEY),
+    )
+
+    print(
+        "FASTAPI ISSUER =",
+        settings.JWT_ISSUER,
+    )
+
+    print(
+        "FASTAPI AUDIENCE =",
+        settings.JWT_AUDIENCE,
+    )
+
     return jwt.encode(
         payload,
         settings.SECRET_KEY,
@@ -59,9 +82,10 @@ def create_access_token(
 
 def decode_access_token(
     token: str,
-):
+) -> dict[str, Any]:
     """
     Decode and validate JWT token.
+    Compatible with NestJS JWT configuration.
     """
 
     try:
@@ -69,11 +93,13 @@ def decode_access_token(
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
-            audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
+            audience=settings.JWT_AUDIENCE,
         )
 
         return payload
 
-    except JWTError:
-        return None
+    except JWTError as exc:
+        raise JWTError(
+            "Invalid or expired token"
+        ) from exc

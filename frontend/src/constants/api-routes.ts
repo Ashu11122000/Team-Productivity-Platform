@@ -6,4 +6,6 @@ export const API_ROUTES = {
     ME: '/auth/me',
 
     NOTES: '/notes',
+
+    TASKS: '/api/notes',
 };
