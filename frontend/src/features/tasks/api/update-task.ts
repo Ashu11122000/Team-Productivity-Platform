@@ -1,26 +1,30 @@
-// features/tasks/api/update-task.ts
-
 import { nestjsClient } from '@/services/nestjs/client';
 
 import { API_ROUTES } from '@/lib/constants/api-routes';
 
-import { UpdateTaskRequest } from '../types/update-task.types';
+import type { Task } from '../types/task.types';
 
-import { Task } from '../types/task.types';
+import type {
+  UpdateTaskRequest,
+} from '../types/update-task.types';
 
-interface UpdateTaskParams {
-  id: string;
-  data: UpdateTaskRequest;
+interface UpdateTaskResponse {
+  success: boolean;
+
+  message: string;
+
+  data: Task;
 }
 
-export async function updateTask({
-  id,
-  data,
-}: UpdateTaskParams): Promise<Task> {
-  const response = await nestjsClient.patch<Task>(
-    `${API_ROUTES.TASKS}/${id}`,
-    data,
-  );
+export async function updateTask(
+  id: string,
+  payload: UpdateTaskRequest,
+): Promise<Task> {
+  const response =
+    await nestjsClient.patch<UpdateTaskResponse>(
+      `${API_ROUTES.TASKS}/${id}`,
+      payload,
+    );
 
-  return response.data;
+  return response.data.data;
 }

@@ -1861,3 +1861,263 @@ src/app/(protected)/
 
 ---
 
+# Phase 5 – Tasks Module
+
+## Overview
+
+The Tasks Module provides complete task management functionality for the Team Productivity Platform. It integrates with the NestJS backend and allows users to create, manage, organize, and track tasks through both table and Kanban interfaces.
+
+---
+
+## Features Implemented
+
+### Task Management
+
+* Create Task
+* View Task Details
+* Update Task
+* Delete Task
+* Update Task Status
+* View Converted Note Information
+
+### Task Listing
+
+* Paginated Task List
+* Search Tasks
+* Status Filtering
+* Priority Filtering
+* Loading State
+* Error State
+* Empty State
+
+### Task Detail Page
+
+Route:
+
+```text
+/tasks/[id]
+```
+
+Features:
+
+* Task Information
+* Description
+* Status Management
+* Priority Display
+* Due Date
+* Created Date
+* Updated Date
+* Converted Note Metadata
+* Edit Task
+* Delete Task
+
+### Kanban Board
+
+Route:
+
+```text
+/tasks/kanban
+```
+
+Columns:
+
+* TODO
+* IN_PROGRESS
+* COMPLETED
+
+Features:
+
+* Automatic Task Grouping
+* Status-Based Organization
+* Task Cards
+* Direct Navigation To Task Details
+* React Query Integration
+* Automatic Refetch After Updates
+
+### Navigation
+
+* Table View → Kanban View
+* Kanban View → Table View
+
+---
+
+## API Integration
+
+### Tasks Endpoints
+
+```http
+POST   /api/tasks
+GET    /api/tasks
+GET    /api/tasks/:id
+PATCH  /api/tasks/:id
+DELETE /api/tasks/:id
+```
+
+### Query Parameters
+
+```ts
+page?: number;
+limit?: number;
+search?: string;
+status?: TaskStatus;
+priority?: TaskPriority;
+```
+
+Supported Status Values:
+
+```ts
+TODO
+IN_PROGRESS
+COMPLETED
+```
+
+Supported Priority Values:
+
+```ts
+LOW
+MEDIUM
+HIGH
+```
+
+---
+
+## Frontend Architecture
+
+### API Layer
+
+```text
+features/tasks/api/
+├── create-task.ts
+├── get-task.ts
+├── get-tasks.ts
+├── update-task.ts
+├── update-task-status.ts
+└── delete-task.ts
+```
+
+### React Query Hooks
+
+```text
+features/tasks/hooks/
+├── use-task.ts
+├── use-tasks.ts
+├── use-create-task.ts
+├── use-update-task.ts
+├── use-update-task-status.ts
+├── use-delete-task.ts
+└── use-task-kanban.ts
+```
+
+### Components
+
+```text
+features/tasks/components/
+├── task-form.tsx
+├── create-task-dialog.tsx
+├── update-task-dialog.tsx
+├── delete-task-dialog.tsx
+├── task-actions.tsx
+├── task-status-select.tsx
+├── task-status-badge.tsx
+├── task-card.tsx
+├── tasks-filters.tsx
+├── tasks-table.tsx
+├── pagination.tsx
+├── kanban-board.tsx
+└── kanban-column.tsx
+```
+
+### Types
+
+```text
+features/tasks/types/
+├── task.types.ts
+├── create-task.types.ts
+├── update-task.types.ts
+└── task-query.types.ts
+```
+
+### Validation Schemas
+
+```text
+features/tasks/schemas/
+├── task.schema.ts
+└── create-task.schema.ts
+```
+
+---
+
+## React Query
+
+### Query Keys
+
+```ts
+export const QUERY_KEYS = {
+  TASKS: ['tasks'],
+};
+```
+
+### Automatic Cache Invalidation
+
+The following actions automatically invalidate task queries:
+
+* Create Task
+* Update Task
+* Delete Task
+* Update Task Status
+
+This ensures:
+
+* Task List Refresh
+* Task Detail Refresh
+* Kanban Board Refresh
+
+---
+
+## Pages
+
+### Tasks List
+
+```text
+/tasks
+```
+
+Features:
+
+* Search
+* Status Filter
+* Priority Filter
+* Pagination
+* Create Task
+* View Task
+* Edit Task
+* Delete Task
+* Kanban Navigation
+
+### Task Details
+
+```text
+/tasks/[id]
+```
+
+Features:
+
+* Full Task Information
+* Status Updates
+* Edit
+* Delete
+
+### Kanban Board
+
+```text
+/tasks/kanban
+```
+
+Features:
+
+* Status Columns
+* Task Cards
+* Board Navigation
+
+---
+

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -11,63 +11,76 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 
 import { Button } from '@/components/ui/button';
 
-import { Task } from '../types/task.types';
-
 import { TaskForm } from './task-form';
 
 import {
-  updateTaskSchema,
-  UpdateTaskSchemaType,
-} from '../schemas/update-task.schema';
+  taskSchema,
+  TaskFormValues,
+} from '../schemas/task.schema';
+
+import { Task } from '../types/task.types';
 
 import { useUpdateTask } from '../hooks/use-update-task';
 
 interface UpdateTaskDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   task: Task;
 }
 
 export function UpdateTaskDialog({
+  open,
+  onOpenChange,
   task,
 }: UpdateTaskDialogProps) {
-  const [open, setOpen] =
-    useState(false);
-
   const { mutate, isPending } =
     useUpdateTask();
 
   const form =
-    useForm<UpdateTaskSchemaType>({
-      resolver: zodResolver(
-        updateTaskSchema,
-      ),
+    useForm<TaskFormValues>({
+      resolver:
+        zodResolver(taskSchema),
 
       defaultValues: {
         title: task.title,
         description:
           task.description ?? '',
         status: task.status,
-        priority: task.priority,
+        priority:
+          task.priority,
         dueDate:
           task.dueDate ?? '',
       },
     });
 
+  useEffect(() => {
+    form.reset({
+      title: task.title,
+      description:
+        task.description ?? '',
+      status: task.status,
+      priority:
+        task.priority,
+      dueDate:
+        task.dueDate ?? '',
+    });
+  }, [task, form]);
+
   const onSubmit = (
-    values: UpdateTaskSchemaType,
+    values: TaskFormValues,
   ) => {
     mutate(
       {
         id: task.id,
-        data: values,
+        payload: values,
       },
       {
         onSuccess: () => {
-          setOpen(false);
+          onOpenChange(false);
         },
       },
     );
@@ -76,14 +89,10 @@ export function UpdateTaskDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={
+        onOpenChange
+      }
     >
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          Edit
-        </Button>
-      </DialogTrigger>
-
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
@@ -97,7 +106,7 @@ export function UpdateTaskDialog({
           )}
           className="space-y-4"
         >
-          <TaskForm form={form as any} />
+          <TaskForm form={form} />
 
           <Button
             type="submit"

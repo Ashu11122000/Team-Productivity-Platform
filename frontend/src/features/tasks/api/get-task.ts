@@ -1,13 +1,22 @@
-// features/tasks/api/get-task.ts
-
 import { nestjsClient } from '@/services/nestjs/client';
 
 import { API_ROUTES } from '@/lib/constants/api-routes';
 
-import { Task } from '../types/task.types';
+import type { Task } from '../types/task.types';
 
-export async function getTask(id: string): Promise<Task> {
-  const response = await nestjsClient.get<Task>(`${API_ROUTES.TASKS}/${id}`);
+interface GetTaskResponse {
+  success: boolean;
+  message: string;
+  data: Task;
+}
 
-  return response.data;
+export async function getTask(
+  id: string,
+): Promise<Task> {
+  const response =
+    await nestjsClient.get<GetTaskResponse>(
+      `${API_ROUTES.TASKS}/${id}`,
+    );
+
+  return response.data.data;
 }

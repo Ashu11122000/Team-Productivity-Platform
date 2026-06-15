@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+} from '@/components/ui/card';
 
 import { Task } from '../types/task.types';
 
@@ -17,10 +20,10 @@ export function TaskCard({
 }: TaskCardProps) {
   return (
     <Link href={`/tasks/${task.id}`}>
-      <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+      <Card className="cursor-pointer transition-colors hover:bg-muted/50">
         <CardContent className="space-y-3 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="line-clamp-2 font-medium">
               {task.title}
             </h3>
 
@@ -30,13 +33,29 @@ export function TaskCard({
           </div>
 
           {task.description && (
-            <p className="text-sm text-muted-foreground">
+            <p className="line-clamp-3 text-sm text-muted-foreground">
               {task.description}
             </p>
           )}
 
-          <div className="text-xs text-muted-foreground">
-            Priority: {task.priority}
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p>
+              <span className="font-medium">
+                Priority:
+              </span>{' '}
+              {task.priority}
+            </p>
+
+            <p>
+              <span className="font-medium">
+                Due:
+              </span>{' '}
+              {task.dueDate
+                ? new Date(
+                    task.dueDate,
+                  ).toLocaleDateString()
+                : 'No due date'}
+            </p>
           </div>
         </CardContent>
       </Card>
