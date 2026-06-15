@@ -5,24 +5,33 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { login } from '../api/login';
-import type { LoginRequest } from '../types/login.types';
+
+import type {
+  LoginRequest,
+  LoginResponse,
+} from '../types/login.types';
 
 import { useAuthStore } from '@/store/auth-store';
 
 export function useLogin() {
   const router = useRouter();
 
-  const setAccessToken = useAuthStore(
-    (state) => state.setAccessToken,
-  );
+  const setAccessToken =
+    useAuthStore(
+      (state) => state.setAccessToken,
+    );
 
-  const setUser = useAuthStore(
-    (state) => state.setUser,
-  );
+  const setUser =
+    useAuthStore(
+      (state) => state.setUser,
+    );
 
-  return useMutation({
-    mutationFn: (data: LoginRequest) =>
-      login(data),
+  return useMutation<
+    LoginResponse,
+    unknown,
+    LoginRequest
+  >({
+    mutationFn: login,
 
     onSuccess: (response) => {
       setAccessToken(
@@ -34,10 +43,12 @@ export function useLogin() {
       );
 
       toast.success(
-        'Login successful',
+        response.message,
       );
 
-      router.push('/dashboard');
+      router.replace(
+        '/dashboard',
+      );
     },
 
     onError: () => {

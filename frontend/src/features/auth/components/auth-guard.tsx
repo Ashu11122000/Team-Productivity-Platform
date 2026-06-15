@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import {
+  useEffect,
+  type ReactNode,
+} from 'react';
 
 import { useRouter } from 'next/navigation';
 
@@ -17,17 +20,31 @@ export function AuthGuard({
 
   const isAuthenticated =
     useAuthStore(
-      (state) => state.isAuthenticated,
+      (state) =>
+        state.isAuthenticated,
+    );
+
+  const hydrated =
+    useAuthStore(
+      (state) => state.hydrated,
     );
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (
+      hydrated &&
+      !isAuthenticated
+    ) {
       router.replace('/login');
     }
   }, [
+    hydrated,
     isAuthenticated,
     router,
   ]);
+
+  if (!hydrated) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return null;

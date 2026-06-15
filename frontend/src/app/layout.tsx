@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import './globals.css';
 
 import { QueryProvider } from '@/providers/query-provider';
+import { AuthInitializer } from '@/features/auth/components/auth-initializer';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -35,6 +36,8 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-background font-sans antialiased">
         <QueryProvider>
+          <AuthInitializer />
+
           {children}
 
           <Toaster

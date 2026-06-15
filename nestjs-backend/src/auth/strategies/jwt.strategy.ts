@@ -1,73 +1,35 @@
-/* eslint-disable prettier/prettier */
-
 import { Injectable } from '@nestjs/common';
-
 import { ConfigService } from '@nestjs/config';
-
 import { PassportStrategy } from '@nestjs/passport';
+import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 
 import {
   ExtractJwt,
   Strategy,
-  type StrategyOptionsWithoutRequest,
+  //StrategyOptionsWithoutRequest,
 } from 'passport-jwt';
 
-import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
-
 @Injectable()
-export class JwtStrategy extends PassportStrategy(
-  Strategy,
-) {
-  constructor(
-    private readonly configService: ConfigService,
-  ) {
-    console.log(
-      'JWT_SECRET:',
-      configService.get<string>('jwt.secret'),
-    );
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  constructor(private readonly configService: ConfigService) {
+    const secret = configService.getOrThrow<string>('jwt.secret');
 
-    console.log(
-      'JWT_ISSUER:',
-      configService.get<string>('jwt.issuer'),
-    );
+    console.log('JWT SECRET =', secret);
+    console.log('JWT ISSUER =', configService.get<string>('jwt.issuer'));
+    console.log('JWT AUDIENCE =', configService.get<string>('jwt.audience'));
 
-    console.log(
-      'JWT_AUDIENCE:',
-      configService.get<string>('jwt.audience'),
-    );
-
-    const options: StrategyOptionsWithoutRequest = {
-      jwtFromRequest:
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-
-      secretOrKey:
-        configService.getOrThrow<string>(
-          'jwt.secret',
-        ),
-
-      issuer:
-        configService.getOrThrow<string>(
-          'jwt.issuer',
-        ),
-
-      audience:
-        configService.getOrThrow<string>(
-          'jwt.audience',
-        ),
-    };
-
-    super(options);
+      secretOrKey: secret,
+      issuer: configService.get<string>('jwt.issuer'),
+      audience: configService.get<string>('jwt.audience'),
+      algorithms: ['HS256'],
+    });
   }
 
-  validate(
-    payload: JwtPayload,
-  ): JwtPayload {
-    console.log(
-      'JWT PAYLOAD:',
-      JSON.stringify(payload, null, 2),
-    );
+  validate(payload: JwtPayload): JwtPayload {
+    console.log('JWT PAYLOAD =', JSON.stringify(payload, null, 2));
 
     return payload;
   }

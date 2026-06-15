@@ -8,19 +8,31 @@ import { QUERY_KEYS } from '@/constants/query-keys';
 import { useAuthStore } from '@/store/auth-store';
 
 export function useCurrentUser() {
-    const accessToken = useAuthStore((state) => state.accessToken);
+  const accessToken =
+    useAuthStore(
+      (state) => state.accessToken,
+    );
 
-    const setUser = useAuthStore((state) => state.setUser);
+  const setUser =
+    useAuthStore(
+      (state) => state.setUser,
+    );
 
-    return useQuery({ 
-        queryKey: QUERY_KEYS.CURRENT_USER,
+  return useQuery({
+    queryKey:
+      QUERY_KEYS.CURRENT_USER,
 
-        queryFn: async () => {
-            const user = await getCurrentUser();
-            setUser(user);
-            return user;
-        },
+    queryFn: async () => {
+      const user =
+        await getCurrentUser();
 
-        enabled: !!accessToken,
-    });
+      setUser(user);
+
+      return user;
+    },
+
+    enabled: !!accessToken,
+
+    retry: false,
+  });
 }
