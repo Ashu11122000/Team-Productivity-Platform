@@ -1,26 +1,49 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+
 import { login } from '../api/login';
 import type { LoginRequest } from '../types/login.types';
+
 import { useAuthStore } from '@/store/auth-store';
 
 export function useLogin() {
-    const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const router = useRouter();
 
-    return useMutation({
-        mutationFn: (data: LoginRequest) =>
-            login(data),
+  const setAccessToken = useAuthStore(
+    (state) => state.setAccessToken,
+  );
 
-            onSuccess: (response) => {
-                setAccessToken(response.access_token);
+  const setUser = useAuthStore(
+    (state) => state.setUser,
+  );
 
-                toast.success('Login successful');
-            },
+  return useMutation({
+    mutationFn: (data: LoginRequest) =>
+      login(data),
 
-            onError: () => {
-                toast.error('Invalid email or password');
-            },
-        });
+    onSuccess: (response) => {
+      setAccessToken(
+        response.data.access_token,
+      );
+
+      setUser(
+        response.data.user,
+      );
+
+      toast.success(
+        'Login successful',
+      );
+
+      router.push('/dashboard');
+    },
+
+    onError: () => {
+      toast.error(
+        'Invalid email or password',
+      );
+    },
+  });
 }
