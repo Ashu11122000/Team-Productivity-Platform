@@ -4,4 +4,6 @@ export const API_ROUTES = {
     LOGOUT: '/auth/logout',
     REFRESH: '/auth/refresh',
     ME: '/auth/me',
+
+    NOTES: '/notes',
 };
