@@ -4,7 +4,7 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-    data: any;
+    data: Record<string, unknown>;
     access_token: string;
     token_type: string;
 }
