@@ -4,11 +4,12 @@ export const taskSchema = z.object({
   title: z
     .string()
     .min(1, 'Title is required')
-    .max(255, 'Title must be less than 255 characters'),
+    .max(
+      255,
+      'Title must be less than 255 characters',
+    ),
 
-  description: z
-    .string()
-    .optional(),
+  description: z.string().optional(),
 
   status: z.enum([
     'TODO',
@@ -22,13 +23,9 @@ export const taskSchema = z.object({
     'HIGH',
   ]),
 
-  dueDate: z
-    .string()
-    .optional(),
+  dueDate: z.string().optional(),
 
-  tagIds: z
-    .array(z.string())
-    .optional(),
+  tagIds: z.array(z.string()).optional(),
 });
 
 export type TaskFormValues =

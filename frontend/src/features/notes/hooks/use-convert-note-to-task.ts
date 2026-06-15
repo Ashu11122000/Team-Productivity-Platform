@@ -6,22 +6,22 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { convertNoteToTask } from '../api/convert-note-to-task';
 
-import { QUERY_KEYS } from '@/constants/query-keys';
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
 export function useConvertNoteToTask() {
-    const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: convertNoteToTask,
+  return useMutation({
+    mutationFn: convertNoteToTask,
 
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: QUERY_KEYS.NOTES,
-            });
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.NOTES,
+      });
 
-            queryClient.invalidateQueries({
-                queryKey: QUERY_KEYS.TASKS,
-            });
-        },
-    });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.TASKS,
+      });
+    },
+  });
 }

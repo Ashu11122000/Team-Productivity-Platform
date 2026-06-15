@@ -6,27 +6,23 @@ import { updateNote } from '../api/update-note';
 
 import { UpdateNoteRequest } from '../types/update-note.types';
 
-import { QUERY_KEYS } from '@/constants/query-keys';
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
 interface UpdateNotePayload {
-    id: number;
-    data: UpdateNoteRequest;
+  id: number;
+  data: UpdateNoteRequest;
 }
 
 export function useUpdateNote() {
-    const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: ({
-            id,
-            data,
-        }: UpdateNotePayload) =>
-            updateNote(id, data),
+  return useMutation({
+    mutationFn: ({ id, data }: UpdateNotePayload) => updateNote(id, data),
 
-            onSuccess: () => {
-                queryClient.invalidateQueries({
-                        queryKey: QUERY_KEYS.NOTES,
-                    });
-                },
-            });
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.NOTES,
+      });
+    },
+  });
 }

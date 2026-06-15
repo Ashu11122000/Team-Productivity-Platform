@@ -7,7 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useTasks } from '@/features/tasks/hooks/use-tasks';
 
 import { TasksFilters } from '@/features/tasks/components/tasks-filters';
+
 import { TasksTable } from '@/features/tasks/components/tasks-table';
+
 import { CreateTaskDialog } from '@/features/tasks/components/create-task-dialog';
 
 export default function TasksPage() {
@@ -37,7 +39,7 @@ export default function TasksPage() {
 
   if (isError) {
     return (
-      <div>
+      <div className="rounded-md border p-6">
         Failed to load tasks.
       </div>
     );
@@ -64,7 +66,19 @@ export default function TasksPage() {
         onSearchChange={setSearch}
       />
 
-      <TasksTable tasks={tasks} />
+      {tasks.length === 0 ? (
+        <div className="rounded-md border p-10 text-center">
+          <h3 className="font-medium">
+            No tasks found
+          </h3>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Create your first task.
+          </p>
+        </div>
+      ) : (
+        <TasksTable tasks={tasks} />
+      )}
     </div>
   );
 }

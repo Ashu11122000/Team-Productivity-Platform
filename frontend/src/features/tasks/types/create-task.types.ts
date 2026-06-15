@@ -1,51 +1,25 @@
-export type TaskStatus =
+export type CreateTaskStatus =
   | 'TODO'
   | 'IN_PROGRESS'
   | 'COMPLETED';
 
-export type TaskPriority =
+export type CreateTaskPriority =
   | 'LOW'
   | 'MEDIUM'
   | 'HIGH';
 
-export interface Task {
-  id: string;
-
+export interface CreateTaskRequest {
   title: string;
 
-  description: string | null;
+  description?: string;
 
-  status: TaskStatus;
+  status?: CreateTaskStatus;
 
-  priority: TaskPriority;
+  priority?: CreateTaskPriority;
 
-  dueDate: string | null;
+  dueDate?: string | null;
 
-  userId: string;
+  categoryId?: string | null;
 
-  isConvertedFromNote: boolean;
-
-  sourceNoteId: string | null;
-
-  categoryId: string | null;
-
-  category: unknown | null;
-
-  tags: unknown[];
-
-  createdAt: string;
-
-  updatedAt: string;
-}
-
-export interface TasksResponse {
-  data: Task[];
-
-  total: number;
-
-  page: number;
-
-  limit: number;
-
-  totalPages: number;
+  tagIds?: string[];
 }

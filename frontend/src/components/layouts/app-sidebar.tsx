@@ -3,17 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { navigation } from '@/constants/navigation';
+import { navigation } from '@/lib/constants/navigation';
 
 export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-background">
+    <aside className="bg-background hidden border-r md:flex md:w-64 md:flex-col">
       <div className="border-b p-4">
-        <h2 className="font-bold">
-          Team Productivity
-        </h2>
+        <h2 className="font-bold">Team Productivity</h2>
       </div>
 
       <nav className="flex flex-col gap-2 p-4">
@@ -21,10 +19,7 @@ export function AppSidebar() {
           const Icon = item.icon;
 
           const isActive =
-            pathname === item.href ||
-            pathname.startsWith(
-              `${item.href}/`,
-            );
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
             <Link
@@ -38,9 +33,7 @@ export function AppSidebar() {
             >
               <Icon className="h-4 w-4" />
 
-              <span>
-                {item.title}
-              </span>
+              <span>{item.title}</span>
             </Link>
           );
         })}

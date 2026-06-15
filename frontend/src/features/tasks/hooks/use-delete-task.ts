@@ -1,17 +1,13 @@
 'use client';
 
-import {
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { deleteTask } from '../api/delete-task';
 
-import { QUERY_KEYS } from '@/constants/query-keys';
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
 export function useDeleteTask() {
-  const queryClient =
-    useQueryClient();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: deleteTask,

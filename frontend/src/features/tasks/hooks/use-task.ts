@@ -4,19 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 
 import { getTask } from '../api/get-task';
 
-import { QUERY_KEYS } from '@/constants/query-keys';
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
-export function useTask(
-  id: string,
-) {
+export function useTask(id: string) {
   return useQuery({
-    queryKey: [
-      ...QUERY_KEYS.TASKS,
-      id,
-    ],
+    queryKey: [...QUERY_KEYS.TASKS, id],
 
-    queryFn: () =>
-      getTask(id),
+    queryFn: () => getTask(id),
 
     enabled: !!id,
   });

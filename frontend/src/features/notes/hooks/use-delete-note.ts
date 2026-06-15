@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { deleteNote } from '../api/delete-note';
 
-import { QUERY_KEYS } from '@/constants/query-keys';
+import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
 export function useDeleteNote() {
   const queryClient = useQueryClient();
