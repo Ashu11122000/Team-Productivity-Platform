@@ -2961,3 +2961,323 @@ Used for:
 
 ---
 
+# Phase 9 – Settings Module
+
+## Overview
+
+The Settings Module allows authenticated users to manage their account information, security settings, and personal preferences from a centralized settings dashboard.
+
+This module follows the same architecture and development patterns used throughout the application:
+
+* Feature-based folder structure
+* React Query for server state management
+* Axios API layer
+* React Hook Form
+* Zod validation
+* Shadcn UI components
+* Sonner toast notifications
+* FastAPI integration
+
+---
+
+## Route
+
+```txt
+/settings
+```
+
+---
+
+## Backend Integration
+
+### Profile Endpoints
+
+```http
+GET    /users/profile
+PUT    /users/profile
+```
+
+### Password Endpoint
+
+```http
+PUT    /users/change-password
+```
+
+### Preferences Endpoints
+
+```http
+GET    /users/preferences
+PUT    /users/preferences
+```
+
+---
+
+## Features
+
+### Profile Management
+
+Users can:
+
+* View profile information
+* Update display name
+* Update email address
+* Update avatar URL
+
+### Password Management
+
+Users can:
+
+* Enter current password
+* Set a new password
+* Confirm new password
+* Receive validation feedback
+
+### Preferences Management
+
+Users can configure:
+
+* Theme preference
+* Notification preference
+* Default task view
+* Language preference
+
+---
+
+## Folder Structure
+
+```txt
+src/features/settings
+│
+├── api
+│   ├── get-profile.ts
+│   ├── update-profile.ts
+│   ├── change-password.ts
+│   ├── get-preferences.ts
+│   └── update-preferences.ts
+│
+├── hooks
+│   ├── useProfile.ts
+│   ├── useUpdateProfile.ts
+│   ├── useChangePassword.ts
+│   ├── usePreferences.ts
+│   └── useUpdatePreferences.ts
+│
+├── schemas
+│   ├── profile.schema.ts
+│   ├── password.schema.ts
+│   └── preferences.schema.ts
+│
+├── types
+│   └── settings.types.ts
+│
+├── components
+│   ├── profile-card.tsx
+│   ├── profile-form.tsx
+│   ├── change-password-form.tsx
+│   ├── preferences-form.tsx
+│   └── settings-skeleton.tsx
+│
+└── index.ts
+```
+
+---
+
+## API Layer
+
+### Profile APIs
+
+```ts
+getProfile()
+updateProfile()
+```
+
+### Password API
+
+```ts
+changePassword()
+```
+
+### Preferences APIs
+
+```ts
+getPreferences()
+updatePreferences()
+```
+
+---
+
+## React Query Hooks
+
+### Profile Hooks
+
+```ts
+useProfile()
+useUpdateProfile()
+```
+
+### Password Hook
+
+```ts
+useChangePassword()
+```
+
+### Preferences Hooks
+
+```ts
+usePreferences()
+useUpdatePreferences()
+```
+
+---
+
+## Validation
+
+### Profile Validation
+
+```txt
+Name Required
+Valid Email Required
+Optional Avatar URL
+```
+
+### Password Validation
+
+```txt
+Current Password Required
+Minimum Length Validation
+Confirm Password Match Validation
+```
+
+### Preferences Validation
+
+```txt
+Theme Selection
+Notification Toggle
+Task View Selection
+Language Selection
+```
+
+---
+
+## UI Components
+
+### Profile Card
+
+Displays:
+
+* User avatar
+* User name
+* Email address
+
+### Profile Form
+
+Allows updating:
+
+* Name
+* Email
+* Avatar URL
+
+### Change Password Form
+
+Allows updating:
+
+* Current password
+* New password
+* Confirm password
+
+### Preferences Form
+
+Allows updating:
+
+* Theme
+* Notifications
+* Default task view
+* Language
+
+---
+
+## State Handling
+
+Implemented states:
+
+### Loading State
+
+```txt
+SettingsSkeleton
+```
+
+### Error State
+
+```txt
+React Query Error Handling
+Toast Notifications
+```
+
+### Success State
+
+```txt
+Profile Updated
+Password Updated
+Preferences Updated
+```
+
+---
+
+## User Experience
+
+Implemented:
+
+* Instant form validation
+* Optimistic UI refresh
+* Query invalidation
+* Success notifications
+* Error notifications
+* Protected route access
+
+---
+
+## Technologies Used
+
+### Frontend
+
+* Next.js 15
+* TypeScript
+* Tailwind CSS
+* Shadcn UI
+* React Query
+* React Hook Form
+* Zod
+* Axios
+* Sonner
+
+### Backend
+
+* FastAPI
+* JWT Authentication
+* User Management APIs
+
+---
+
+## Completion Status
+
+### Phase 9 – Settings Module
+
+Completed:
+
+* Profile Overview Card
+* Profile Update Form
+* Change Password Form
+* Preferences Form
+* Profile API Integration
+* Preferences API Integration
+* Password Update API Integration
+* React Query Hooks
+* Zod Validation
+* Loading States
+* Success Toasts
+* Error Handling
+* Protected Settings Route
+
+---
+
+
