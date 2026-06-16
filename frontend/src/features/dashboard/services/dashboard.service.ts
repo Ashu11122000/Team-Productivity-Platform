@@ -4,7 +4,7 @@ import { nestjsClient } from '@/services/nestjs/client';
 export const dashboardService = {
   async getAnalytics() {
     const response = await nestjsClient.get(
-      '/api/analytics/overview',
+      '/analytics/overview',
     );
 
     return response.data.data;
@@ -20,7 +20,7 @@ export const dashboardService = {
   async getRecentTasks() {
     const response =
       await nestjsClient.get(
-        '/api/tasks?page=1&limit=5',
+        '/tasks?page=1&limit=5',
       );
 
     return response.data.data;
@@ -29,7 +29,7 @@ export const dashboardService = {
   async getUpcomingTasks() {
     const response =
       await nestjsClient.get(
-        '/api/tasks',
+        '/tasks',
       );
 
     return response.data.data;
@@ -38,7 +38,7 @@ export const dashboardService = {
   async getNotifications() {
     const response =
       await nestjsClient.get(
-        '/api/notifications?page=1&limit=5',
+        '/notifications?page=1&limit=5',
       );
 
     return response.data.data;

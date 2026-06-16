@@ -1,9 +1,72 @@
-import { OverviewCards } from '@/features/analytics/components/overview-cards';
-import { TaskStatusChart } from '@/features/analytics/components/task-status-chart';
-import { PriorityChart } from '@/features/analytics/components/priority-chart';
-import { ProductivityChart } from '@/features/analytics/components/productivity-chart';
+'use client';
+
+import {
+  useEffect,
+} from 'react';
+
+import {
+  useRouter,
+} from 'next/navigation';
+
+import {
+  usePermissions,
+} from '@/features/auth/hooks/use-permissions';
+
+import {
+  useAuthStore,
+} from '@/store/auth-store';
+
+import {
+  OverviewCards,
+} from '@/features/analytics/components/overview-cards';
+
+import {
+  TaskStatusChart,
+} from '@/features/analytics/components/task-status-chart';
+
+import {
+  PriorityChart,
+} from '@/features/analytics/components/priority-chart';
+
+import {
+  ProductivityChart,
+} from '@/features/analytics/components/productivity-chart';
 
 export default function AnalyticsPage() {
+  const router =
+    useRouter();
+
+  const hydrated =
+    useAuthStore(
+      (state) => state.hydrated,
+    );
+
+  const { isAdmin } =
+    usePermissions();
+
+  useEffect(() => {
+    if (
+      hydrated &&
+      !isAdmin
+    ) {
+      router.replace(
+        '/dashboard',
+      );
+    }
+  }, [
+    hydrated,
+    isAdmin,
+    router,
+  ]);
+
+  if (!hydrated) {
+    return null;
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -12,7 +75,8 @@ export default function AnalyticsPage() {
         </h1>
 
         <p className="text-muted-foreground">
-          Productivity insights and task metrics
+          Productivity insights and
+          task metrics
         </p>
       </div>
 
