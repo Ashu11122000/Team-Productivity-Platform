@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 import { useTask } from '@/features/tasks/hooks/use-task';
+import { Badge } from '@/components/ui/badge';
 
 import { UpdateTaskDialog } from '@/features/tasks/components/update-task-dialog';
 import { DeleteTaskDialog } from '@/features/tasks/components/delete-task-dialog';
@@ -106,6 +107,22 @@ export default function TaskDetailsPage({
                 {task.priority}
               </p>
             </div>
+
+            <div>
+  <h3 className="mb-2 text-sm font-medium">
+    Category
+  </h3>
+
+  {task.category ? (
+    <Badge variant="secondary">
+      {task.category.name}
+    </Badge>
+  ) : (
+    <p>
+      No category assigned
+    </p>
+  )}
+</div>
 
             <div>
               <h3 className="mb-2 text-sm font-medium">

@@ -16,9 +16,15 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   return (
     <div className="flex-1 rounded-lg border p-4">
-      <h2 className="mb-4 font-semibold">
-        {title}
-      </h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-semibold">
+          {title}
+        </h2>
+
+        <span className="text-sm text-muted-foreground">
+          {tasks.length}
+        </span>
+      </div>
 
       <div className="space-y-3">
         {tasks.map((task) => (

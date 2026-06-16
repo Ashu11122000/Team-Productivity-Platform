@@ -15,6 +15,16 @@ import { Input } from '@/components/ui/input';
 
 import { Textarea } from '@/components/ui/textarea';
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+import { useCategories } from '@/features/categories/hooks/use-categories';
+
 import { TaskFormValues } from '../schemas/task.schema';
 
 interface TaskFormProps {
@@ -24,6 +34,25 @@ interface TaskFormProps {
 export function TaskForm({
   form,
 }: TaskFormProps) {
+  const {
+    data: categoriesData,
+    isLoading,
+    isError,
+  } = useCategories();
+
+  const categories =
+    categoriesData?.data ?? [];
+
+  console.log(
+    'categoriesData:',
+    categoriesData,
+  );
+
+  console.log(
+    'categories:',
+    categories,
+  );
+
   return (
     <Form {...form}>
       <div className="space-y-4">
@@ -62,9 +91,94 @@ export function TaskForm({
                   rows={5}
                   placeholder="Enter task description"
                   {...field}
-                  value={field.value ?? ''}
+                  value={
+                    field.value ?? ''
+                  }
                 />
               </FormControl>
+
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="categoryId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Category
+              </FormLabel>
+
+              <Select
+                value={
+                  field.value ??
+                  '__none__'
+                }
+                onValueChange={(
+                  value,
+                ) =>
+                  field.onChange(
+                    value ===
+                      '__none__'
+                      ? null
+                      : value,
+                  )
+                }
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                </FormControl>
+
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    No Category
+                  </SelectItem>
+
+                  {isLoading && (
+                    <SelectItem
+                      value="loading"
+                      disabled
+                    >
+                      Loading...
+                    </SelectItem>
+                  )}
+
+                  {isError && (
+                    <SelectItem
+                      value="error"
+                      disabled
+                    >
+                      Failed to load
+                      categories
+                    </SelectItem>
+                  )}
+
+                  {!isLoading &&
+                    !isError &&
+                    categories.map(
+                      (
+                        category,
+                      ) => (
+                        <SelectItem
+                          key={
+                            category.id
+                          }
+                          value={
+                            category.id
+                          }
+                        >
+                          {
+                            category.name
+                          }
+                        </SelectItem>
+                      ),
+                    )}
+                </SelectContent>
+              </Select>
 
               <FormMessage />
             </FormItem>
@@ -150,7 +264,9 @@ export function TaskForm({
                 <Input
                   type="datetime-local"
                   {...field}
-                  value={field.value ?? ''}
+                  value={
+                    field.value ?? ''
+                  }
                 />
               </FormControl>
 

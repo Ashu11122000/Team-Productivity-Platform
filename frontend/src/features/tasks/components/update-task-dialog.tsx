@@ -28,7 +28,11 @@ import { useUpdateTask } from '../hooks/use-update-task';
 
 interface UpdateTaskDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+
+  onOpenChange: (
+    open: boolean,
+  ) => void;
+
   task: Task;
 }
 
@@ -54,6 +58,9 @@ export function UpdateTaskDialog({
           task.priority,
         dueDate:
           task.dueDate ?? '',
+        categoryId:
+          task.categoryId,
+        tagIds: [],
       },
     });
 
@@ -67,24 +74,44 @@ export function UpdateTaskDialog({
         task.priority,
       dueDate:
         task.dueDate ?? '',
+      categoryId:
+        task.categoryId,
+      tagIds: [],
     });
   }, [task, form]);
 
-  const onSubmit = (
-    values: TaskFormValues,
-  ) => {
-    mutate(
-      {
-        id: task.id,
-        payload: values,
-      },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-        },
-      },
-    );
+const onSubmit = (
+  values: TaskFormValues,
+) => {
+  const payload = {
+    ...values,
+
+    dueDate:
+      values.dueDate?.trim()
+        ? values.dueDate
+        : undefined,
+
+    categoryId:
+      values.categoryId ?? undefined,
+
+    tagIds:
+      values.tagIds?.length
+        ? values.tagIds
+        : undefined,
   };
+
+  mutate(
+    {
+      id: task.id,
+      payload,
+    },
+    {
+      onSuccess: () => {
+        onOpenChange(false);
+      },
+    },
+  );
+};
 
   return (
     <Dialog

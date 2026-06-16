@@ -7,17 +7,17 @@ import {
 
 import { toast } from 'sonner';
 
-import { createCategory } from '../api/create-category';
+import { deleteCategory } from '../api/delete-category';
 
 import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
-export function useCreateCategory() {
+export function useDeleteCategory() {
   const queryClient =
     useQueryClient();
 
   return useMutation({
     mutationFn:
-      createCategory,
+      deleteCategory,
 
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -26,13 +26,13 @@ export function useCreateCategory() {
       });
 
       toast.success(
-        'Category created successfully',
+        'Category deleted successfully',
       );
     },
 
     onError: () => {
       toast.error(
-        'Failed to create category',
+        'Failed to delete category',
       );
     },
   });
