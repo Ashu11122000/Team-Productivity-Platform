@@ -1,27 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 import { useTask } from '@/features/tasks/hooks/use-task';
-import { Badge } from '@/components/ui/badge';
 
 import { UpdateTaskDialog } from '@/features/tasks/components/update-task-dialog';
 import { DeleteTaskDialog } from '@/features/tasks/components/delete-task-dialog';
 import { TaskStatusSelect } from '@/features/tasks/components/task-status-select';
 
 interface TaskDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function TaskDetailsPage({
   params,
 }: TaskDetailsPageProps) {
+  const { id } = use(params);
+
   const [editOpen, setEditOpen] =
     useState(false);
 
@@ -29,13 +31,12 @@ export default function TaskDetailsPage({
     data: task,
     isLoading,
     isError,
-  } = useTask(params.id);
+  } = useTask(id);
 
   if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
-
         <Skeleton className="h-64 w-full" />
       </div>
     );
@@ -103,26 +104,24 @@ export default function TaskDetailsPage({
                 Priority
               </h3>
 
-              <p>
-                {task.priority}
-              </p>
+              <p>{task.priority}</p>
             </div>
 
             <div>
-  <h3 className="mb-2 text-sm font-medium">
-    Category
-  </h3>
+              <h3 className="mb-2 text-sm font-medium">
+                Category
+              </h3>
 
-  {task.category ? (
-    <Badge variant="secondary">
-      {task.category.name}
-    </Badge>
-  ) : (
-    <p>
-      No category assigned
-    </p>
-  )}
-</div>
+              {task.category ? (
+                <Badge variant="secondary">
+                  {task.category.name}
+                </Badge>
+              ) : (
+                <p>
+                  No category assigned
+                </p>
+              )}
+            </div>
 
             <div>
               <h3 className="mb-2 text-sm font-medium">

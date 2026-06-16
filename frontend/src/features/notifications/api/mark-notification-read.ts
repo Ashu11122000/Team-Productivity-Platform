@@ -4,9 +4,11 @@ import type {
   NotificationActionResponse,
 } from '../types/notification.types';
 
-export async function markAllRead(): Promise<NotificationActionResponse> {
+export async function markNotificationRead(
+  id: string,
+): Promise<NotificationActionResponse> {
   const response = await nestjsClient.put(
-    '/notifications/read-all',
+    `/notifications/${id}/read`,
   );
 
   return response.data;
