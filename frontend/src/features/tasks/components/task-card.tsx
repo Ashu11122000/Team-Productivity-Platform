@@ -7,6 +7,8 @@ import {
   CardContent,
 } from '@/components/ui/card';
 
+import { Badge } from '@/components/ui/badge';
+
 import { Task } from '../types/task.types';
 
 import { TaskStatusBadge } from './task-status-badge';
@@ -31,6 +33,15 @@ export function TaskCard({
               status={task.status}
             />
           </div>
+
+          {task.category && (
+            <Badge
+              variant="secondary"
+              className="w-fit"
+            >
+              {task.category.name}
+            </Badge>
+          )}
 
           {task.description && (
             <p className="line-clamp-3 text-sm text-muted-foreground">

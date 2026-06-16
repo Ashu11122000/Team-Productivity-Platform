@@ -9,7 +9,9 @@ export const taskSchema = z.object({
       'Title must be less than 255 characters',
     ),
 
-  description: z.string().optional(),
+  description: z
+    .string()
+    .optional(),
 
   status: z.enum([
     'TODO',
@@ -23,9 +25,18 @@ export const taskSchema = z.object({
     'HIGH',
   ]),
 
-  dueDate: z.string().optional(),
+  dueDate: z
+    .string()
+    .optional(),
 
-  tagIds: z.array(z.string()).optional(),
+  categoryId: z
+    .string()
+    .nullable()
+    .optional(),
+
+  tagIds: z
+    .array(z.string())
+    .optional(),
 });
 
 export type TaskFormValues =

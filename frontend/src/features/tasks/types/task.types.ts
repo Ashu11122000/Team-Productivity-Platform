@@ -8,6 +8,16 @@ export type TaskPriority =
   | 'MEDIUM'
   | 'HIGH';
 
+export interface TaskCategory {
+  id: string;
+
+  name: string;
+
+  description?: string | null;
+
+  color?: string | null;
+}
+
 export interface Task {
   id: string;
 
@@ -29,7 +39,7 @@ export interface Task {
 
   categoryId: string | null;
 
-  category: unknown | null;
+  category: TaskCategory | null;
 
   tags: unknown[];
 

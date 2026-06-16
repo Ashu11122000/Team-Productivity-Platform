@@ -2121,3 +2121,329 @@ Features:
 
 ---
 
+# Phase 6 – Categories Module ✅
+
+## Overview
+
+The Categories Module enables users to organize tasks into logical groups such as Work, Personal, Learning, Health, and more.
+
+This module provides complete Category CRUD functionality, search capabilities, and integration support for Tasks.
+
+---
+
+## Backend Integration
+
+### NestJS Endpoints
+
+#### Create Category
+
+```http
+POST /api/categories
+```
+
+#### Get Categories
+
+```http
+GET /api/categories
+```
+
+#### Get Category By ID
+
+```http
+GET /api/categories/:id
+```
+
+#### Update Category
+
+```http
+PATCH /api/categories/:id
+```
+
+#### Delete Category
+
+```http
+DELETE /api/categories/:id
+```
+
+---
+
+## Frontend Architecture
+
+```txt
+features/categories/
+├── api/
+├── hooks/
+├── schemas/
+├── types/
+└── components/
+```
+
+---
+
+## Types
+
+### category.types.ts
+
+Contains:
+
+* Category
+* CategoriesResponse
+* CategoryResponse
+* CategoryQueryParams
+* CreateCategoryRequest
+* UpdateCategoryRequest
+
+---
+
+## Validation
+
+### category.schema.ts
+
+Implemented using Zod.
+
+Validation Rules:
+
+| Field       | Validation              |
+| ----------- | ----------------------- |
+| name        | Required, max 100 chars |
+| description | Optional                |
+| color       | Optional                |
+
+---
+
+## API Layer
+
+### Implemented APIs
+
+```txt
+create-category.ts
+get-category.ts
+get-categories.ts
+update-category.ts
+delete-category.ts
+```
+
+Features:
+
+* Axios via nestjsClient
+* Typed responses
+* Reusable API layer
+
+---
+
+## React Query Hooks
+
+### Implemented Hooks
+
+```txt
+useCategory.ts
+useCategories.ts
+useCreateCategory.ts
+useUpdateCategory.ts
+useDeleteCategory.ts
+```
+
+Features:
+
+* Server state management
+* Query invalidation
+* Error handling
+* Success notifications
+
+---
+
+## Components
+
+### CategoryForm
+
+Reusable form component for:
+
+* Create Category
+* Update Category
+
+Fields:
+
+* Name
+* Description
+* Color
+
+---
+
+### CreateCategoryDialog
+
+Features:
+
+* Modal dialog
+* React Hook Form
+* Zod validation
+* Create mutation
+
+---
+
+### UpdateCategoryDialog
+
+Features:
+
+* Prefilled values
+* Edit category
+* React Query invalidation
+
+---
+
+### DeleteCategoryDialog
+
+Features:
+
+* Confirmation dialog
+* Safe deletion flow
+
+---
+
+### CategoryActions
+
+Actions Menu:
+
+* View
+* Edit
+* Delete
+
+---
+
+### CategoryTable
+
+Features:
+
+* Category listing
+* Search support
+* Empty state
+* Responsive layout
+
+Columns:
+
+* Name
+* Description
+* Color
+* Created At
+* Actions
+
+---
+
+### CategoryCard
+
+Card-based category display for future grid views and dashboard widgets.
+
+---
+
+## Categories Page
+
+Route:
+
+```txt
+/categories
+```
+
+Features:
+
+* Categories listing
+* Search
+* Create Category
+* Update Category
+* Delete Category
+* Loading State
+* Error State
+* Empty State
+
+---
+
+## Query Keys
+
+Added:
+
+```ts
+QUERY_KEYS.CATEGORIES
+```
+
+Used for:
+
+* Category queries
+* Automatic cache invalidation
+
+---
+
+## User Experience Features
+
+### Loading State
+
+Implemented using:
+
+* Skeletons
+* Loading indicators
+
+### Error State
+
+Implemented using:
+
+* Error messages
+* Retry support
+
+### Empty State
+
+Displayed when:
+
+```txt
+No categories found
+```
+
+---
+
+## Completed Features
+
+### CRUD Operations
+
+* Create Category
+* Read Categories
+* View Category
+* Update Category
+* Delete Category
+
+### Search
+
+* Client-side search support
+* API query support
+
+### Form Validation
+
+* React Hook Form
+* Zod Schema Validation
+
+### Notifications
+
+* Success Toasts
+* Error Toasts
+
+### React Query Integration
+
+* Automatic cache updates
+* Query invalidation
+
+---
+
+## Task Integration Preparation
+
+Categories are prepared for Task association via:
+
+```ts
+categoryId
+```
+
+Supported in:
+
+* Task Types
+* Task Schemas
+* Task Forms
+* Task Create
+* Task Update
+
+This integration is completed in Phase 6.5.
+
+---

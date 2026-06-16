@@ -26,32 +26,46 @@ import {
 import { useCreateTask } from '../hooks/use-create-task';
 
 export function CreateTaskDialog() {
-  const [open, setOpen] =
-    useState(false);
+  const [open, setOpen] = useState(false);
 
-  const { mutate, isPending } =
-    useCreateTask();
+  const { mutate, isPending } = useCreateTask();
 
-  const form =
-    useForm<CreateTaskSchemaType>({
-      resolver: zodResolver(
-        createTaskSchema,
-      ),
+  const form = useForm<CreateTaskSchemaType>({
+    resolver: zodResolver(createTaskSchema),
 
-      defaultValues: {
-        title: '',
-        description: '',
-        status: 'TODO',
-        priority: 'MEDIUM',
-      },
-    });
+    defaultValues: {
+      title: '',
+      description: '',
+      status: 'TODO',
+      priority: 'MEDIUM',
+      dueDate: '',
+      categoryId: null,
+      tagIds: [],
+    },
+  });
 
-  const onSubmit = (
-    values: CreateTaskSchemaType,
-  ) => {
-    mutate(values, {
+  const onSubmit = (values: CreateTaskSchemaType) => {
+    const payload = {
+      ...values,
+
+      dueDate: values.dueDate?.trim() ? values.dueDate : undefined,
+
+      categoryId: values.categoryId ?? undefined,
+
+      tagIds: values.tagIds?.length ? values.tagIds : undefined,
+    };
+
+    mutate(payload, {
       onSuccess: () => {
-        form.reset();
+        form.reset({
+          title: '',
+          description: '',
+          status: 'TODO',
+          priority: 'MEDIUM',
+          dueDate: '',
+          categoryId: null,
+          tagIds: [],
+        });
 
         setOpen(false);
       },
@@ -59,35 +73,20 @@ export function CreateTaskDialog() {
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={setOpen}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          Create Task
-        </Button>
+        <Button>Create Task</Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            Create Task
-          </DialogTitle>
+          <DialogTitle>Create Task</DialogTitle>
         </DialogHeader>
 
-        <form
-          onSubmit={form.handleSubmit(
-            onSubmit,
-          )}
-          className="space-y-4"
-        >
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <TaskForm form={form} />
 
-          <Button
-            type="submit"
-            disabled={isPending}
-          >
+          <Button type="submit" disabled={isPending}>
             Create
           </Button>
         </form>

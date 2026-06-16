@@ -11,6 +11,7 @@ import { TasksFilters } from '@/features/tasks/components/tasks-filters';
 import { TasksTable } from '@/features/tasks/components/tasks-table';
 
 import { CreateTaskDialog } from '@/features/tasks/components/create-task-dialog';
+import { TaskStatus, TaskPriority } from '@/features/tasks/types/task.types';
 
 export default function TasksPage() {
   const [search, setSearch] =
@@ -63,8 +64,11 @@ export default function TasksPage() {
 
       <TasksFilters
         search={search}
-        onSearchChange={setSearch}
-      />
+        onSearchChange={setSearch} onStatusChange={function (value?: TaskStatus): void {
+          throw new Error('Function not implemented.');
+        } } onPriorityChange={function (value?: TaskPriority): void {
+          throw new Error('Function not implemented.');
+        } }      />
 
       {tasks.length === 0 ? (
         <div className="rounded-md border p-10 text-center">
