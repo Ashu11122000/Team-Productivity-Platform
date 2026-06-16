@@ -3280,4 +3280,139 @@ Completed:
 
 ---
 
+# Phase 10 – Activity Logs Module
+
+## Overview
+
+The Activity Logs module provides users with a centralized view of important actions performed within the Team Productivity Platform. It improves transparency, auditability, and user awareness by recording significant events across the application.
+
+This module consumes Activity Logs APIs from the NestJS backend and displays activity records in a searchable and filterable interface.
+
+---
+
+## Features
+
+### Activity Log Listing
+
+Users can view a chronological list of recorded system activities.
+
+Examples:
+
+* Note Created
+* Note Updated
+* Note Deleted
+* Task Created
+* Task Updated
+* Task Completed
+* Task Deleted
+* Category Created
+* Category Updated
+* Category Deleted
+
+---
+
+### Search Functionality
+
+Users can search activity logs by:
+
+* Activity action
+* Activity description
+
+The list updates dynamically based on the entered search term.
+
+---
+
+### Activity Filtering
+
+Users can filter activity logs by activity type.
+
+Supported filters include:
+
+* All Actions
+* Note Created
+* Note Updated
+* Note Deleted
+* Task Created
+* Task Updated
+* Task Completed
+* Task Deleted
+* Category Created
+* Category Updated
+* Category Deleted
+
+---
+
+### Reset Filters
+
+A reset action allows users to quickly clear all search and filter criteria and return to the complete activity log list.
+
+---
+
+### Loading State
+
+Skeleton loaders are displayed while activity logs are being fetched from the backend.
+
+---
+
+### Empty State
+
+A user-friendly empty state is displayed when no activity logs are available.
+
+---
+
+### Error Handling
+
+Graceful error messages are displayed when activity logs cannot be retrieved from the backend service.
+
+---
+
+## API Integration
+
+### NestJS Endpoint
+
+```http
+GET /activity-logs
+```
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "id": "1",
+      "action": "TASK_CREATED",
+      "description": "Created task: Build Activity Logs UI",
+      "createdAt": "2025-06-16T10:30:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 1
+}
+```
+
+---
+
+## Frontend Route
+
+```txt
+/activity-logs
+```
+
+---
+
+## Components
+
+```txt
+features/activity-logs/
+├── activity-log-filters.tsx
+├── activity-log-table.tsx
+├── activity-log-skeleton.tsx
+├── use-activity-logs.ts
+└── activity-log.types.ts
+```
+
+---
 
