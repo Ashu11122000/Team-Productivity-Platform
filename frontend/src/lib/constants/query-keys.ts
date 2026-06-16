@@ -4,7 +4,7 @@ export const QUERY_KEYS = {
   TASKS: ['tasks'],
   CATEGORIES: ['categories'],
   NOTIFICATIONS: ['notifications'],
-
+  ANALYTICS: ['analytics'],
   TASK_STATUS_ANALYTICS: ['task-status-analytics'],
   TASK_PRIORITY_ANALYTICS: ['task-priority-analytics'],
   PRODUCTIVITY_ANALYTICS: ['productivity-analytics'],
