@@ -1,10 +1,19 @@
 // src/features/holidays/services/holidays.service.ts
 
 import axios from "axios";
-import {
-  CalendarificResponse,
-  Holiday,
-} from "../types/holidays.types";
+// Local type declarations to avoid missing-module import error
+type Holiday = {
+  name: string;
+  description?: string;
+  date: { iso: string };
+  [key: string]: unknown;
+};
+
+type CalendarificResponse = {
+  response: {
+    holidays: Holiday[];
+  };
+};
 
 const API_KEY =
   process.env.NEXT_PUBLIC_CALENDARIFIC_API_KEY;
