@@ -2647,3 +2647,317 @@ queryClient.invalidateQueries({
 
 ---
 
+# Phase 8 – Analytics Module ✅
+
+## Overview
+
+The Analytics Module provides visual insights into team productivity and task management performance. It aggregates task-related metrics from the NestJS Analytics Service and displays them through interactive charts and summary cards.
+
+---
+
+## Backend APIs
+
+Analytics data is provided by the NestJS backend through the following endpoints:
+
+### Task Status Analytics
+
+```http
+GET /api/analytics/tasks/status
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "todo": 1,
+    "inProgress": 0,
+    "completed": 0,
+    "cancelled": 0
+  }
+}
+```
+
+---
+
+### Task Priority Analytics
+
+```http
+GET /api/analytics/tasks/priority
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "low": 0,
+    "medium": 1,
+    "high": 0,
+    "urgent": 0
+  }
+}
+```
+
+---
+
+### Productivity Analytics
+
+```http
+GET /api/analytics/productivity
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalTasks": 1,
+    "completedTasks": 0,
+    "activeTasks": 1,
+    "completionRate": 0
+  }
+}
+```
+
+---
+
+## Frontend Architecture
+
+### Feature Structure
+
+```text
+features/
+└── analytics
+    ├── api
+    │   ├── get-overview.ts
+    │   ├── get-productivity.ts
+    │   ├── get-task-priority.ts
+    │   └── get-task-status.ts
+    │
+    ├── components
+    │   ├── overview-cards.tsx
+    │   ├── priority-chart.tsx
+    │   ├── productivity-chart.tsx
+    │   └── task-status-chart.tsx
+    │
+    ├── hooks
+    │   ├── use-overview.ts
+    │   ├── use-productivity.ts
+    │   ├── use-task-priority.ts
+    │   └── use-task-status.ts
+    │
+    ├── schemas
+    │   └── analytics.schema.ts
+    │
+    └── types
+        └── analytics.types.ts
+```
+
+---
+
+## Analytics Types
+
+### Task Status
+
+```ts
+interface TaskStatusAnalytics {
+  todo: number;
+  inProgress: number;
+  completed: number;
+  cancelled: number;
+}
+```
+
+### Task Priority
+
+```ts
+interface TaskPriorityAnalytics {
+  low: number;
+  medium: number;
+  high: number;
+  urgent: number;
+}
+```
+
+### Productivity
+
+```ts
+interface ProductivityAnalytics {
+  totalTasks: number;
+  completedTasks: number;
+  activeTasks: number;
+  completionRate: number;
+}
+```
+
+---
+
+## React Query Integration
+
+Analytics data is fetched using TanStack Query.
+
+### Query Keys
+
+```ts
+TASK_STATUS_ANALYTICS
+TASK_PRIORITY_ANALYTICS
+PRODUCTIVITY_ANALYTICS
+```
+
+### Hooks
+
+```ts
+useTaskStatus()
+useTaskPriority()
+useProductivity()
+useOverview()
+```
+
+---
+
+## UI Components
+
+### Overview Cards
+
+Displays key productivity metrics:
+
+* Total Tasks
+* Completed Tasks
+* Active Tasks
+* Completion Rate
+
+---
+
+### Task Status Chart
+
+Visualization Type:
+
+* Pie Chart
+
+Metrics:
+
+* Todo Tasks
+* In Progress Tasks
+* Completed Tasks
+* Cancelled Tasks
+
+---
+
+### Task Priority Chart
+
+Visualization Type:
+
+* Bar Chart
+
+Metrics:
+
+* Low Priority
+* Medium Priority
+* High Priority
+* Urgent Priority
+
+---
+
+### Productivity Chart
+
+Visualization Type:
+
+* Bar Chart
+
+Metrics:
+
+* Total Tasks
+* Completed Tasks
+* Active Tasks
+
+---
+
+## Analytics Route
+
+```text
+/analytics
+```
+
+The Analytics page includes:
+
+1. Overview Cards
+2. Task Status Pie Chart
+3. Task Priority Bar Chart
+4. Productivity Overview Chart
+
+Layout:
+
+```text
+Analytics
+│
+├── Overview Cards
+│
+├── Task Status Chart
+├── Task Priority Chart
+│
+└── Productivity Chart
+```
+
+---
+
+## Libraries Used
+
+### Recharts
+
+Used for data visualization.
+
+Installation:
+
+```bash
+npm install recharts
+```
+
+### TanStack Query
+
+Used for analytics data fetching and caching.
+
+### Shadcn UI
+
+Used for:
+
+* Cards
+* Layout Components
+* UI Consistency
+
+---
+
+## Features Implemented
+
+### Analytics Data
+
+* Fetch Task Status Analytics
+* Fetch Task Priority Analytics
+* Fetch Productivity Analytics
+
+### Dashboard Insights
+
+* Total Tasks
+* Active Tasks
+* Completed Tasks
+* Completion Rate
+
+### Charts
+
+* Pie Chart
+* Bar Chart
+* Productivity Comparison Chart
+
+### User Experience
+
+* Loading States
+* Error Handling
+* Empty State Support
+* Responsive Layout
+
+
+---
+
