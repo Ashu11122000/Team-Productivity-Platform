@@ -7,18 +7,30 @@ import { useAuthStore } from '@/store/auth-store';
 interface RoleGuardProps {
   children: ReactNode;
   allowedRoles: string[];
+  fallback?: ReactNode;
 }
 
 export function RoleGuard({
   children,
   allowedRoles,
+  fallback = null,
 }: RoleGuardProps) {
-  const user = useAuthStore(
-    (state) => state.user,
-  );
+  const user =
+    useAuthStore(
+      (state) => state.user,
+    );
+
+  const hydrated =
+    useAuthStore(
+      (state) => state.hydrated,
+    );
+
+  if (!hydrated) {
+    return null;
+  }
 
   if (!user) {
-    return null;
+    return fallback;
   }
 
   const hasAccess =
@@ -27,13 +39,7 @@ export function RoleGuard({
     );
 
   if (!hasAccess) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <h1 className="text-xl font-semibold">
-          Access Denied
-        </h1>
-      </div>
-    );
+    return fallback;
   }
 
   return <>{children}</>;

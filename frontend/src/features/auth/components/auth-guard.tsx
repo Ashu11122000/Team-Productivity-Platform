@@ -20,8 +20,7 @@ export function AuthGuard({
 
   const isAuthenticated =
     useAuthStore(
-      (state) =>
-        state.isAuthenticated,
+      (state) => state.isAuthenticated,
     );
 
   const hydrated =

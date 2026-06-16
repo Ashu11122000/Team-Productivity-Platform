@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { useActivityLogs } from "@/features/activity-logs/hooks/use-activity-logs";
-
 import { ActivityLogFilters } from "@/features/activity-logs/components/activity-log-filters";
 import { ActivityLogTable } from "@/features/activity-logs/components/activity-log-table";
 import { ActivityLogSkeleton } from "@/features/activity-logs/components/activity-log-skeleton";
+
+import { usePermissions } from "@/features/auth/hooks/use-permissions";
+import { useAuthStore } from "@/store/auth-store";
 
 import {
   Card,
@@ -16,11 +19,34 @@ import {
 } from "@/components/ui/card";
 
 export default function ActivityLogsPage() {
+  const router = useRouter();
+
+  const hydrated = useAuthStore(
+    (state) => state.hydrated
+  );
+
+  const { isAdmin } = usePermissions();
+
+  // ALL HOOKS MUST BE CALLED BEFORE ANY RETURN
+
   const { data, isLoading, isError, error } =
     useActivityLogs();
 
-  const [search, setSearch] = useState("");
-  const [action, setAction] = useState("all");
+  const [search, setSearch] =
+    useState("");
+
+  const [action, setAction] =
+    useState("all");
+
+  useEffect(() => {
+    if (hydrated && !isAdmin) {
+      router.replace("/dashboard");
+    }
+  }, [
+    hydrated,
+    isAdmin,
+    router,
+  ]);
 
   const filteredLogs = useMemo(() => {
     if (!data?.data) return [];
@@ -38,9 +64,26 @@ export default function ActivityLogsPage() {
         action === "all" ||
         log.action === action;
 
-      return matchesSearch && matchesAction;
+      return (
+        matchesSearch &&
+        matchesAction
+      );
     });
-  }, [data, search, action]);
+  }, [
+    data,
+    search,
+    action,
+  ]);
+
+  // RETURNS AFTER ALL HOOKS
+
+  if (!hydrated) {
+    return null;
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -54,7 +97,7 @@ export default function ActivityLogsPage() {
     return (
       <Card>
         <CardContent className="py-10 text-center">
-          <p className="text-destructive font-medium">
+          <p className="font-medium text-destructive">
             Failed to load activity logs.
           </p>
 
@@ -102,7 +145,10 @@ export default function ActivityLogsPage() {
 
               <span>
                 Page {data.page} of{" "}
-                {Math.max(data.totalPages, 1)}
+                {Math.max(
+                  data.totalPages,
+                  1
+                )}
               </span>
             </div>
           )}
