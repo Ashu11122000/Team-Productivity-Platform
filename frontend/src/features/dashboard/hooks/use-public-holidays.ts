@@ -4,9 +4,9 @@ import { holidaysService } from '../services/holidays.service';
 
 import type { Holiday } from '../types/holiday.types';
 
-export const useHolidays = (
+export function useHolidays(
   year = new Date().getFullYear(),
-) => {
+) {
   return useQuery<Holiday[]>({
     queryKey: ['holidays', year],
 
@@ -15,4 +15,4 @@ export const useHolidays = (
 
     staleTime: 1000 * 60 * 60 * 24,
   });
-};
+}

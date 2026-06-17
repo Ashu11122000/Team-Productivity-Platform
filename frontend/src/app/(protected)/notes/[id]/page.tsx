@@ -2,32 +2,48 @@
 
 import Link from 'next/link';
 
-import { notFound } from 'next/navigation';
+import {
+  notFound,
+  useParams,
+} from 'next/navigation';
 
 import {
   ArrowLeft,
   FileText,
 } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Button,
+} from '@/components/ui/button';
 
-import { NoteCard } from '@/features/notes/components/note-card';
-import { UpdateNoteDialog } from '@/features/notes/components/update-note-diaolog';
-import { DeleteNoteDialog } from '@/features/notes/components/delete-note-dialog';
-import { ConvertTaskButton } from '@/features/notes/components/convert-task-button';
+import {
+  Skeleton,
+} from '@/components/ui/skeleton';
 
-import { useNote } from '@/features/notes/hooks/use-note';
+import {
+  NoteCard,
+} from '@/features/notes/components/note-card';
 
-interface NoteDetailsPageProps {
-  params: {
-    id: string;
-  };
-}
+import {
+  UpdateNoteDialog,
+} from '@/features/notes/components/update-note-diaolog';
 
-export default function NoteDetailsPage({
-  params,
-}: NoteDetailsPageProps) {
+import {
+  DeleteNoteDialog,
+} from '@/features/notes/components/delete-note-dialog';
+
+import {
+  ConvertTaskButton,
+} from '@/features/notes/components/convert-task-button';
+
+import {
+  useNote,
+} from '@/features/notes/hooks/use-note';
+
+export default function NoteDetailsPage() {
+  const params =
+    useParams();
+
   const noteId = Number(
     params.id,
   );
@@ -51,14 +67,14 @@ export default function NoteDetailsPage({
           className="
             rounded-3xl
             border
-            border-white/20
-            bg-white/70
+            border-slate-200
+            bg-white
             p-8
-            shadow-lg
-            backdrop-blur-xl
+            shadow-sm
           "
         >
           <Skeleton className="h-8 w-64" />
+
           <Skeleton className="mt-4 h-4 w-96" />
         </div>
 
@@ -90,12 +106,11 @@ export default function NoteDetailsPage({
           className="
             rounded-3xl
             border
-            border-white/20
-            bg-white/70
+            border-slate-200
+            bg-white
             p-10
             text-center
-            shadow-lg
-            backdrop-blur-xl
+            shadow-sm
           "
         >
           <FileText
@@ -129,6 +144,15 @@ export default function NoteDetailsPage({
             for does not exist or has
             been removed.
           </p>
+
+          <Button
+            asChild
+            className="mt-6"
+          >
+            <Link href="/notes">
+              Back to Notes
+            </Link>
+          </Button>
         </div>
       </div>
     );
@@ -136,47 +160,29 @@ export default function NoteDetailsPage({
 
   return (
     <div className="space-y-8">
-      {/* Hero Section */}
+      {/* Hero */}
       <section
         className="
-          relative
-          overflow-hidden
           rounded-3xl
           border
-          border-white/20
-          bg-white/70
+          border-slate-200
+          bg-white
           p-8
-          shadow-lg
-          backdrop-blur-xl
+          shadow-sm
         "
       >
-        <div
-          className="
-            absolute
-            inset-x-0
-            top-0
-            h-px
-            bg-linear-to-r
-            from-transparent
-            via-cyan-500/70
-            to-transparent
-          "
-        />
-
         <div className="space-y-4">
           <div
             className="
               inline-flex
               items-center
               rounded-full
-              border
-              border-cyan-500/20
-              bg-cyan-500/10
+              bg-indigo-100
               px-4
               py-1.5
               text-xs
               font-medium
-              text-cyan-700
+              text-indigo-700
             "
           >
             Notes Workspace
@@ -186,14 +192,7 @@ export default function NoteDetailsPage({
             className="
               text-4xl
               font-bold
-
-              bg-linear-to-r
-              from-indigo-600
-              via-violet-600
-              to-cyan-600
-
-              bg-clip-text
-              text-transparent
+              text-slate-900
             "
           >
             {note.title}
@@ -214,16 +213,15 @@ export default function NoteDetailsPage({
         </div>
       </section>
 
-      {/* Action Toolbar */}
+      {/* Actions */}
       <section
         className="
           rounded-3xl
           border
-          border-white/20
-          bg-white/70
+          border-slate-200
+          bg-white
           p-4
-          shadow-lg
-          backdrop-blur-xl
+          shadow-sm
         "
       >
         <div
@@ -237,11 +235,6 @@ export default function NoteDetailsPage({
           <Button
             asChild
             variant="outline"
-            className="
-              rounded-2xl
-              bg-white/80
-              backdrop-blur-xl
-            "
           >
             <Link href="/notes">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -266,7 +259,7 @@ export default function NoteDetailsPage({
         </div>
       </section>
 
-      {/* Note Content */}
+      {/* Content */}
       <section>
         <NoteCard note={note} />
       </section>

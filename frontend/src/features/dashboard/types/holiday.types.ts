@@ -1,13 +1,19 @@
+// src/features/holidays/types/holiday.types.ts
+
 export interface Holiday {
   name: string;
+
   description: string;
+
   country: {
     id: string;
     name: string;
   };
+
   date: {
     iso: string;
   };
+
   type: string[];
 }
 

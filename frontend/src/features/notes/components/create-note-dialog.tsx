@@ -3,17 +3,19 @@
 import { useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Plus } from 'lucide-react';
+
 import {
-  useForm,
-  UseFormReturn,
-} from 'react-hook-form';
+  Loader2,
+  Plus,
+} from 'lucide-react';
+
+import { useForm } from 'react-hook-form';
 
 import { toast } from 'sonner';
 
 import {
   createNoteSchema,
-  CreateNoteSchema,
+  type CreateNoteSchema,
 } from '../schemas/create-note.schema';
 
 import { useCreateNote } from '../hooks/use-create-note';
@@ -30,12 +32,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-export function CreateNoteDialog() {
-  const [open, setOpen] =
-    useState(false);
+interface CreateNoteDialogProps {
+  defaultOpen?: boolean;
+}
 
-  const mutation =
-    useCreateNote();
+export function CreateNoteDialog({
+  defaultOpen = false,
+}: CreateNoteDialogProps) {
+  const [open, setOpen] =
+    useState(defaultOpen);
+
+  const mutation = useCreateNote();
 
   const form =
     useForm<CreateNoteSchema>({
@@ -49,56 +56,62 @@ export function CreateNoteDialog() {
       },
     });
 
-  async function onSubmit(
+  const onSubmit = async (
     values: CreateNoteSchema,
-  ) {
+  ) => {
     try {
-      await mutation.mutateAsync(
-        values,
-      );
+      await mutation.mutateAsync({
+        title: values.title,
+        content: values.content,
+      });
+
+      form.reset({
+        title: '',
+        content: '',
+      });
+
+      setOpen(false);
 
       toast.success(
         'Note created successfully',
       );
-
-      form.reset();
-
-      setOpen(false);
     } catch {
       toast.error(
         'Failed to create note',
       );
     }
-  }
+  };
 
   return (
     <Dialog
       open={open}
       onOpenChange={setOpen}
     >
-      <DialogTrigger asChild>
-        <Button
-          className="
-            rounded-2xl
-            border-0
-            bg-linear-to-r
-            from-indigo-500
-            via-violet-500
-            to-cyan-500
-            text-white
-            shadow-lg
-            shadow-indigo-500/25
-            transition-all
-            duration-300
-            hover:-translate-y-1
-            hover:shadow-xl
-            hover:shadow-violet-500/30
-          "
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Create Note
-        </Button>
-      </DialogTrigger>
+      {!defaultOpen && (
+        <DialogTrigger asChild>
+          <Button
+            className="
+              rounded-2xl
+              border-0
+              bg-linear-to-r
+              from-indigo-500
+              via-violet-500
+              to-cyan-500
+              text-white
+              shadow-lg
+              shadow-indigo-500/25
+              transition-all
+              duration-300
+              hover:-translate-y-1
+              hover:shadow-xl
+              hover:shadow-violet-500/30
+            "
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Note
+          </Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent
         className="
@@ -113,29 +126,16 @@ export function CreateNoteDialog() {
           backdrop-blur-3xl
         "
       >
-        <div
-          className="
-            absolute
-            inset-x-0
-            top-0
-            h-px
-            bg-linear-to-r
-            from-transparent
-            via-cyan-500/70
-            to-transparent
-          "
-        />
-
         <DialogHeader className="space-y-3">
           <DialogTitle
             className="
-              text-2xl
-              font-bold
               bg-linear-to-r
               from-indigo-600
               via-violet-600
               to-cyan-600
               bg-clip-text
+              text-2xl
+              font-bold
               text-transparent
             "
           >
@@ -155,14 +155,7 @@ export function CreateNoteDialog() {
           )}
           className="mt-6 space-y-6"
         >
-          <NoteForm
-            form={
-              form as UseFormReturn<{
-                title: string;
-                content: string;
-              }>
-            }
-          />
+          <NoteForm form={form} />
 
           <div className="flex justify-end">
             <Button
