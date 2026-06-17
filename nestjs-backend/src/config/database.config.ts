@@ -1,4 +1,6 @@
 /* eslint-disable prettier/prettier */
+
+// This file defines the database configuration
 export default () => ({
     database: {
         host: process.env.DATABASE_HOST,

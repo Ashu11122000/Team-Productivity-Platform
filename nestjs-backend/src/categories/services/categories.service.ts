@@ -41,6 +41,7 @@ export class CategoriesService {
 
     const savedCategory = await this.categoryRepository.save(category);
 
+    // Log activity means recording the action of creating a category in the activity logs, which can be used for auditing, tracking user actions.
     await this.activityLogsService.log({
       action: ActivityAction.CATEGORY_CREATED,
 
@@ -48,6 +49,7 @@ export class CategoriesService {
 
       entityId: savedCategory.id,
 
+      // metadata is an object that contains additional information about the activity, such as the name and color of the created category, which can be useful for providing context in the activity logs.
       metadata: {
         name: savedCategory.name,
 
@@ -162,6 +164,7 @@ export class CategoriesService {
 
     const updatedCategory = await this.categoryRepository.save(category);
 
+    // Log notification means recording the action of updating a category in the notifications logs, which can be used for auditing, tracking user actions.
     await this.notificationsService.create({
       title: 'Category Updated',
 

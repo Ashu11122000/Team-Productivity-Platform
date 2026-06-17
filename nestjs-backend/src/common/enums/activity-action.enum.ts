@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 
+// This file defines an enum for activity actions in a NestJS application
 export enum ActivityAction {
     TASK_CREATED = 'TASK_CREATED',
     TASK_UPDATED = 'TASK_UPDATED',

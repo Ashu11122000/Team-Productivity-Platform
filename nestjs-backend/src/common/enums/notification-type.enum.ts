@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 
+// This file defines an enum for notification types in a NestJS application
 export enum NotificationType {
     TASK_DUE = 'TASK_DUE',
 

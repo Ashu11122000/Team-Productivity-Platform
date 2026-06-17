@@ -1,4 +1,6 @@
 /* eslint-disable prettier/prettier */
+
+// This file defines the JWT configuration
 export default () => ({
     jwt: {
         secret: process.env.JWT_SECRET,
