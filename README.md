@@ -10,6 +10,24 @@ The system follows a microservices-inspired architecture where FastAPI and NestJ
 
 ---
 
+# Team Productivity Platform
+
+## Milestone 2 Evaluation Submission
+
+This project was developed as part of the Milestone 2 Full Stack Evaluation.
+
+The objective was to build a user-facing web application that:
+
+- Consumes APIs from the existing FastAPI backend (Milestone 1)
+- Introduces new APIs through a NestJS backend
+- Provides a unified frontend using Next.js App Router
+- Implements common authentication across services
+- Demonstrates frontend integration with multiple backend services
+- Uses TypeScript and Tailwind CSS
+- Implements exploration features beyond training requirements
+
+---
+
 # Problem Statement
 
 Modern teams often use separate tools for note-taking, task management, reminders, and productivity tracking. This creates fragmented workflows and reduces productivity.
@@ -151,21 +169,6 @@ Examples:
 
 ---
 
-# Tags
-
-Used for quick filtering.
-
-Examples:
-
-* Frontend
-* Backend
-* API
-* Urgent
-* Bug
-* Feature
-
----
-
 # Notifications
 
 Users receive notifications for:
@@ -192,27 +195,6 @@ This helps users track activity history.
 
 ---
 
-# Analytics Dashboard
-
-The dashboard provides productivity insights.
-
-Metrics:
-
-* Total Notes
-* Total Tasks
-* Completed Tasks
-* Pending Tasks
-* Tasks by Category
-* Monthly Activity
-
-Charts:
-
-* Bar Charts
-* Line Charts
-* Pie Charts
-
----
-
 # Public Holidays API Integration
 
 The platform integrates with a Public Holidays API.
@@ -234,29 +216,66 @@ System Alert:
 
 ---
 
-# Architecture
+# Repository Structure
 
-Frontend communicates with two backend services:
+```text
+Team-Productivity-Platform/
 
-Frontend (Next.js)
-|
-|
-+----> FastAPI
-|         |
-|         +-- Authentication
-|         +-- Notes
-|
-+----> NestJS
-|
-+-- Tasks
-+-- Categories
-+-- Tags
-+-- Notifications
-+-- Analytics
-+-- Activity Logs
+├── frontend/
+│
+├── fastapi-backend/
+│
+├── nestjs-backend/
+│
+└── README.md
+```
 
-Both services share the same JWT authentication system.
+---
 
+
+---
+
+# 3. Replace Existing Architecture Section With
+
+```md
+# System Architecture
+
+```text
+                    ┌────────────────────┐
+                    │      Next.js       │
+                    │      Frontend      │
+                    └─────────┬──────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              │                               │
+              ▼                               ▼
+
+      ┌────────────────┐            ┌────────────────┐
+      │    FastAPI     │            │     NestJS     │
+      │   Backend      │            │    Backend     │
+      └────────────────┘            └────────────────┘
+              │                               │
+
+   ┌──────────┼──────────┐      ┌─────────────┼─────────────┐
+   │                     │      │             │             │
+
+   ▼                     ▼      ▼             ▼             ▼
+
+ Auth                   Notes  Tasks        Settings   Notifications
+
+              └──────────────┬───────────────┘
+                             ▼
+
+                     PostgreSQL Database
+```
+
+- Next.js acts as the unified user interface.
+- FastAPI owns Authentication and Notes.
+- NestJS owns Productivity features.
+- PostgreSQL is shared across services.
+- Authentication is centralized in FastAPI.
+- NestJS validates FastAPI-issued JWT tokens.
+- Users authenticate once and access both services.
 ---
 
 # API Ownership
@@ -294,19 +313,10 @@ Categories
 * POST /categories
 * GET /categories
 
-Tags
-
-* POST /tags
-* GET /tags
-
 Notifications
 
 * GET /notifications
 * PUT /notifications/:id/read
-
-Analytics
-
-* GET /analytics/dashboard
 
 Activity Logs
 
@@ -325,58 +335,162 @@ Activity Logs
 
 This provides a Single Login Experience.
 
+
+```text
+User
+ │
+ ▼
+
+Login (FastAPI)
+
+ │
+ ▼
+
+JWT Generated
+
+ │
+ ▼
+
+Frontend Stores JWT
+
+ │
+ ├──────────────► FastAPI APIs
+ │
+ └──────────────► NestJS APIs
+                         │
+                         ▼
+
+                JWT Validation
+
+                         │
+                         ▼
+
+                Authorized Access
+```
+
 ---
 
-# Advanced Features
-
-## Role-Based UI
-
-UI changes based on user role.
-
-Admin Dashboard:
-
-* User Analytics
-* System Reports
-* Global Activity Logs
-
-Member Dashboard:
-
-* Personal Notes
-* Personal Tasks
-* Personal Analytics
 
 ---
 
-## Google Analytics
+# Exploration Tasks Implemented
+
+The following advanced features were implemented beyond the training curriculum.
+
+## Role-Based UI Behaviour
+
+Different interfaces are displayed based on user roles.
+
+### Admin
+
+- User Analytics
+- Activity Logs
+- Administrative Features
+
+### Member
+
+- Personal Notes
+- Personal Tasks
+- Personal Analytics
+
+---
+
+## Public API Integration
+
+### Open Library API
+
+Used to fetch book references and learning resources associated with notes.
+
+### Public Holidays API
+
+Used for:
+
+- Holiday awareness
+- Due date validation
+- Sprint planning
+
+---
+
+## Google Analytics Integration
 
 Tracks:
 
-* Page Views
-* Dashboard Visits
-* Note Creation
-* Task Creation
-* User Engagement
+- Page Views
+- Dashboard Visits
+- Note Creation
+- Task Creation
+- User Engagement
 
 ---
 
-## Responsive Design
+## Tailwind CSS Animations
+
+Implemented animations for:
+
+- Cards
+- Dialogs
+- Notifications
+- Page Transitions
+
+---
+
+## Drag and Drop Kanban Board
+
+Implemented using DnD Kit.
 
 Supports:
 
-* Desktop
-* Tablet
-* Mobile
+- TODO
+- IN PROGRESS
+- COMPLETED
+
+Users can reorder and move tasks between columns.
 
 ---
 
-## UI Animations
+# Setup Instructions
 
-Tailwind CSS animations for:
+## Clone Repository
 
-* Cards
-* Modals
-* Notifications
-* Page Transitions
+```bash
+git clone https://github.com/Ashu11122000/Team-Productivity-Platform.git
+```
+
+```bash
+cd Team-Productivity-Platform
+```
+
+**Start PostgreSQL**
+```bash
+docker compose up -d postgres
+```
+
+**Start FastAPI Backend**
+```bash
+cd fastapi-backend
+
+pip install -r requirements.txt
+
+uvicorn app.main:app --reload
+```
+
+**Start Nest.js Backend**
+```bash
+cd nestjs-backend
+
+npm install
+
+npm run start:dev
+```
+
+**Start Frontend**
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
 
 ---
 

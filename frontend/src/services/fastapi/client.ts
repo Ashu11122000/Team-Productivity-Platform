@@ -1,5 +1,9 @@
 import { createApiClient } from '../shared/create-api-client';
 
+const FASTAPI_URL =
+  process.env.NEXT_PUBLIC_FASTAPI_URL ||
+  'http://localhost:8000';
+
 export const fastapiClient = createApiClient(
-  `${process.env.NEXT_PUBLIC_FASTAPI_URL}/api/v1`,
+  `${FASTAPI_URL}/api/v1`,
 );
