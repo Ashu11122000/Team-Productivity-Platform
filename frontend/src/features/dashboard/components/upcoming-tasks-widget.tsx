@@ -146,7 +146,7 @@ export function UpcomingTasksWidget({
             </p>
 
             <p className="mt-1 text-sm text-slate-500">
-              You're all caught up for now.
+              You&apos;re all caught up for now.
             </p>
 
             <Button

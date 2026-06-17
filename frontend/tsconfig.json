@@ -22,7 +22,7 @@
     "incremental": true,
 
     "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations":"5.0",
 
     "paths": {
       "@/*": ["./src/*"]
@@ -34,6 +34,7 @@
       }
     ]
   },
+
   "include": [
     "next-env.d.ts",
     "**/*.ts",
@@ -43,5 +44,6 @@
     "**/*.mts",
     "src/features/categories/components/category-form.tsx"
   ],
+
   "exclude": ["node_modules"]
 }

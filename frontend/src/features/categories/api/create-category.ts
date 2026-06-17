@@ -12,10 +12,8 @@ export async function createCategory(
   payload: CreateCategoryRequest,
 ): Promise<Category> {
   const response =
-    await nestjsClient.post<
-      CategoryResponse
-    >(
-      API_ROUTES.CATEGORIES,
+    await nestjsClient.post<CategoryResponse>(
+      API_ROUTES.CATEGORIES.BASE,
       payload,
     );
 

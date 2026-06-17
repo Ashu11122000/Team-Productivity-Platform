@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   CircleDashed,
   Loader2,
-  ShieldAlert,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -43,14 +42,6 @@ function getStatusConfig(
           'border-emerald-500/20 bg-emerald-500/10 text-emerald-600',
       };
 
-    case 'BLOCKED':
-      return {
-        label: 'Blocked',
-        icon: ShieldAlert,
-        className:
-          'border-rose-500/20 bg-rose-500/10 text-rose-600',
-      };
-
     default:
       return {
         label: status,
@@ -76,8 +67,7 @@ export function TaskStatusBadge({
     >
       <Icon
         className={`h-3.5 w-3.5 ${
-          status ===
-          'IN_PROGRESS'
+          status === 'IN_PROGRESS'
             ? 'animate-spin'
             : ''
         }`}

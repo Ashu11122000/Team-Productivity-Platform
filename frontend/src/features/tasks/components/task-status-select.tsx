@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   CircleDashed,
   Loader2,
-  ShieldAlert,
 } from 'lucide-react';
 
 import {
@@ -54,14 +53,6 @@ function getStatusMeta(
           'border-emerald-500/20 bg-emerald-500/10 text-emerald-600',
       };
 
-    case 'BLOCKED':
-      return {
-        label: 'Blocked',
-        icon: ShieldAlert,
-        triggerClass:
-          'border-rose-500/20 bg-rose-500/10 text-rose-600',
-      };
-
     default:
       return {
         label: status,
@@ -78,13 +69,10 @@ export function TaskStatusSelect({
   const {
     mutate,
     isPending,
-  } =
-    useUpdateTaskStatus();
+  } = useUpdateTaskStatus();
 
   const current =
-    getStatusMeta(
-      task.status,
-    );
+    getStatusMeta(task.status);
 
   const CurrentIcon =
     current.icon;
@@ -93,9 +81,7 @@ export function TaskStatusSelect({
     <Select
       value={task.status}
       disabled={isPending}
-      onValueChange={(
-        value,
-      ) =>
+      onValueChange={(value) =>
         mutate({
           id: task.id,
           status:
@@ -120,7 +106,7 @@ export function TaskStatusSelect({
         </div>
       </SelectTrigger>
 
-      <SelectContent className="rounded-2xl border border-white/20 bg-white/90 backdrop-blur-xl shadow-xl">
+      <SelectContent className="rounded-2xl border border-white/20 bg-white/90 shadow-xl backdrop-blur-xl">
         <SelectItem value="TODO">
           <div className="flex items-center gap-2">
             <CircleDashed className="h-4 w-4 text-slate-500" />
@@ -139,13 +125,6 @@ export function TaskStatusSelect({
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             Completed
-          </div>
-        </SelectItem>
-
-        <SelectItem value="BLOCKED">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-rose-500" />
-            Blocked
           </div>
         </SelectItem>
       </SelectContent>

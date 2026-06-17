@@ -1,6 +1,9 @@
 'use client';
 
-import { Trash2, AlertTriangle } from 'lucide-react';
+import {
+  Trash2,
+  AlertTriangle,
+} from 'lucide-react';
 
 import {
   AlertDialog,
@@ -20,52 +23,78 @@ import { useDeleteTask } from '../hooks/use-delete-task';
 
 interface DeleteTaskDialogProps {
   taskId: string;
+  taskTitle: string;
+  open?: boolean;
+  onOpenChange?: (
+    open: boolean,
+  ) => void;
 }
 
 export function DeleteTaskDialog({
   taskId,
+  taskTitle,
+  open,
+  onOpenChange,
 }: DeleteTaskDialogProps) {
   const { mutate, isPending } =
     useDeleteTask();
 
+  const handleDelete = () => {
+    mutate(taskId, {
+      onSuccess: () => {
+        onOpenChange?.(false);
+      },
+    });
+  };
+
+  const isControlled =
+    open !== undefined &&
+    onOpenChange !== undefined;
+
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          className="
-            rounded-2xl
-            bg-rose-500
-            text-white
-
-            shadow-lg
-
-            transition-all
-            duration-300
-
-            hover:bg-rose-500/90
-            hover:shadow-xl
-          "
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog
+      open={
+        isControlled
+          ? open
+          : undefined
+      }
+      onOpenChange={
+        isControlled
+          ? onOpenChange
+          : undefined
+      }
+    >
+      {!isControlled && (
+        <AlertDialogTrigger asChild>
+          <Button
+            className="
+              rounded-2xl
+              bg-rose-500
+              text-white
+              shadow-lg
+              transition-all
+              duration-300
+              hover:bg-rose-500/90
+              hover:shadow-xl
+            "
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+        </AlertDialogTrigger>
+      )}
 
       <AlertDialogContent
         className="
           max-w-md
           overflow-hidden
-
           rounded-3xl
           border-white/20
-
           bg-linear-to-br
           from-slate-200/95
           via-slate-100/95
           to-slate-200/95
-
           backdrop-blur-3xl
-
           shadow-[0_25px_80px_rgba(15,23,42,0.25)]
         "
       >
@@ -75,7 +104,6 @@ export function DeleteTaskDialog({
             inset-x-0
             top-0
             h-px
-
             bg-linear-to-r
             from-transparent
             via-rose-500/70
@@ -93,12 +121,10 @@ export function DeleteTaskDialog({
                 shrink-0
                 items-center
                 justify-center
-
                 rounded-2xl
-
-                bg-rose-500/10
                 border
                 border-rose-500/20
+                bg-rose-500/10
               "
             >
               <AlertTriangle
@@ -125,14 +151,20 @@ export function DeleteTaskDialog({
                 className="
                   text-sm
                   leading-relaxed
-                  text-slate-400
+                  text-slate-500
                 "
               >
-                This action cannot be
-                undone. The task and all
-                associated information
-                will be permanently
-                removed.
+                You are about to permanently
+                delete{' '}
+                <span className="font-semibold text-slate-900">
+                  &quot;{taskTitle}&quot;
+                </span>
+                .
+                <br />
+                <br />
+                This action cannot be undone
+                and all associated task
+                information will be removed.
               </AlertDialogDescription>
             </div>
           </div>
@@ -142,7 +174,6 @@ export function DeleteTaskDialog({
           className="
             mt-4
             h-px
-
             bg-linear-to-r
             from-transparent
             via-rose-500/40
@@ -152,17 +183,14 @@ export function DeleteTaskDialog({
 
         <AlertDialogFooter className="mt-6 gap-3">
           <AlertDialogCancel
+            disabled={isPending}
             className="
               rounded-2xl
-
               border-white/20
               bg-white/60
-
               backdrop-blur-xl
-
               transition-all
               duration-300
-
               hover:bg-white/80
             "
           >
@@ -171,25 +199,17 @@ export function DeleteTaskDialog({
 
           <AlertDialogAction
             disabled={isPending}
-            onClick={() =>
-              mutate(taskId)
-            }
+            onClick={handleDelete}
             className="
               min-w-[120px]
-
               rounded-2xl
-
               bg-rose-500
               text-white
-
               shadow-lg
-
               transition-all
               duration-300
-
               hover:bg-rose-500/90
               hover:shadow-xl
-
               disabled:opacity-50
             "
           >
