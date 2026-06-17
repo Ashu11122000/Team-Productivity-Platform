@@ -14,3 +14,5 @@ services:
       NEXT_PUBLIC_FASTAPI_URL: http://localhost:8000
       NEXT_PUBLIC_NESTJS_URL: http://localhost:3001
       NEXT_PUBLIC_GA_ID: G-XXXXXXXXXX
+
+    restart: unless-stopped
