@@ -7,8 +7,10 @@ def test_register(test_client):
         }
     )
 
+    # Assert means check that the response status code is either 200 (OK) or 201 (Created)
     assert response.status_code in (200, 201)
 
+    # payload = response.json() means convert the response body to a Python dictionary
     payload = response.json()
 
     assert payload["success"] is True

@@ -1,3 +1,5 @@
+# BaseSettings automatically reads environment variables
+# SettingsConfigDict is used to define configuration behaviors for a BaseSettings model
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -74,7 +76,7 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self) -> str:
         """
-        SQLAlchemy connection string
+        SQLAlchemy connection string (Database URL) that SQLAlchemy uses to connect to database
         """
         return (
             f"postgresql://{self.DB_USER}:"

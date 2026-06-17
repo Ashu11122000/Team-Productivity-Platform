@@ -1,6 +1,9 @@
+# List of dependencies for FastAPI routes, including authentication, and role-based access control (RBAC) utilities
 from typing import List
 
 from fastapi import Depends, HTTPException, status
+
+# OAuth2PasswordBearer for handling OAuth2 authentication, Session for database session management
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -9,6 +12,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.user_service import UserService
 
+# OAuth2PasswordBearer instance for handling OAuth2 authentication, specifying the token URL for Login
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login"
 )
@@ -52,6 +56,7 @@ def get_current_user(
     return user
 
 
+# Role-Base Access Control (RBAC) Dependencies used for FastAPI routes to restricts access to endpoints based on user roles
 def require_role(required_role: str):
     """
     Restrict endpoint to a single role.
@@ -72,6 +77,7 @@ def require_role(required_role: str):
     return role_checker
 
 
+# Role-Base Access Control (RBAC) Dependencies used for FastAPI routes to restricts access to endpoints based on user roles
 def require_roles(allowed_roles: List[str]):
     """
     Restrict endpoint to multiple roles.

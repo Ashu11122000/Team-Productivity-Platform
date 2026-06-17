@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
+# ConfigDict and Field are used for Pydantic model configuration and field definitions
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -41,6 +42,7 @@ class NoteUpdate(BaseModel):
 
 
 class NoteResponse(NoteBase):
+    # from_attributes=True allows Pydantic to read data from ORM models directly
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(
@@ -80,6 +82,7 @@ class NoteResponse(NoteBase):
 
 class PaginatedNotesResponse(BaseModel):
     total: int = Field(
+        # ... means this field is required
         ...,
         description="Total matching notes",
         examples=[125],

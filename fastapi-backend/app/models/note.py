@@ -10,6 +10,8 @@ from sqlalchemy import (
     String,
     Text,
 )
+
+# relationship is used to define relationships between SQLAlchemy models
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -18,6 +20,7 @@ from app.db.base import Base
 class Note(Base):
     __tablename__ = "notes"
 
+    # Indexes for optimizing queries on frequency accessed columns like owner_id, created_at, and title
     __table_args__ = (
         Index("idx_notes_owner_id", "owner_id"),
         Index("idx_notes_created_at", "created_at"),
@@ -86,7 +89,10 @@ class Note(Base):
         back_populates="notes",
     )
 
+    # Representation of the Not Object for debugging and logging purposes
     def __repr__(self) -> str:
+        
+        # Return a string representation of the Note object, including its ID, title, and owner ID
         return (
             f"<Note("
             f"id={self.id}, "

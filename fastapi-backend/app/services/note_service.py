@@ -1,6 +1,9 @@
+# Sequence is used for type hinting of lists and other iterable collections
 from typing import Sequence
 
 from fastapi import HTTPException, status
+
+# desc and func are used for sorting and aggregation in SQLAlchemy queries
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
@@ -12,6 +15,8 @@ ADMIN_ROLE = "ADMIN"
 
 
 class NoteService:
+    
+    # @staticmethod decorator indicates that the method does not depend on instance state and can be called on the class itself
     @staticmethod
     def create_note(
         db: Session,
@@ -57,14 +62,16 @@ class NoteService:
 
         if search:
             query = query.filter(
+                # Use ilike for case-insensitive search on the title field
                 Note.title.ilike(f"%{search}%")
             )
 
         total = (
             query.with_entities(
+                # func.count(Note.id) is used to count the total number of notes matching the query
                 func.count(Note.id)
-            ).scalar()
-            or 0
+            ).scalar()    # .scalar() is used to get the count as a single integer value
+            or 0    # or 0 means if there are no matching notes, return 0 instead of None
         )
 
         if sort_by.lower() == "oldest":

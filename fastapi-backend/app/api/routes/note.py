@@ -1,5 +1,8 @@
+# List and Optional are used for type hinting
 from typing import List, Optional
 
+# FastAPI imports for creating API routes, handling dependencies, and managing HTTP exceptions and status codes
+# Query is used for query parameters in PI endpoints
 from fastapi import (
     APIRouter,
     Depends,

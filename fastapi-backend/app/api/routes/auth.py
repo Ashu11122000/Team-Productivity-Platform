@@ -1,3 +1,4 @@
+# FastAPI Authentication Routes
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -14,7 +15,7 @@ from app.schemas.user import (
 )
 from app.services.user_service import UserService
 
-
+# FastAPI Router for Authentication Endpoints
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
