@@ -8,7 +8,7 @@ import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
 export function useNotes() {
   return useQuery({
-    queryKey: QUERY_KEYS.NOTES,
+    queryKey: QUERY_KEYS.notes,
 
     queryFn: getNotes,
   });

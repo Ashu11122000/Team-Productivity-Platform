@@ -17,7 +17,7 @@ export function useNotificationRead() {
 
     onSuccess: (data) => {
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.NOTIFICATIONS,
+        queryKey: QUERY_KEYS.notifications,
       });
 
       toast.success(

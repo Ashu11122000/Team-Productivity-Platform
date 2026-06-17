@@ -17,7 +17,7 @@ export function useUpdateProfile() {
 
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.PROFILE,
+        queryKey: QUERY_KEYS.profile,
       });
 
       toast.success('Profile updated');

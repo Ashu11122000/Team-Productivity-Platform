@@ -14,11 +14,11 @@ interface CreateTaskResponse {
 export async function createTask(
   payload: CreateTaskRequest,
 ): Promise<Task> {
-  const response =
+  const { data } =
     await nestjsClient.post<CreateTaskResponse>(
-      API_ROUTES.TASKS,
+      API_ROUTES.TASKS.BASE,
       payload,
     );
 
-  return response.data.data;
+  return data.data;
 }

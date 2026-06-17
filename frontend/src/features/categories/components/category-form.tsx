@@ -134,8 +134,8 @@ export function CategoryForm({
                 Color
               </FormLabel>
 
-              <FormControl>
-                <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
+                <FormControl>
                   <Input
                     type="color"
                     className="h-10 w-20 p-1"
@@ -146,22 +146,22 @@ export function CategoryForm({
                       '#3b82f6'
                     }
                   />
+                </FormControl>
 
-                  <Input
-                    placeholder="#3b82f6"
-                    disabled={isLoading}
-                    value={
-                      field.value ??
-                      ''
-                    }
-                    onChange={(e) =>
-                      field.onChange(
-                        e.target.value,
-                      )
-                    }
-                  />
-                </div>
-              </FormControl>
+                <Input
+                  placeholder="#3b82f6"
+                  disabled={isLoading}
+                  value={
+                    field.value ??
+                    ''
+                  }
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value,
+                    )
+                  }
+                />
+              </div>
 
               <FormMessage />
             </FormItem>

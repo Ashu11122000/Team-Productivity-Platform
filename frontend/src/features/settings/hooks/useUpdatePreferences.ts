@@ -13,7 +13,7 @@ export function useUpdatePreferences() {
 
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.PREFERENCES,
+        queryKey: QUERY_KEYS.preferences,
       });
 
       toast.success('Preferences updated');

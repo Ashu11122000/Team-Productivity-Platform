@@ -8,7 +8,7 @@ export function useNotification(
   id: string,
 ) {
   return useQuery({
-    queryKey: [...QUERY_KEYS.NOTIFICATIONS, id],
+    queryKey: [...QUERY_KEYS.notifications, id],
     queryFn: () => getNotification(id),
     enabled: !!id,
   });

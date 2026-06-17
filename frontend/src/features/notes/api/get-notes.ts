@@ -4,6 +4,10 @@ import { API_ROUTES } from '@/lib/constants/api-routes';
 import { Note } from '../types/note.types';
 
 export async function getNotes(): Promise<Note[]> {
-  const response = await fastapiClient.get<Note[]>(API_ROUTES.NOTES);
+  const response =
+    await fastapiClient.get<Note[]>(
+      API_ROUTES.NOTES.BASE,
+    );
+
   return response.data;
 }

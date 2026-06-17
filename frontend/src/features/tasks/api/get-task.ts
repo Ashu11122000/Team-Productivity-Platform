@@ -15,7 +15,7 @@ export async function getTask(
 ): Promise<Task> {
   const response =
     await nestjsClient.get<GetTaskResponse>(
-      `${API_ROUTES.TASKS}/${id}`,
+      `${API_ROUTES.TASKS.BASE}/${id}`,
     );
 
   return response.data.data;

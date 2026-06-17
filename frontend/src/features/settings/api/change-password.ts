@@ -1,6 +1,8 @@
 import { fastapiClient } from '@/services/fastapi/client';
 
-import type { ChangePasswordDto } from '../types/settings.types';
+import type {
+  ChangePasswordDto,
+} from '../types/settings.types';
 
 export async function changePassword(
   payload: ChangePasswordDto

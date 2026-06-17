@@ -1,81 +1,84 @@
 import { create } from 'zustand';
-import {
-  persist,
-  createJSONStorage,
-} from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { User } from '@/features/auth/types/user.types';
 
 interface AuthState {
   accessToken: string | null;
   user: User | null;
-  isAuthenticated: boolean;
   hydrated: boolean;
+  isAuthenticated: boolean;
 
-  setAccessToken: (
-    token: string | null,
-  ) => void;
+  login: (token: string, user: User) => void;
 
-  setUser: (
-    user: User | null,
-  ) => void;
+  setAccessToken: (token: string | null) => void;
 
-  setHydrated: (
-    value: boolean,
-  ) => void;
+  setUser: (user: User | null) => void;
+
+  setHydrated: (value: boolean) => void;
 
   logout: () => void;
 }
 
-export const useAuthStore =
-  create<AuthState>()(
-    persist(
-      (set) => ({
-        accessToken: null,
-        user: null,
-        isAuthenticated: false,
-        hydrated: false,
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      accessToken: null,
+      user: null,
+      hydrated: false,
+      isAuthenticated: false,
 
-        setAccessToken: (token) =>
-          set({
-            accessToken: token,
-            isAuthenticated: !!token,
-          }),
+      login: (token, user) =>
+        set({
+          accessToken: token,
+          user,
+          isAuthenticated: true,
+        }),
 
-        setUser: (user) =>
-          set({
-            user,
-          }),
+      setAccessToken: (token) =>
+        set({
+          accessToken: token,
+          isAuthenticated: Boolean(token),
+        }),
 
-        setHydrated: (value) =>
-          set({
-            hydrated: value,
-          }),
+      setUser: (user) =>
+        set({
+          user,
+        }),
 
-        logout: () =>
-          set({
-            accessToken: null,
-            user: null,
-            isAuthenticated: false,
-          }),
+      setHydrated: (value) =>
+        set({
+          hydrated: value,
+        }),
+
+      logout: () =>
+        set({
+          accessToken: null,
+          user: null,
+          isAuthenticated: false,
+        }),
+    }),
+    {
+      name: process.env.NEXT_PUBLIC_AUTH_STORAGE_KEY ?? 'tpp_access_token',
+
+      storage: createJSONStorage(() => localStorage),
+
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        user: state.user,
       }),
-      {
-        name:
-          process.env
-            .NEXT_PUBLIC_AUTH_STORAGE_KEY ??
-          'tpp_access_token',
 
-        storage:
-          createJSONStorage(
-            () => localStorage,
-          ),
+      onRehydrateStorage: () => (state) => {
+        if (!state) {
+          return;
+        }
 
-        onRehydrateStorage:
-          () => (state) => {
-            state?.setHydrated(
-              true,
-            );
-          },
+        state.setHydrated(true);
+
+        if (state.accessToken) {
+          state.setAccessToken(state.accessToken);
+        }
       },
-    ),
-  );
+    },
+  ),
+);

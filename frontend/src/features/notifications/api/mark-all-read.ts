@@ -1,3 +1,5 @@
+import { API_ROUTES } from '@/lib/constants/api-routes';
+
 import { nestjsClient } from '@/services/nestjs/client';
 
 import type {
@@ -5,9 +7,10 @@ import type {
 } from '../types/notification.types';
 
 export async function markAllRead(): Promise<NotificationActionResponse> {
-  const response = await nestjsClient.put(
-    '/notifications/read-all',
-  );
+  const response =
+    await nestjsClient.put<NotificationActionResponse>(
+      `${API_ROUTES.NOTIFICATIONS.BASE}/read-all`,
+    );
 
   return response.data;
 }

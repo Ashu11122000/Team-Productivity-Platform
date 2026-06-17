@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import {
   profileSchema,
-  ProfileFormValues,
+  type ProfileFormValues,
 } from '../schemas/profile.schema';
 
 import { useProfile } from '../hooks/useProfile';
@@ -18,6 +18,7 @@ import { useUpdateProfile } from '../hooks/useUpdateProfile';
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -27,7 +28,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 export function ProfileForm() {
-  const { data } = useProfile();
+  const {
+    data,
+    isLoading,
+  } = useProfile();
 
   const updateProfile =
     useUpdateProfile();
@@ -35,7 +39,9 @@ export function ProfileForm() {
   const form =
     useForm<ProfileFormValues>({
       resolver:
-        zodResolver(profileSchema),
+        zodResolver(
+          profileSchema
+        ),
 
       defaultValues: {
         name: '',
@@ -51,7 +57,7 @@ export function ProfileForm() {
       name: data.name,
       email: data.email,
       avatarUrl:
-        data.avatarUrl || '',
+        data.avatarUrl ?? '',
     });
   }, [data, form]);
 
@@ -61,12 +67,49 @@ export function ProfileForm() {
     updateProfile.mutate(values);
   };
 
+  if (isLoading) {
+    return (
+      <Card
+        className="
+          rounded-3xl
+          border-slate-200
+          shadow-sm
+        "
+      >
+        <CardContent className="p-6">
+          <p className="text-sm text-slate-500">
+            Loading profile...
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const {
+    errors,
+  } = form.formState;
+
   return (
-    <Card>
+    <Card
+      className="
+        rounded-3xl
+        border-slate-200
+        shadow-sm
+        transition-all
+        duration-300
+        hover:shadow-md
+      "
+    >
       <CardHeader>
         <CardTitle>
           Update Profile
         </CardTitle>
+
+        <CardDescription>
+          Manage your personal
+          information and account
+          details.
+        </CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -74,32 +117,87 @@ export function ProfileForm() {
           onSubmit={form.handleSubmit(
             onSubmit
           )}
-          className="space-y-4"
+          className="space-y-5"
         >
-          <Input
-            placeholder="Name"
-            {...form.register('name')}
-          />
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-700">
+              Full Name
+            </p>
 
-          <Input
-            placeholder="Email"
-            {...form.register('email')}
-          />
+            <Input
+              placeholder="Enter your name"
+              {...form.register(
+                'name'
+              )}
+            />
 
-          <Input
-            placeholder="Avatar URL"
-            {...form.register(
-              'avatarUrl'
+            {errors.name && (
+              <p className="text-sm text-red-500">
+                {
+                  errors.name
+                    .message
+                }
+              </p>
             )}
-          />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-700">
+              Email Address
+            </p>
+
+            <Input
+              placeholder="Enter your email"
+              {...form.register(
+                'email'
+              )}
+            />
+
+            {errors.email && (
+              <p className="text-sm text-red-500">
+                {
+                  errors.email
+                    .message
+                }
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-700">
+              Avatar URL
+            </p>
+
+            <Input
+              placeholder="https://..."
+              {...form.register(
+                'avatarUrl'
+              )}
+            />
+
+            {errors.avatarUrl && (
+              <p className="text-sm text-red-500">
+                {
+                  errors.avatarUrl
+                    .message
+                }
+              </p>
+            )}
+          </div>
 
           <Button
             type="submit"
             disabled={
               updateProfile.isPending
             }
+            className="
+              w-full
+              sm:w-auto
+            "
           >
-            Save Changes
+            {updateProfile.isPending
+              ? 'Saving...'
+              : 'Save Changes'}
           </Button>
         </form>
       </CardContent>

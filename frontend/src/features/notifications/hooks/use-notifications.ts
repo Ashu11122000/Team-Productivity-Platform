@@ -6,7 +6,7 @@ import { getNotifications } from '../api/get-notifications';
 
 export function useNotifications() {
   return useQuery({
-    queryKey: QUERY_KEYS.NOTIFICATIONS,
+    queryKey: QUERY_KEYS.notifications,
     queryFn: getNotifications,
   });
 }

@@ -3,8 +3,13 @@ import { API_ROUTES } from '@/lib/constants/api-routes';
 
 import { Note } from '../types/note.types';
 
-export async function getNote(id: number): Promise<Note> {
-  const response = await fastapiClient.get<Note>(`${API_ROUTES.NOTES}/${id}`);
+export async function getNote(
+  id: number,
+): Promise<Note> {
+  const response =
+    await fastapiClient.get<Note>(
+      `${API_ROUTES.NOTES.BASE}/${id}`,
+    );
 
   return response.data;
 }
