@@ -13,7 +13,7 @@ export function useCurrentUser() {
   const setUser = useAuthStore((state) => state.setUser);
 
   return useQuery({
-    queryKey: QUERY_KEYS.CURRENT_USER,
+    queryKey: QUERY_KEYS.currentUser,
 
     queryFn: async () => {
       const user = await getCurrentUser();

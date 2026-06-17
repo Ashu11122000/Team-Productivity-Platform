@@ -5,15 +5,27 @@ export const API_ROUTES = {
     ME: '/auth/me',
   },
 
-  NOTES: '/notes',
+  NOTES: {
+    BASE: '/notes',
+  },
 
-  TASKS: '/tasks',
+  TASKS: {
+    BASE: '/tasks',
+  },
 
-  CATEGORIES: '/categories',
+  CATEGORIES: {
+    BASE: '/categories',
+  },
 
-  TAGS: '/tags',
+  NOTIFICATIONS: {
+    BASE: '/notifications',
+  },
 
-  NOTIFICATIONS: '/notifications',
+  ANALYTICS: {
+    BASE: '/analytics',
+  },
 
-  ANALYTICS: '/analytics',
+  ACTIVITY_LOGS: {
+    BASE: '/activity-logs',
+  },
 } as const;

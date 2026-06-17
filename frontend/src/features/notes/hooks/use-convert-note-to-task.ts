@@ -16,11 +16,11 @@ export function useConvertNoteToTask() {
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.NOTES,
+        queryKey: QUERY_KEYS.notes,
       });
 
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.TASKS,
+        queryKey: QUERY_KEYS.tasks,
       });
     },
   });

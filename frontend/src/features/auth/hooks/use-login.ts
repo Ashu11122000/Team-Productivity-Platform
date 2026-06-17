@@ -6,55 +6,28 @@ import { toast } from 'sonner';
 
 import { login } from '../api/login';
 
-import type {
-  LoginRequest,
-  LoginResponse,
-} from '../types/login.types';
+import type { LoginRequest, LoginResponse } from '../types/login.types';
 
 import { useAuthStore } from '@/store/auth-store';
 
 export function useLogin() {
   const router = useRouter();
 
-  const setAccessToken =
-    useAuthStore(
-      (state) => state.setAccessToken,
-    );
+  const loginStore = useAuthStore((state) => state.login);
 
-  const setUser =
-    useAuthStore(
-      (state) => state.setUser,
-    );
-
-  return useMutation<
-    LoginResponse,
-    unknown,
-    LoginRequest
-  >({
+  return useMutation<LoginResponse, unknown, LoginRequest>({
     mutationFn: login,
 
     onSuccess: (response) => {
-      setAccessToken(
-        response.data.access_token,
-      );
+      loginStore(response.data.access_token, response.data.user);
 
-      setUser(
-        response.data.user,
-      );
+      toast.success(response.message || 'Login successful');
 
-      toast.success(
-        response.message,
-      );
-
-      router.replace(
-        '/dashboard',
-      );
+      router.replace('/dashboard');
     },
 
     onError: () => {
-      toast.error(
-        'Invalid email or password',
-      );
+      toast.error('Invalid email or password');
     },
   });
 }

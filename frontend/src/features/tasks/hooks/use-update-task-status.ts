@@ -33,7 +33,7 @@ export function useUpdateTaskStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey:
-          QUERY_KEYS.TASKS,
+          QUERY_KEYS.tasks,
       });
 
       toast.success(

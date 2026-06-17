@@ -5,7 +5,7 @@ import { getTaskStatusAnalytics } from '../api/get-task-status';
 
 export const useTaskStatus = () => {
   return useQuery({
-    queryKey: QUERY_KEYS.TASK_STATUS_ANALYTICS,
+    queryKey: QUERY_KEYS.taskStatusAnalytics,
     queryFn: getTaskStatusAnalytics,
   });
 };

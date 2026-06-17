@@ -9,10 +9,11 @@ export async function updateNote(
   id: number,
   data: UpdateNoteRequest,
 ): Promise<Note> {
-  const response = await fastapiClient.put<Note>(
-    `${API_ROUTES.NOTES}/${id}`,
-    data,
-  );
+  const response =
+    await fastapiClient.put<Note>(
+      `${API_ROUTES.NOTES.BASE}/${id}`,
+      data,
+    );
 
   return response.data;
 }

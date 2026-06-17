@@ -5,7 +5,7 @@ import { getProductivityAnalytics } from '../api/get-productivity';
 
 export const useProductivity = () => {
   return useQuery({
-    queryKey: QUERY_KEYS.PRODUCTIVITY_ANALYTICS,
+    queryKey: QUERY_KEYS.productivityAnalytics,
     queryFn: getProductivityAnalytics,
   });
 };

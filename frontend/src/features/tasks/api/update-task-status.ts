@@ -24,7 +24,7 @@ export async function updateTaskStatus({
 }: UpdateTaskStatusParams): Promise<Task> {
   const response =
     await nestjsClient.patch<UpdateTaskStatusResponse>(
-      `${API_ROUTES.TASKS}/${id}`,
+      `${API_ROUTES.TASKS.BASE}/${id}`,
       {
         status,
       },

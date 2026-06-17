@@ -1,15 +1,18 @@
-// use-holidays.ts
+import { useQuery } from '@tanstack/react-query';
 
-import { useQuery } from "@tanstack/react-query";
-import { holidaysService } from "../services/holidays.service";
+import { holidaysService } from '../services/holidays.service';
+
+import type { Holiday } from '../types/holiday.types';
 
 export const useHolidays = (
-  year = new Date().getFullYear()
+  year = new Date().getFullYear(),
 ) => {
-  return useQuery({
-    queryKey: ["holidays", year],
+  return useQuery<Holiday[]>({
+    queryKey: ['holidays', year],
+
     queryFn: () =>
       holidaysService.getHolidays(year),
+
     staleTime: 1000 * 60 * 60 * 24,
   });
 };

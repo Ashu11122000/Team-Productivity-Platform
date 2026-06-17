@@ -1,6 +1,8 @@
 import { fastapiClient } from '@/services/fastapi/client';
 
-import type { UserPreferences } from '../types/settings.types';
+import type {
+  UserPreferences,
+} from '../types/settings.types';
 
 export async function getPreferences() {
   const { data } =

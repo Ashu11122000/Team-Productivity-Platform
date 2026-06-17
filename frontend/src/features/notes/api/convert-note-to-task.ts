@@ -5,7 +5,7 @@ import { API_ROUTES } from '@/lib/constants/api-routes';
 
 export async function convertNoteToTask(noteId: number) {
   const response = await fastapiClient.post(
-    `${API_ROUTES.NOTES}/${noteId}/convert-to-task`,
+    `${API_ROUTES.NOTES.BASE}/${noteId}/convert-to-task`,
   );
 
   return response.data;

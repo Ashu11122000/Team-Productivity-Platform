@@ -5,7 +5,7 @@ import { getProfile } from '../api/get-profile';
 
 export function useProfile() {
   return useQuery({
-    queryKey: QUERY_KEYS.PROFILE,
+    queryKey: QUERY_KEYS.profile,
     queryFn: getProfile,
   });
 }

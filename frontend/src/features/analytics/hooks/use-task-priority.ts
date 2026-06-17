@@ -6,7 +6,7 @@ import { getTaskPriorityAnalytics } from '../api/get-task-priority';
 
 export const useTaskPriority = () => {
   return useQuery({
-    queryKey: QUERY_KEYS.TASK_PRIORITY_ANALYTICS,
+    queryKey: QUERY_KEYS.taskPriorityAnalytics,
     queryFn: getTaskPriorityAnalytics,
   });
 };

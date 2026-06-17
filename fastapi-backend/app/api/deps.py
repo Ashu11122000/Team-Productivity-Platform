@@ -9,8 +9,6 @@ from app.db.session import get_db
 from app.models.user import User
 from app.services.user_service import UserService
 
-
-# OAuth2 Bearer Token
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login"
 )
@@ -22,21 +20,9 @@ def get_current_user(
 ) -> User:
     """
     Retrieve authenticated user from JWT token.
-    
-    Used by:
-    - Notes APIs
-    - Future Tasks APIs
-    - Admin APIs
-    - Profile APIs
     """
 
     payload = decode_access_token(token)
-
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-        )
 
     email = payload.get("sub")
 
@@ -104,4 +90,3 @@ def require_roles(allowed_roles: List[str]):
         return current_user
 
     return role_checker
-

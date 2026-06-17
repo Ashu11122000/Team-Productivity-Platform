@@ -38,7 +38,7 @@ export function useUpdateCategory() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey:
-          QUERY_KEYS.CATEGORIES,
+          QUERY_KEYS.categories,
       });
 
       toast.success(

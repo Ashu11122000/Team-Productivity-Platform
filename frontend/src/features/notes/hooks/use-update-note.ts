@@ -21,7 +21,7 @@ export function useUpdateNote() {
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.NOTES,
+        queryKey: QUERY_KEYS.notes,
       });
     },
   });

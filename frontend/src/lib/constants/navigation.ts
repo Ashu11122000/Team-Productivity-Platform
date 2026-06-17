@@ -7,62 +7,73 @@ import {
   BarChart3,
   Activity,
   Settings,
-} from 'lucide-react';
+} from "lucide-react";
 
-export const navigation = [
+import { ROLES, type UserRole } from "./roles";
+
+export interface NavigationItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{
+    className?: string;
+  }>;
+  roles: UserRole[];
+}
+
+export const navigation: NavigationItem[] = [
   {
-    title: 'Dashboard',
-    href: '/dashboard',
+    title: "Dashboard",
+    href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ['ADMIN', 'USER'],
+    roles: [ROLES.ADMIN, ROLES.MEMBER],
   },
 
   {
-    title: 'Notes',
-    href: '/notes',
+    title: "Notes",
+    href: "/notes",
     icon: FileText,
-    roles: ['ADMIN', 'USER'],
+    roles: [ROLES.ADMIN, ROLES.MEMBER],
   },
 
   {
-    title: 'Tasks',
-    href: '/tasks',
+    title: "Tasks",
+    href: "/tasks",
     icon: CheckSquare,
-    roles: ['ADMIN', 'USER'],
+    roles: [ROLES.ADMIN, ROLES.MEMBER],
   },
 
   {
-    title: 'Categories',
-    href: '/categories',
+    title: "Categories",
+    href: "/categories",
     icon: FolderTree,
-    roles: ['ADMIN'],
+    roles: [ROLES.ADMIN],
   },
 
   {
-    title: 'Notifications',
-    href: '/notifications',
+    title: "Notifications",
+    href: "/notifications",
     icon: Bell,
-    roles: ['ADMIN', 'USER'],
+    roles: [ROLES.ADMIN, ROLES.MEMBER],
   },
 
   {
-    title: 'Analytics',
-    href: '/analytics',
+    title: "Analytics",
+    href: "/analytics",
     icon: BarChart3,
-    roles: ['ADMIN'],
+    roles: [ROLES.ADMIN],
   },
 
   {
-    title: 'Activity Logs',
-    href: '/activity-logs',
+    title: "Activity Logs",
+    href: "/activity-logs",
     icon: Activity,
-    roles: ['ADMIN'],
+    roles: [ROLES.ADMIN],
   },
 
   {
-    title: 'Settings',
-    href: '/settings',
+    title: "Settings",
+    href: "/settings",
     icon: Settings,
-    roles: ['ADMIN', 'USER'],
+    roles: [ROLES.ADMIN, ROLES.MEMBER],
   },
 ];

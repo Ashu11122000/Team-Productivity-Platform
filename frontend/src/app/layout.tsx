@@ -26,9 +26,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
@@ -50,7 +50,9 @@ export default function RootLayout({
           />
         </QueryProvider>
 
-        {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
+        {gaId ? (
+          <GoogleAnalytics gaId={gaId} />
+        ) : null}
       </body>
     </html>
   );

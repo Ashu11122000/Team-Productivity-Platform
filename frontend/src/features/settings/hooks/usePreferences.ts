@@ -5,7 +5,7 @@ import { getPreferences } from '../api/get-preferences';
 
 export function usePreferences() {
   return useQuery({
-    queryKey: QUERY_KEYS.PREFERENCES,
+    queryKey: QUERY_KEYS.preferences,
     queryFn: getPreferences,
   });
 }

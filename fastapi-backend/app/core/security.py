@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
 
 from app.core.config import settings
-
 
 # Password Hashing (Argon2)
 password_hash = PasswordHash.recommended()
@@ -53,26 +53,6 @@ def create_access_token(
         "exp": expire,
     }
 
-    print(
-        "FASTAPI SECRET =",
-        repr(settings.SECRET_KEY),
-    )
-
-    print(
-        "FASTAPI SECRET LENGTH =",
-        len(settings.SECRET_KEY),
-    )
-
-    print(
-        "FASTAPI ISSUER =",
-        settings.JWT_ISSUER,
-    )
-
-    print(
-        "FASTAPI AUDIENCE =",
-        settings.JWT_AUDIENCE,
-    )
-
     return jwt.encode(
         payload,
         settings.SECRET_KEY,
@@ -99,7 +79,8 @@ def decode_access_token(
 
         return payload
 
-    except JWTError as exc:
-        raise JWTError(
-            "Invalid or expired token"
-        ) from exc
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )

@@ -12,17 +12,14 @@ import { createCategory } from '../api/create-category';
 import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
 export function useCreateCategory() {
-  const queryClient =
-    useQueryClient();
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn:
-      createCategory,
+    mutationFn: createCategory,
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey:
-          QUERY_KEYS.CATEGORIES,
+        queryKey: QUERY_KEYS.categories,
       });
 
       toast.success(

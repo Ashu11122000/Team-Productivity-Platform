@@ -6,6 +6,6 @@ export async function deleteTask(
   id: string,
 ) {
   await nestjsClient.delete(
-    `${API_ROUTES.TASKS}/${id}`,
+    `${API_ROUTES.TASKS.BASE}/${id}`,
   );
 }

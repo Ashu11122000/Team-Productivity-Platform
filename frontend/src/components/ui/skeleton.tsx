@@ -1,13 +1,32 @@
-import { cn } from "@/lib/utils"
+import * as React from 'react';
 
-function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
+import { cn } from '@/lib/utils';
+
+function Skeleton({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<'div'>) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("animate-pulse rounded-md bg-muted", className)}
+      aria-hidden="true"
+      className={cn(
+        [
+          'animate-pulse',
+
+          'rounded-md',
+
+          'bg-muted/70',
+
+          'select-none',
+
+          'pointer-events-none',
+        ],
+        className,
+      )}
       {...props}
     />
-  )
+  );
 }
 
-export { Skeleton }
+export { Skeleton };

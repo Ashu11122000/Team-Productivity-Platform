@@ -22,7 +22,7 @@ export async function updateTask(
 ): Promise<Task> {
   const response =
     await nestjsClient.patch<UpdateTaskResponse>(
-      `${API_ROUTES.TASKS}/${id}`,
+      `${API_ROUTES.TASKS.BASE}/${id}`,
       payload,
     );
 
