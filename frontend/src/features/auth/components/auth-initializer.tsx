@@ -1,18 +1,23 @@
 'use client';
 
 import { useCurrentUser } from '../hooks/use-current-user';
+
 import { useAuthStore } from '@/store/auth-store';
 
 export function AuthInitializer() {
   const hydrated = useAuthStore(
-    (state) => state.hydrated
+    (state) => state.hydrated,
   );
 
-  useCurrentUser();
+  const isAuthenticated = useAuthStore(
+    (state) => state.isAuthenticated,
+  );
 
-  if (!hydrated) {
-    return null;
-  }
+  useCurrentUser({
+    enabled:
+      hydrated &&
+      isAuthenticated,
+  });
 
   return null;
 }

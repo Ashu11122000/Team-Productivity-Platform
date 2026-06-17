@@ -1,11 +1,19 @@
-import { fastapiClient } from "@/services/fastapi/client";
-import { LoginRequest, LoginResponse } from "../types/login.types";
+import { fastapiClient } from '@/services/fastapi/client';
+import { API_ROUTES } from '@/lib/constants/api-routes';
 
-export async function login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await fastapiClient.post<LoginResponse>(
-        '/auth/login',
-        data,
+import type {
+  LoginRequest,
+  LoginResponse,
+} from '../types/login.types';
+
+export async function login(
+  data: LoginRequest,
+): Promise<LoginResponse> {
+  const response =
+    await fastapiClient.post<LoginResponse>(
+      API_ROUTES.AUTH.LOGIN,
+      data,
     );
 
-    return response.data;
+  return response.data;
 }
