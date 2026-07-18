@@ -1,33 +1,118 @@
-/* eslint-disable prettier/prettier */
+/**
+ * ============================================================================
+ * File: swagger.config.ts
+ * ============================================================================
+ *
+ * Swagger (OpenAPI) configuration for the Team Productivity Platform.
+ *
+ * Responsibilities
+ * ----------------
+ * - Centralize Swagger configuration.
+ * - Provide strongly typed OpenAPI settings.
+ * - Configure JWT Bearer authentication.
+ * - Support environment-based Swagger enablement.
+ *
+ * Compatible With
+ * ----------------
+ * - NestJS 11
+ * - @nestjs/swagger
+ * ============================================================================
+ */
 
-// This file defines the Swagger configuration for the NestJS application
-// INestApplication is an interface that represents a NestJS application instance 
-import { INestApplication } from '@nestjs/common';
+import { registerAs } from '@nestjs/config';
 
-// DocumentBuilder is a class that helps to build the Swagger document configuration
-// SwaggerModule is a module that provides methods to create and setup Swagger documentation for the application
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+export default registerAs('swagger', () => ({
+  /**
+   * --------------------------------------------------------------------------
+   * Enable / Disable Swagger
+   * --------------------------------------------------------------------------
+   *
+   * Example:
+   * SWAGGER_ENABLED=true
+   */
+  enabled: process.env.SWAGGER_ENABLED === 'true',
 
-// setupSwagger is a function that sets up Swagger documentation for the given NestJS application instance
-export function setupSwagger(app: INestApplication):
-    
-    // void means this function does not return any value
-    void {
-        const config = new DocumentBuilder()
-        .setTitle('Team Productivity Platform APIs')
-        .setDescription('NestJS Backend APIs for Tasks, Categories, Tags, Notifications, Analytics, and Activity Logs')
-        .setVersion('1.0.0')
-            .addBearerAuth({
-                type: 'http',
-                scheme: 'bearer',
-                bearerFormat: 'JWT',
-                description: 'Paste FastAPI generated access token'
-            },
-            'access-token'
-        )
-        .build();
+  /**
+   * --------------------------------------------------------------------------
+   * Swagger Route
+   * --------------------------------------------------------------------------
+   *
+   * Example:
+   * api/docs
+   */
+  path: process.env.SWAGGER_PATH ?? 'api/docs',
 
-        const document = SwaggerModule.createDocument(app, config);
+  /**
+   * --------------------------------------------------------------------------
+   * API Metadata
+   * --------------------------------------------------------------------------
+   */
+  title: process.env.APP_NAME ?? 'Team Productivity Platform API',
 
-        SwaggerModule.setup('api/docs', app, document);
-    }
+  description:
+    'Enterprise-grade Team Productivity Platform backend built with NestJS.',
+
+  version: process.env.APP_VERSION ?? '1.0.0',
+
+  /**
+   * --------------------------------------------------------------------------
+   * Contact Information
+   * --------------------------------------------------------------------------
+   */
+  contact: {
+    name: 'Ashish Sharma',
+
+    email: 'ashish@example.com',
+
+    url: 'https://github.com/Ashu11122000',
+  },
+
+  /**
+   * --------------------------------------------------------------------------
+   * License Information
+   * --------------------------------------------------------------------------
+   */
+  license: {
+    name: 'MIT',
+
+    url: 'https://opensource.org/licenses/MIT',
+  },
+
+  /**
+   * --------------------------------------------------------------------------
+   * API Tags
+   * --------------------------------------------------------------------------
+   *
+   * Used for grouping controllers.
+   */
+  tags: [
+    'Authentication',
+    'Tasks',
+    'Categories',
+    'Tags',
+    'Notifications',
+    'Analytics',
+    'Calendar',
+    'Dashboard',
+    'Reminders',
+    'Health',
+  ],
+
+  /**
+   * --------------------------------------------------------------------------
+   * JWT Authentication
+   * --------------------------------------------------------------------------
+   */
+  bearer: {
+    type: 'http',
+
+    scheme: 'bearer',
+
+    bearerFormat: 'JWT',
+
+    name: 'Authorization',
+
+    description:
+      'Enter JWT access token obtained from the FastAPI authentication service.',
+  },
+}));

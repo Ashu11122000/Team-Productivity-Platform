@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-
     "target": "ES2023",
+
+    "module": "commonjs",
 
     "rootDir": "./src",
     "outDir": "./dist",
@@ -17,9 +16,6 @@
 
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-
-    "resolvePackageJsonExports": true,
-    "isolatedModules": true,
 
     "incremental": true,
 
