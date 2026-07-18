@@ -37,6 +37,6 @@ from app.repositories.base_repository import BaseRepository
 
 __all__ = [
     "BaseRepository",
-    # "UserRepository",
-    # "NoteRepository",
+    "UserRepository",
+    "NoteRepository",
 ]
