@@ -1,93 +1,100 @@
 """
-Database configuration for the Team Productivity Platform.
+==========================================================
+Database Session Configuration
+==========================================================
 
-Responsibilities:
-- Create and manage the SQLAlchemy engine.
-- Provide database sessions to FastAPI routes and services.
-- Support PostgreSQL connectivity.
-- Enable connection pooling for production workloads.
-- Serve FastAPI-owned modules:
-    - Authentication
-    - Users 
-    - Notes
-    - Open Library integrations
-    
-Architecture:
-    Next.js Frontend
-        ↓
-    FastAPI
-        ↓
-    SQLAlchemy ORM
-        ↓
-    PostgreSQL
-    
-NestJS may connect to the same PostgreSQL instance using its own ORM (TypeORM/Prisma) but does not depend on this module.
+Creates and manages the SQLAlchemy engine and database
+sessions for the Team Productivity Platform.
+
+Responsibilities
+----------------
+✓ Create SQLAlchemy engine
+✓ Configure connection pooling
+✓ Provide FastAPI database dependency
+✓ Handle PostgreSQL connections
+✓ Ensure proper session lifecycle
+
+Database
+--------
+PostgreSQL + SQLAlchemy 2.0 + psycopg
+
+Architecture
+------------
+Next.js
+    │
+    ▼
+FastAPI
+    │
+    ▼
+SQLAlchemy ORM
+    │
+    ▼
+PostgreSQL
+
+==========================================================
 """
 
-# Generator for type hinting, quote_plus for URL encoding, SQLAlchemy imports for engine and session management
 from collections.abc import Generator
 
-# quote_plus for URL encoding, SQLAlchemy imports for engine and session management
-from urllib.parse import quote_plus
-
-# create_engine for creating the SQLAlchemy engine, Session and sessionmaker for managing database sessions
 from sqlalchemy import create_engine
-
-# Session and sessionmaker for managing database sessions
 from sqlalchemy.orm import Session, sessionmaker
 
-# Importing settings from the core configuration to access database credentials and other configurations
 from app.core.config import settings
+from app.core.logging import get_logger
 
-# Database password is URL-encoded to ensure special characters do not break the connection string
-password = quote_plus(settings.DB_PASSWORD)
+logger = get_logger(__name__)
 
-# Constructing the DATABASE_URL using the settings from the configuration, ensuring compatibility with SQLAlchemy and PostgreSQL
-DATABASE_URL = (
-    f"postgresql+psycopg2://{settings.DB_USER}:{password}"
-    f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-)
+# ==========================================================
+# Database Engine
+# ==========================================================
 
-# Debugging output to verify the constructed DATABASE_URL
-print("=" * 80)
-print("DATABASE_URL =", DATABASE_URL)
-print("=" * 80)
-
-# SQLAlchemy Engine for managing database connections, with connection pooling and other performance optimizations
 engine = create_engine(
-    DATABASE_URL,
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
-    pool_recycle=3600,
-    echo=settings.DEBUG,
+    pool_recycle=1800,
+    pool_timeout=30,
+    future=True,
 )
 
-# Session Factory for creating new database sessions, with autocommit and autoflush disabled for transaction safety
+# ==========================================================
+# Session Factory
+# ==========================================================
+
 SessionLocal = sessionmaker(
     bind=engine,
-    autocommit=False,    # Used for transaction safety
-    autoflush=False,    # Used for transaction safety
+    autoflush=False,
+    autocommit=False,
     expire_on_commit=False,
 )
 
-# Dependency used in FastAPI routes to provide a database session for each request, ensures proper cleanup and transaction management
-def get_db() -> Generator[Session, None, None]: 
+logger.info("Database engine initialized successfully.")
+
+# ==========================================================
+# Database Dependency
+# ==========================================================
+
+def get_db() -> Generator[Session, None, None]:
     """
-    FastAPI database dependency.
-    
-    Usage:
-        db: Session = Depends(get_db)
-        
-    Ensures:
-        - Session creation per request
-        - Automatic cleanup
-        - Transaction safety
+    FastAPI dependency that provides a database session.
+
+    Usage
+    -----
+    db: Session = Depends(get_db)
+
+    Lifecycle
+    ---------
+    - Create session
+    - Yield session
+    - Automatically close session
     """
+
     db = SessionLocal()
-    
-    try: 
-        yield db     # yield the session to the route handler, allowing it to perform database operations
-        
+
+    try:
+        yield db
+
     finally:
         db.close()

@@ -1,64 +1,87 @@
-# datetime and timezone handling, JWT encoding/decoding, password hashing
-# timedelta for token expiration, HTTP exceptions for auth errors
-from datetime import datetime, timedelta, timezone
+"""
+==========================================================
+Security Utilities
+==========================================================
 
-# Any for JWT payload typing
+Provides:
+
+✓ Password hashing (Argon2)
+✓ Password verification
+✓ JWT Access Token creation
+✓ JWT decoding & validation
+
+Compatible with:
+
+- FastAPI
+- SQLAlchemy 2.0
+- Pydantic v2
+- python-jose
+==========================================================
+"""
+
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-# HTTPException and status are used when raise authentication errors
 from fastapi import HTTPException, status
-
-# JWTError and jwt from python-jose for handling jwt tokens
-from jose import JWTError, jwt
-
-# PasswordHash from pwdlib for secure password hashing
+from jose import ExpiredSignatureError, JWTError, jwt
 from pwdlib import PasswordHash
 
 from app.core.config import settings
 
-# Password Hashing (Argon2) - recommended for secure password storage
+# ==========================================================
+# Password Hashing
+# ==========================================================
+
 password_hash = PasswordHash.recommended()
 
-# Security utilities for password hashing and JWT token management
+# ==========================================================
+# Password Utilities
+# ==========================================================
+
 def hash_password(password: str) -> str:
+    """
+    Hash a plain text password using Argon2.
+    """
     return password_hash.hash(password)
 
-# Verify password against stored hash
+
 def verify_password(
     plain_password: str,
     hashed_password: str,
 ) -> bool:
     """
-    Verify password against stored hash.
+    Verify a password against its hash.
     """
     return password_hash.verify(
         plain_password,
         hashed_password,
     )
 
-# Create JWT access token with user information and expiration
+# ==========================================================
+# JWT Utilities
+# ==========================================================
+
 def create_access_token(
     user_id: str,
     email: str,
     role: str,
 ) -> str:
     """
-    Create JWT access token.
+    Create a JWT access token.
     """
 
-    expire = (
-        datetime.now(timezone.utc)
-        + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+    now = datetime.now(timezone.utc)
+
+    expire = now + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
     payload = {
         "sub": email,
         "user_id": user_id,
         "role": role,
-        "iss": settings.JWT_ISSUER,
-        "aud": settings.JWT_AUDIENCE,
+        "type": "access",
+        "iat": now,
         "exp": expire,
     }
 
@@ -68,13 +91,12 @@ def create_access_token(
         algorithm=settings.ALGORITHM,
     )
 
-# Decode and validate JWT token, ensuring compatibility with NestJS JWT configuration
+
 def decode_access_token(
     token: str,
 ) -> dict[str, Any]:
     """
-    Decode and validate JWT token.
-    Compatible with NestJS JWT configuration.
+    Decode and validate a JWT access token.
     """
 
     try:
@@ -82,14 +104,38 @@ def decode_access_token(
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
-            issuer=settings.JWT_ISSUER,
-            audience=settings.JWT_AUDIENCE,
         )
 
         return payload
 
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Access token has expired",
+        )
+
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="Invalid access token",
         )
+
+
+def get_token_subject(
+    token: str,
+) -> str:
+    """
+    Return the authenticated user's email.
+    """
+
+    payload = decode_access_token(token)
+
+    subject = payload.get("sub")
+
+    if subject is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    return subject
