@@ -1,22 +1,31 @@
 """
+==========================================================
 Global Exception Handlers
-=========================
+==========================================================
 
-Centralized exception handling for the Team Productivity Platform.
+Centralized exception handling for the Team Productivity
+Platform.
 
 Responsibilities
 ----------------
+- Handle custom application exceptions
 - Handle FastAPI HTTP exceptions
 - Handle request validation errors
 - Handle SQLAlchemy database errors
 - Handle unexpected exceptions
-- Log all server-side errors
-- Return consistent API responses
+- Log server-side errors
+- Return standardized API responses
 
-Compatible with:
+Compatible With
+---------------
 - FastAPI
 - SQLAlchemy 2.x
+- PostgreSQL
 - Pydantic v2
+- Docker
+- Alembic
+- Python 3.12+
+==========================================================
 """
 
 from __future__ import annotations
@@ -30,12 +39,15 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.logging import get_logger
+from app.exceptions.exceptions import ApplicationError
 
 logger = get_logger(__name__)
 
 
 def _timestamp() -> str:
-    """Return current UTC timestamp in ISO 8601 format."""
+    """
+    Return the current UTC timestamp in ISO 8601 format.
+    """
     return datetime.now(UTC).isoformat()
 
 
@@ -45,20 +57,62 @@ def _error_response(
     error: str,
     message: Any,
     path: str,
+    error_code: str | None = None,
 ) -> JSONResponse:
     """
-    Build a standardized error response.
+    Build a standardized API error response.
     """
+
+    content: dict[str, Any] = {
+        "success": False,
+        "error": error,
+        "message": message,
+        "path": path,
+        "timestamp": _timestamp(),
+    }
+
+    if error_code is not None:
+        content["error_code"] = error_code
+
     return JSONResponse(
         status_code=status_code,
-        content={
-            "success": False,
-            "error": error,
-            "message": message,
-            "path": path,
-            "timestamp": _timestamp(),
-        },
+        content=content,
     )
+
+
+# ==========================================================
+# Application Exceptions
+# ==========================================================
+
+
+async def application_exception_handler(
+    request: Request,
+    exc: ApplicationError,
+) -> JSONResponse:
+    """
+    Handle custom application exceptions.
+    """
+
+    logger.warning(
+        "Application Error | %s | %s | %s | %s",
+        exc.error_code,
+        exc.status_code,
+        request.method,
+        request.url.path,
+    )
+
+    return _error_response(
+        status_code=int(exc.status_code),
+        error=exc.error_code,
+        error_code=exc.error_code,
+        message=exc.message,
+        path=request.url.path,
+    )
+
+
+# ==========================================================
+# FastAPI Exceptions
+# ==========================================================
 
 
 async def http_exception_handler(
@@ -78,10 +132,15 @@ async def http_exception_handler(
 
     return _error_response(
         status_code=exc.status_code,
-        error="HTTPException",
+        error="HTTP_EXCEPTION",
         message=exc.detail,
         path=request.url.path,
     )
+
+
+# ==========================================================
+# Validation Errors
+# ==========================================================
 
 
 async def validation_exception_handler(
@@ -100,10 +159,15 @@ async def validation_exception_handler(
 
     return _error_response(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        error="ValidationError",
+        error="VALIDATION_ERROR",
         message=exc.errors(),
         path=request.url.path,
     )
+
+
+# ==========================================================
+# Database Errors
+# ==========================================================
 
 
 async def sqlalchemy_exception_handler(
@@ -111,7 +175,7 @@ async def sqlalchemy_exception_handler(
     exc: SQLAlchemyError,
 ) -> JSONResponse:
     """
-    Handle SQLAlchemy exceptions.
+    Handle SQLAlchemy database exceptions.
     """
 
     logger.exception(
@@ -123,10 +187,15 @@ async def sqlalchemy_exception_handler(
 
     return _error_response(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        error="DatabaseError",
+        error="DATABASE_ERROR",
         message="A database error occurred.",
         path=request.url.path,
     )
+
+
+# ==========================================================
+# Unhandled Exceptions
+# ==========================================================
 
 
 async def unhandled_exception_handler(
@@ -146,10 +215,15 @@ async def unhandled_exception_handler(
 
     return _error_response(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        error="InternalServerError",
+        error="INTERNAL_SERVER_ERROR",
         message="An unexpected error occurred.",
         path=request.url.path,
     )
+
+
+# ==========================================================
+# Registration
+# ==========================================================
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -158,9 +232,14 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     Parameters
     ----------
-    app : FastAPI
+    app:
         FastAPI application instance.
     """
+
+    app.add_exception_handler(
+        ApplicationError,
+        application_exception_handler,
+    )
 
     app.add_exception_handler(
         HTTPException,
@@ -182,4 +261,4 @@ def register_exception_handlers(app: FastAPI) -> None:
         unhandled_exception_handler,
     )
 
-    logger.info("Global exception handlers registered.")
+    logger.info("Global exception handlers registered successfully.")

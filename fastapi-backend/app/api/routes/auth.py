@@ -1,5 +1,39 @@
-# FastAPI Authentication Routes
-from fastapi import APIRouter, Depends, HTTPException, status
+"""
+==========================================================
+Authentication API Routes
+==========================================================
+
+REST API endpoints for authentication.
+
+Responsibilities
+----------------
+- Register users
+- Authenticate users
+- Return JWT access tokens
+- Return the currently authenticated user
+
+Business logic remains in the service layer and security
+utilities. Routes are intentionally thin.
+
+Compatible With
+---------------
+- FastAPI
+- SQLAlchemy 2.x
+- Pydantic v2
+- Python 3.12+
+==========================================================
+"""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -8,39 +42,37 @@ from app.core.security import (
     verify_password,
 )
 from app.db.session import get_db
-from app.schemas.user import (
-    UserCreate,
-    UserLogin,
-    UserResponse,
+from app.models.user import User
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
 )
+from app.schemas.user import UserResponse
 from app.services.user_service import UserService
 
-# FastAPI Router for Authentication Endpoints
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
 
+DatabaseSession = Annotated[Session, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
 
 @router.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new user",
-    description="""
-    Create a new user account.
-
-    Roles supported:
-    - MEMBER (default)
-    - ADMIN (future support)
-
-    Authentication is managed by FastAPI and shared with NestJS
-    through a common JWT strategy.
-    """,
+    summary="Register User",
+    response_description="Successfully registered user.",
 )
 def register(
-    user: UserCreate,
-    db: Session = Depends(get_db),
-):
+    user: RegisterRequest,
+    db: DatabaseSession,
+) -> dict:
+    """
+    Register a new user account.
+    """
+
     existing_user = UserService.get_user_by_email(
         db=db,
         email=user.email,
@@ -49,7 +81,7 @@ def register(
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered",
+            detail="Email already registered.",
         )
 
     new_user = UserService.create_user(
@@ -60,7 +92,7 @@ def register(
 
     return {
         "success": True,
-        "message": "User registered successfully",
+        "message": "User registered successfully.",
         "data": {
             "user_id": new_user.id,
             "email": new_user.email,
@@ -71,30 +103,26 @@ def register(
 
 @router.post(
     "/login",
-    summary="Login user",
-    description="""
-    Authenticate a user and return a JWT access token.
-
-    The same JWT is used by:
-    - FastAPI
-    - NestJS
-
-    This enables shared authentication across services.
-    """,
+    summary="Login User",
+    response_description="JWT access token.",
 )
 def login(
-    user: UserLogin,
-    db: Session = Depends(get_db),
-):
+    user: LoginRequest,
+    db: DatabaseSession,
+) -> dict:
+    """
+    Authenticate a user and return a JWT access token.
+    """
+
     db_user = UserService.get_user_by_email(
         db=db,
         email=user.email,
     )
 
-    if not db_user:
+    if db_user is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email or password",
+            detail="Invalid email or password.",
         )
 
     if not verify_password(
@@ -103,7 +131,7 @@ def login(
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email or password",
+            detail="Invalid email or password.",
         )
 
     access_token = create_access_token(
@@ -114,7 +142,7 @@ def login(
 
     return {
         "success": True,
-        "message": "Login successful",
+        "message": "Login successful.",
         "data": {
             "access_token": access_token,
             "token_type": "bearer",
@@ -130,18 +158,14 @@ def login(
 @router.get(
     "/me",
     response_model=UserResponse,
-    summary="Get current authenticated user",
-    description="""
-    Return the currently authenticated user.
-
-    Used by:
-    - Next.js frontend
-    - Role-based UI rendering
-    - Profile pages
-    - Permission checks
-    """,
+    summary="Current User",
+    response_description="Authenticated user.",
 )
 def get_me(
-    current_user=Depends(get_current_user),
-):
+    current_user: CurrentUser,
+) -> UserResponse:
+    """
+    Return the currently authenticated user.
+    """
+
     return current_user

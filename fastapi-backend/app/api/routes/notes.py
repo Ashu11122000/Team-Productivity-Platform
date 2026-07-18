@@ -1,12 +1,35 @@
-# List and Optional are used for type hinting
-from typing import List, Optional
+"""
+==========================================================
+Notes API Routes
+==========================================================
 
-# FastAPI imports for creating API routes, handling dependencies, and managing HTTP exceptions and status codes
-# Query is used for query parameters in PI endpoints
+REST API endpoints for managing notes.
+
+Responsibilities
+----------------
+- Validate incoming requests
+- Authenticate users
+- Delegate business logic to NoteService
+- Return response schemas
+
+Business logic is intentionally excluded from this layer.
+
+Compatible With
+---------------
+- FastAPI
+- SQLAlchemy 2.x
+- Pydantic v2
+- Python 3.12+
+"""
+
+from __future__ import annotations
+
+from typing import Annotated
+
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
+    Path,
     Query,
     status,
 )
@@ -27,18 +50,25 @@ router = APIRouter(
     tags=["Notes"],
 )
 
+DatabaseSession = Annotated[Session, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
 
 @router.post(
     "",
     response_model=NoteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Note",
+    response_description="Created note.",
 )
 def create_note_api(
     note: NoteCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> NoteResponse:
+    """
+    Create a new note for the authenticated user.
+    """
     return NoteService.create_note(
         db=db,
         user_id=current_user.id,
@@ -48,18 +78,45 @@ def create_note_api(
 
 @router.get(
     "",
-    response_model=List[NoteResponse],
-    summary="Get Notes",
+    response_model=list[NoteResponse],
+    summary="List Notes",
+    response_description="List of notes.",
 )
 def get_notes_api(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
-    search: Optional[str] = Query(default=None),
-    sort_by: str = Query(default="newest"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    total, notes = NoteService.get_notes(
+    page: Annotated[
+        int,
+        Query(
+            ge=1,
+            description="Page number.",
+        ),
+    ] = 1,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100,
+            description="Number of records per page.",
+        ),
+    ] = 10,
+    search: Annotated[
+        str | None,
+        Query(
+            description="Search by title or content.",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        str,
+        Query(
+            description="Sorting strategy (newest, oldest, title).",
+        ),
+    ] = "newest",
+    db: DatabaseSession = None,
+    current_user: CurrentUser = None,
+) -> list[NoteResponse]:
+    """
+    Retrieve paginated notes belonging to the authenticated user.
+    """
+    _, notes = NoteService.get_notes(
         db=db,
         current_user=current_user,
         page=page,
@@ -73,29 +130,35 @@ def get_notes_api(
 
 @router.get(
     "/admin/all",
-    response_model=List[NoteResponse],
-    summary="Get All Notes (Admin)",
+    response_model=list[NoteResponse],
+    summary="List All Notes (Admin)",
+    response_description="List of all notes.",
 )
 def get_all_notes_admin_api(
-    page: int = Query(
-        1,
-        ge=1,
-    ),
-    limit: int = Query(
-        20,
-        ge=1,
-        le=100,
-    ),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
+    page: Annotated[
+        int,
+        Query(
+            ge=1,
+            description="Page number.",
+        ),
+    ] = 1,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100,
+            description="Number of records per page.",
+        ),
+    ] = 20,
+    db: DatabaseSession = None,
+    current_user: CurrentUser = None,
+) -> list[NoteResponse]:
+    """
+    Retrieve all notes.
 
-    total, notes = NoteService.get_all_notes_admin(
+    Accessible only by administrators.
+    """
+    _, notes = NoteService.get_all_notes_admin(
         db=db,
         current_user=current_user,
         page=page,
@@ -108,13 +171,23 @@ def get_all_notes_admin_api(
 @router.get(
     "/{note_id}",
     response_model=NoteResponse,
-    summary="Get Note By ID",
+    summary="Get Note",
+    response_description="Requested note.",
 )
 def get_note_api(
-    note_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Note identifier.",
+        ),
+    ],
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> NoteResponse:
+    """
+    Retrieve a single note by its identifier.
+    """
     return NoteService.get_note_by_id(
         db=db,
         current_user=current_user,
@@ -126,13 +199,23 @@ def get_note_api(
     "/{note_id}",
     response_model=NoteResponse,
     summary="Update Note",
+    response_description="Updated note.",
 )
 def update_note_api(
-    note_id: int,
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Note identifier.",
+        ),
+    ],
     note_data: NoteUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> NoteResponse:
+    """
+    Update an existing note.
+    """
     return NoteService.update_note(
         db=db,
         current_user=current_user,
@@ -147,29 +230,45 @@ def update_note_api(
     summary="Delete Note",
 )
 def delete_note_api(
-    note_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Note identifier.",
+        ),
+    ],
+    db: DatabaseSession,
+    current_user: CurrentUser,
+) -> None:
+    """
+    Delete a note.
+    """
     NoteService.delete_note(
         db=db,
         current_user=current_user,
         note_id=note_id,
     )
 
-    return None
-
 
 @router.post(
     "/{note_id}/convert-to-task",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Convert Note To Task",
+    summary="Convert Note to Task",
 )
 def convert_note_to_task_api(
-    note_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    note_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="Note identifier.",
+        ),
+    ],
+    db: DatabaseSession,
+    current_user: CurrentUser,
 ):
+    """
+    Convert a note into a task payload.
+    """
     return NoteService.convert_note_to_task(
         db=db,
         current_user=current_user,
