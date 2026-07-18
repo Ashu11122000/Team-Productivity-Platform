@@ -1,94 +1,546 @@
-# Notes App Backend
+# Overview
+
+The **Team Productivity Platform** is a modern microservices-based productivity application designed to help teams organize work, collaborate efficiently, and manage daily activities through a secure and scalable architecture.
+
+This repository contains the **FastAPI Backend**, which is responsible for authentication, user management, notes management, and secure API communication. It exposes RESTful APIs consumed by the Next.js frontend while sharing authentication with the NestJS backend through JWT.
+
+The backend follows a clean layered architecture where API routes remain lightweight and business logic is delegated to dedicated service classes. SQLAlchemy 2.x is used as the ORM for database interactions, while PostgreSQL serves as the primary relational database.
+
+The project is structured to support maintainability, scalability, and production deployment. Common concerns such as authentication, validation, exception handling, logging, middleware, configuration management, and dependency injection are separated into dedicated modules to improve code quality and long-term maintainability.
+
+This backend currently provides the following core capabilities:
+
+- User registration and authentication
+- JWT-based authorization
+- User profile management
+- Notes CRUD operations
+- Note-to-task conversion support
+- PostgreSQL database integration
+- Request validation using Pydantic v2
+- Automatic OpenAPI (Swagger) documentation
+- Centralized exception handling
+- Configurable CORS support
+- Structured logging middleware
+- Environment-based configuration
+- Health monitoring endpoint
+
+The FastAPI backend works alongside the following services within the Team Productivity Platform ecosystem:
+
+| Service | Technology | Responsibility |
+|----------|------------|----------------|
+| Frontend | Next.js, TypeScript, Tailwind CSS | User Interface |
+| FastAPI Backend | FastAPI | Authentication, Users, Notes |
+| NestJS Backend | NestJS | Tasks, Categories, Tags, Analytics |
+| Database | PostgreSQL | Persistent Data Storage |
+
+The application is designed with production-readiness in mind by emphasizing:
+
+- Modular architecture
+- Reusable services
+- Clean separation of concerns
+- Secure authentication
+- RESTful API design
+- Type safety
+- Maintainable project structure
+- High code readability
+- Scalable backend architecture
+- Comprehensive API documentation
+
+This backend serves as the authentication and notes management service within the overall Team Productivity Platform and is intended to integrate seamlessly with the frontend and additional backend services as the platform evolves.
 
 ---
 
-## Overview
+# Features
 
-This project is a **production-ready RESTful backend** built using **FastAPI**.
-It provides a secure and scalable system for managing personal notes with authentication, authorization, and clean architecture.
+The FastAPI backend has been designed with scalability, maintainability, security, and performance in mind. It provides a modular architecture that separates business logic from API routes while following modern backend development practices.
 
-The application demonstrates real-world backend practices including:
+## Authentication
 
-* JWT authentication
-* Role-based access control
-* Database integration with PostgreSQL
-* Docker containerization
-* API documentation
-* Unit testing
-
----
-
-## Key Features
-
-### Authentication & Authorization
-
-* User registration and login
-* JWT-based authentication
-* Role-based access control (RBAC)
-
-### Notes Management
-
-* Create, read, update, delete notes (CRUD)
-* Users can only access their own notes
-
-### Dockerized Setup
-
-* Fully containerized using Docker & Docker Compose
-* Consistent environment across systems
-
-### API Documentation
-
-* Swagger UI → `/docs`
-* ReDoc → `/redoc`
-
-### Testing
-
-* Pytest-based test suite
-* Covers authentication & notes APIs
-
-### Google OAuth (Optional)
-
-* Login via Google account using Authlib
+- JWT-based authentication
+- Secure user registration
+- User login
+- Password hashing using Argon2
+- Stateless authentication
+- Bearer token authorization
+- Protected API endpoints
+- Shared authentication support with the NestJS backend
 
 ---
 
-## Project Goal
+## User Management
 
-To build a **clean, scalable, production-like backend system** using best practices:
-
-* Separation of concerns
-* Secure authentication
-* Modular architecture
-* Containerized deployment
-
----
-
-## Tech Stack
-
-| Category         | Technology        |
-| ---------------- | ----------------- |
-| Framework        | FastAPI           |
-| Database         | PostgreSQL        |
-| ORM              | SQLAlchemy        |
-| Auth             | JWT (python-jose) |
-| Hashing          | Passlib (bcrypt)  |
-| Containerization | Docker            |
-| Testing          | Pytest            |
-| API Client       | Postman           |
+- Create new users
+- Retrieve authenticated user information
+- Update user details
+- Delete users
+- Role-based authorization
+- Active and inactive user support
+- User profile management
 
 ---
 
-## Architecture Overview
+## Notes Management
+
+- Create notes
+- Retrieve notes
+- Update notes
+- Delete notes
+- Search notes
+- Pagination support
+- Sorting support
+- Personal notes for authenticated users
+- Administrator access to all notes
+- Convert notes into tasks
+
+---
+
+## API Design
+
+- RESTful API architecture
+- Versioned API endpoints
+- Request validation
+- Response validation
+- Consistent HTTP status codes
+- Structured API responses
+- OpenAPI specification generation
+- Interactive Swagger UI
+- ReDoc documentation
+
+---
+
+## Security
+
+- JWT Authentication
+- Password hashing with Argon2
+- Protected routes
+- Dependency-based authorization
+- Request validation
+- SQL Injection protection through SQLAlchemy ORM
+- Environment variable configuration
+- Secure secret key management
+- Role-based access control
+
+---
+
+## Database
+
+- PostgreSQL database
+- SQLAlchemy 2.x ORM
+- Session management
+- Connection pooling
+- Repository pattern support
+- Automatic table initialization
+- Transaction management
+
+---
+
+## Validation
+
+- Pydantic v2 schemas
+- Automatic request validation
+- Automatic response serialization
+- Email validation
+- Password validation
+- Field constraints
+- Type safety throughout the application
+
+---
+
+## Middleware
+
+- Logging middleware
+- CORS middleware
+- Global exception handling
+- Request logging
+- Response logging
+- Error handling middleware
+
+---
+
+## Logging
+
+- Structured logging
+- Startup logs
+- Shutdown logs
+- API request logs
+- Error logging
+- Database initialization logs
+- Middleware logs
+
+---
+
+## Configuration
+
+- Environment-based configuration
+- Centralized settings
+- Secure environment variables
+- Development and production support
+- Configurable JWT settings
+- Configurable CORS settings
+
+---
+
+## Documentation
+
+- Swagger UI
+- ReDoc
+- OpenAPI 3.1 specification
+- Endpoint descriptions
+- Request examples
+- Response schemas
+- Validation documentation
+
+---
+
+## Production Ready
+
+- Layered architecture
+- Modular project structure
+- Service layer
+- Repository layer
+- Dependency injection
+- Configuration management
+- Exception handling
+- Type annotations
+- Comprehensive documentation
+
+---
+
+# Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Language | Python 3.12+ |
+| Framework | FastAPI |
+| ASGI Server | Uvicorn |
+| ORM | SQLAlchemy 2.x |
+| Database | PostgreSQL 15+ |
+| Validation | Pydantic v2 |
+| Authentication | JWT |
+| Password Hashing | Argon2 (pwdlib) |
+| Database Driver | Psycopg v3 |
+| Configuration | pydantic-settings |
+| API Documentation | Swagger UI, ReDoc, OpenAPI |
+| Dependency Management | pip |
+| Logging | Python Logging |
+| Architecture | Layered Architecture |
+| API Style | REST |
+| Serialization | Pydantic |
+| Environment Management | .env |
+| Version Control | Git |
+| Container Support | Docker Ready |
+| IDE | Visual Studio Code |
+
+---
+
+## Core Libraries
+
+| Package | Purpose |
+|----------|---------|
+| fastapi | REST API framework |
+| uvicorn | ASGI server |
+| sqlalchemy | ORM |
+| psycopg | PostgreSQL driver |
+| pydantic | Data validation |
+| pydantic-settings | Configuration management |
+| python-jose | JWT encoding and decoding |
+| pwdlib | Password hashing |
+| python-multipart | Form data support |
+| email-validator | Email validation |
+| alembic | Database migrations |
+
+---
+
+# Architecture
+
+The Team Productivity Platform follows a modular microservices architecture where each service is responsible for a specific business domain. The frontend communicates with both backend services through REST APIs while authentication is shared using JSON Web Tokens (JWT).
 
 ```
-Client → API Routes → Dependencies → Services → Database → Response
+                           ┌─────────────────────────┐
+                           │     Next.js Frontend    │
+                           │ TypeScript + Tailwind   │
+                           └────────────┬────────────┘
+                                        │
+                         ┌──────────────┴──────────────┐
+                         │                             │
+                  REST API Calls                REST API Calls
+                         │                             │
+                         ▼                             ▼
+        ┌────────────────────────┐      ┌────────────────────────┐
+        │    FastAPI Backend     │      │    NestJS Backend      │
+        │────────────────────────│      │────────────────────────│
+        │ Authentication         │      │ Tasks                 │
+        │ Users                  │      │ Categories            │
+        │ Notes                  │      │ Tags                  │
+        │ JWT                    │      │ Analytics             │
+        └────────────┬───────────┘      └────────────┬───────────┘
+                     │                               │
+                     └──────────────┬────────────────┘
+                                    │
+                                    ▼
+                         PostgreSQL Database
+```
+
+The FastAPI backend is organized using a layered architecture to ensure separation of concerns and improve maintainability.
+
+```
+                HTTP Request
+                      │
+                      ▼
+              FastAPI Router Layer
+                      │
+                      ▼
+             Dependency Injection
+                      │
+                      ▼
+               Service Layer
+                      │
+                      ▼
+            Repository / Database
+                      │
+                      ▼
+             PostgreSQL Database
+```
+
+Each layer has a clearly defined responsibility.
+
+| Layer | Responsibility |
+|--------|----------------|
+| API Routes | Define REST endpoints and validate requests |
+| Dependencies | Authentication and shared dependencies |
+| Services | Business logic and application rules |
+| Models | SQLAlchemy ORM models |
+| Schemas | Request and response validation |
+| Database | Session management and database initialization |
+| Middleware | Logging and CORS |
+| Core | Configuration, constants, security and logging |
+| Exceptions | Global exception handlers |
+
+---
+
+## Directory Description
+
+### `app/api`
+
+Contains all REST API endpoints and dependency providers.
+
+| File | Description |
+|------|-------------|
+| `deps.py` | Shared dependencies |
+| `routes/auth.py` | Authentication APIs |
+| `routes/users.py` | User APIs |
+| `routes/notes.py` | Notes APIs |
+
+---
+
+### `app/core`
+
+Contains the application's core configuration and utilities.
+
+| File | Description |
+|------|-------------|
+| `config.py` | Environment configuration |
+| `constants.py` | Global constants |
+| `security.py` | JWT and password hashing |
+| `logging.py` | Logger configuration |
+
+---
+
+### `app/db`
+
+Responsible for database connectivity and initialization.
+
+| File | Description |
+|------|-------------|
+| `session.py` | SQLAlchemy session |
+| `base.py` | Declarative base |
+| `init_db.py` | Database initialization |
+
+---
+
+### `app/models`
+
+Contains SQLAlchemy ORM models.
+
+| Model | Purpose |
+|-------|---------|
+| User | User table |
+| Note | Notes table |
+
+---
+
+### `app/schemas`
+
+Contains all Pydantic models used for validation and serialization.
+
+| Schema | Purpose |
+|--------|---------|
+| Auth | Authentication |
+| User | User operations |
+| Note | Notes operations |
+| Token | JWT responses |
+
+---
+
+### `app/services`
+
+Contains all business logic.
+
+| Service | Responsibility |
+|---------|----------------|
+| AuthService | Authentication |
+| UserService | User management |
+| NoteService | Notes management |
+
+---
+
+### `app/repositories`
+
+Responsible for database operations.
+
+Repositories isolate SQLAlchemy queries from the service layer, improving maintainability and testability.
+
+---
+
+### `app/middleware`
+
+Contains middleware executed before and after request processing.
+
+- Logging middleware
+- CORS middleware
+
+---
+
+### `app/exceptions`
+
+Provides centralized exception handling for the application.
+
+Global handlers ensure consistent error responses across all API endpoints.
+
+---
+
+# Getting Started
+
+This section explains how to set up and run the FastAPI backend locally for development.
+
+## Prerequisites
+
+Before running the application, ensure the following software is installed on your machine.
+
+| Software | Recommended Version |
+|----------|---------------------|
+| Python | 3.12 or later |
+| PostgreSQL | 15 or later |
+| Git | Latest |
+| Visual Studio Code | Latest |
+| pip | Latest |
+
+Verify the installed versions:
+
+```bash
+python --version
+pip --version
+git --version
+psql --version
 ```
 
 ---
 
-## Project Structure
+# Clone the Repository
 
+Clone the project from GitHub.
+
+```bash
+git clone https://github.com/Ashu11122000/Team-Productivity-Platform.git
 ```
+
+Move into the FastAPI backend.
+
+```bash
+cd Team-Productivity-Platform/fastapi-backend
+```
+
+---
+
+# Create a Virtual Environment
+
+Windows
+
+```bash
+python -m venv .venv
+```
+
+Linux / macOS
+
+```bash
+python3 -m venv .venv
+```
+
+---
+
+# Activate the Virtual Environment
+
+### Windows PowerShell
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### Windows Command Prompt
+
+```cmd
+.venv\Scripts\activate.bat
+```
+
+### Linux / macOS
+
+```bash
+source .venv/bin/activate
+```
+
+After activation, your terminal should display:
+
+```text
+(.venv)
+```
+
+---
+
+# Install Dependencies
+
+Upgrade pip.
+
+```bash
+python -m pip install --upgrade pip
+```
+
+Install project dependencies.
+
+```bash
+pip install -r requirements.txt
+```
+
+If a `requirements.txt` file is not available, install the required packages manually.
+
+```bash
+pip install fastapi
+pip install uvicorn
+pip install sqlalchemy
+pip install psycopg[binary]
+pip install pydantic
+pip install pydantic-settings
+pip install python-jose[cryptography]
+pip install pwdlib[argon2]
+pip install python-multipart
+pip install email-validator
+pip install alembic
+```
+
+---
+
+# Folder structure
+
+```text
 app/
 ├── main.py
 │
@@ -166,1405 +618,703 @@ README.md
 
 ---
 
-## Local Setup
+# Installation
 
-### 1. Create Virtual Environment
+After configuring the environment variables, verify that PostgreSQL is running.
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate   # Windows
-```
-
----
-
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-### 3. Run the App
+Start the FastAPI development server.
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
+A successful startup should display output similar to:
+
+```text
+INFO:     Uvicorn running on http://127.0.0.1:8000
+INFO:     Started reloader process
+INFO:     Started server process
+INFO:     Application startup complete.
+```
+
+The API is now available locally.
+
+| Service | URL |
+|----------|-----|
+| API | http://127.0.0.1:8000 |
+| Swagger UI | http://127.0.0.1:8000/docs |
+| ReDoc | http://127.0.0.1:8000/redoc |
+| Health Check | http://127.0.0.1:8000/health |
+
 ---
 
-### 4. Open API Docs
+# Verify the Installation
 
-```
+Open the browser and navigate to:
+
+```text
 http://127.0.0.1:8000/docs
 ```
 
----
+The interactive Swagger UI should load successfully.
 
-## Docker Setup
-
-### Build & Run
-
-```bash
-docker compose up --build
-```
-
-### Run in background
-
-```bash
-docker compose up -d
-```
-
-### Stop containers
-
-```bash
-docker compose down
-```
-
----
-
-## Run Tests
-
-```bash
-pytest
-```
-
----
-
-## API Endpoints
-
-### Auth
-
-| Method | Endpoint         | Description      |
-| ------ | ---------------- | ---------------- |
-| POST   | `/auth/register` | Register user    |
-| POST   | `/auth/login`    | Login user       |
-| GET    | `/auth/me`       | Get current user |
-
----
-
-### Notes
-
-| Method | Endpoint      | Description   |
-| ------ | ------------- | ------------- |
-| POST   | `/notes`      | Create note   |
-| GET    | `/notes`      | Get all notes |
-| GET    | `/notes/{id}` | Get note      |
-| PUT    | `/notes/{id}` | Update note   |
-| DELETE | `/notes/{id}` | Delete note   |
-
----
-
-## FastAPI Service
-
-This service is responsible for handling authentication and note-related functionality for the Team Productivity Platform.
-
-### Responsibilities
-
-* Authentication
-* User Management
-* Notes Management
-* Open Library Integration
-* Note-to-Task Conversion
-
-### Base URL
-
-```http
-http://localhost:8000/api/v1
-```
-
-### Health Check
+You can also verify the health endpoint.
 
 ```http
 GET /health
 ```
 
-Example Response:
+Example response:
 
 ```json
 {
-  "status": "healthy"
+  "status": "healthy",
+  "service": "Team Productivity Platform API",
+  "version": "1.0.0",
+  "environment": "development"
 }
 ```
 
-### Service Ownership
-
-The FastAPI service owns:
-
-#### Authentication
-
-```http
-POST /auth/register
-POST /auth/login
-GET  /auth/me
-```
-
-#### Notes
-
-```http
-POST   /notes
-GET    /notes
-GET    /notes/{id}
-PUT    /notes/{id}
-DELETE /notes/{id}
-```
-
-#### Future Endpoints
-
-```http
-GET  /users/me
-PUT  /users/me
-
-GET  /books/search
-
-POST /notes/{id}/convert-to-tasks
-```
-
-### Integration
-
-This service will be consumed by:
-
-* Next.js Frontend
-* NestJS Productivity Service
-
-Authentication is shared across services using JWT tokens.
-
-Users authenticate once and can access resources managed by both FastAPI and NestJS without logging in again.
+If the application starts successfully and the health endpoint responds correctly, the FastAPI backend has been installed and configured successfully.
 
 ---
 
-## Authentication
+# Database Setup
 
-FastAPI acts as the authentication provider for the entire platform.
+The FastAPI backend uses **PostgreSQL** as its primary relational database and **SQLAlchemy 2.x** as the Object Relational Mapper (ORM).
 
-Users authenticate once and receive a JWT access token.
-
-The same JWT token is later validated by both:
-
-* FastAPI
-* NestJS
-
-This creates a Single Login Experience across services.
-
-**JWT Claims**
-
-Example:
-```text
-{
-  "sub": "1",
-  "email": "user@example.com",
-  "role": "ADMIN"
-}
-```
-
-**Claims include:**
-```text
-User ID
-Email
-Role
-Role-Based Access Control (RBAC)
-```
-
-The platform currently supports:
-
-**ADMIN**
-
-*Capabilities:*
-- View all users
-- View all notes
-- Manage all notes
-- View system analytics
-- View activity logs
-- Access administrative dashboards
-
-
-**MEMBER**
-
-*Capabilities:*
-- Manage own notes
-- View own information
-- Access personal productivity data
-
-**Notes Module**
-
-The Notes module serves as the knowledge-management component of the platform.
-
-**Features:**
-
-- Create Notes
-- View Notes
-- Update Notes
-- Delete Notes
-- Pagination
-- Search Ready
-- Sorting Ready
-
-
-**Notes API**
-Create Note
-
-```text
-POST /api/v1/notes
-```
-
-Creates a note owned by the authenticated user.
-
-**Get Notes**
-```text
-GET /api/v1/notes
-```
-
-*Supports:*
-
-- Pagination
-- Search (planned)
-- Sorting (planned)
-
-Example:
-
-```text
-GET /api/v1/notes?page=1&limit=10
-```
-
-*Get Note By ID*
-```text
-GET /api/v1/notes/{note_id}
-```
-
-**Access Rules:**
-
-- MEMBER → Own notes only
-- ADMIN → Any note
-
-*Update Note*
-
-```text
-PUT /api/v1/notes/{note_id}
-```
-
-**Access Rules:**
-
-- MEMBER → Own notes only
-- ADMIN → Any note
-
-*Delete Note*
-```text
-DELETE /api/v1/notes/{note_id}
-```
-
-**Access Rules:**
-
-MEMBER → Own notes only
-ADMIN → Any note
+The application automatically establishes a database connection during startup and initializes the required tables if they do not already exist.
 
 ---
 
-### Benefits
+## Create the Database
 
-* Improves performance
-* Reduces server load
-* Better user experience for large datasets
+Open PostgreSQL and create the project database.
 
-* Note: Pagination can be easily re-enabled in the API by adding `page` and `limit` query parameters in the `/notes` route.
-
----
-
-## Shared JWT Contract
-
-JWT must work across FastAPI and NestJS.
-
-**Required payload:**
-```text
-{
-  "sub": "1",
-  "email": "user@example.com",
-  "role": "ADMIN",
-  "iss": "team-productivity-platform",
-  "aud": "team-productivity-users",
-  "type": "access"
-}
+```sql
+CREATE DATABASE team_productivity;
 ```
 
-NestJS must be able to authorize users without additional database lookups.
+Verify that the database has been created.
+
+```sql
+\l
+```
+
+Expected output:
+
+```text
+team_productivity
+```
 
 ---
 
-## Database Layer
+## Database Configuration
 
-The FastAPI service uses SQLAlchemy 2.x with PostgreSQL as the primary database.
-
-### Responsibilities
-
-The database layer is responsible for:
-
-* Managing PostgreSQL connections
-* Creating and managing SQLAlchemy sessions
-* Providing database dependencies to FastAPI routes and services
-* Supporting production-grade connection pooling
-* Enabling transaction-safe request handling
-
-### Database Configuration
-
-The application uses a centralized database configuration through environment variables:
+The application reads database configuration from the `.env` file.
 
 ```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=team_productivity
-DB_USER=postgres
-DB_PASSWORD=password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=team_productivity
+
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/team_productivity
 ```
 
-The SQLAlchemy engine is configured with:
+---
 
-* Connection pooling
-* Automatic connection health checks (`pool_pre_ping`)
-* Connection recycling
-* Debug SQL logging in development environments
+## Test the Database Connection
 
-### Session Management
+Connect to PostgreSQL.
 
-A dedicated `SessionLocal` factory creates database sessions for each request.
+```bash
+psql -U postgres -h localhost
+```
 
-FastAPI's dependency injection system ensures:
+Select the project database.
 
-* One session per request
-* Automatic cleanup after request completion
-* Safe transaction handling
+```sql
+\c team_productivity
+```
 
-### Service Ownership
+List all available tables.
 
-FastAPI currently owns the following database modules:
+```sql
+\dt
+```
 
-* Users
-* Authentication
-* Notes
-* Open Library Integrations
-
-NestJS may connect to the same PostgreSQL database using its own ORM (TypeORM or Prisma) while maintaining clear service boundaries.
-
-### Architecture
+Example output:
 
 ```text
-Next.js Frontend
-        │
-        ▼
-     FastAPI
-        │
-        ▼
-   SQLAlchemy ORM
-        │
-        ▼
-    PostgreSQL
-
-NestJS
-   │
-   └── Can access the same PostgreSQL instance
-       through its own ORM layer
+users
+notes
 ```
-
-This architecture supports the Team Productivity Platform's multi-service design while maintaining a shared and scalable database infrastructure.
 
 ---
 
-## User Model
+## Automatic Initialization
 
-The User model is the central identity and authorization entity within the FastAPI service.
+When the FastAPI application starts, it automatically performs the following tasks:
 
-FastAPI acts as the authentication authority and is responsible for issuing JWT tokens that are consumed by both FastAPI and NestJS services.
+- Connects to PostgreSQL
+- Creates database tables if they do not exist
+- Initializes the SQLAlchemy engine
+- Configures the database session
+- Verifies database connectivity
 
-### Responsibilities
-
-* User Registration
-* User Authentication
-* Role-Based Access Control (RBAC)
-* JWT Identity Source
-* User Ownership Validation
-
-### User Fields
-
-| Field           | Type     | Description                 |
-| --------------- | -------- | --------------------------- |
-| id              | Integer  | Primary Key                 |
-| email           | String   | Unique user email           |
-| hashed_password | String   | Securely hashed password    |
-| role            | String   | User role (ADMIN or MEMBER) |
-| is_active       | Boolean  | User account status         |
-| created_at      | DateTime | User creation timestamp     |
-| updated_at      | DateTime | Last update timestamp       |
-
-### Supported Roles
-
-#### ADMIN
-
-Permissions:
-
-* View all users
-* View all notes
-* Manage all notes
-* Access analytics dashboard
-* Access activity logs
-* Access administration features
-
-#### MEMBER
-
-Permissions:
-
-* Manage own notes
-* View own notes
-* Update own notes
-* Delete own notes
-* View personal analytics
-
-### JWT Integration
-
-FastAPI generates JWT tokens using user information.
-
-Example JWT Payload:
-
-```json
-{
-  "sub": "1",
-  "email": "admin@example.com",
-  "role": "ADMIN",
-  "iss": "team-productivity-platform",
-  "aud": "team-productivity-users",
-  "type": "access"
-}
-```
-
-This JWT is shared across:
-
-* Next.js Frontend
-* FastAPI Service
-* NestJS Service
-
-This enables a Single Login Experience across the platform.
-
-### Relationships
-
-User → Notes
-
-```text
-User
- └── Notes (One-to-Many)
-```
-
-A user can own multiple notes.
-
-### Database Optimizations
-
-Indexes are created on:
-
-* email
-* role
-* is_active
-
-These indexes improve:
-
-* Authentication performance
-* Admin dashboard queries
-* Analytics reporting
-* User management operations
+No manual schema creation is required after the initial setup.
 
 ---
 
-## Note Model
+# Authentication
 
-The Note model is owned entirely by the FastAPI service.
+The FastAPI backend uses **JWT (JSON Web Token)** authentication to secure protected API endpoints.
 
-Notes represent user-created content and serve as the foundation for future task generation workflows.
+After a successful login, the server returns an access token that must be included in subsequent authenticated requests.
 
-### Responsibilities
-
-* Note Creation
-* Note Updates
-* Note Deletion
-* Note Search
-* Note Filtering
-* Open Library Integration
-* Note-to-Task Conversion Source
-
-### Note Fields
-
-| Field                | Type     | Description              |
-| -------------------- | -------- | ------------------------ |
-| id                   | Integer  | Primary Key              |
-| title                | String   | Note title               |
-| content              | Text     | Note content             |
-| owner_id             | Integer  | User ownership reference |
-| book_reference_id    | String   | Open Library reference   |
-| is_converted_to_task | Boolean  | Task conversion status   |
-| created_at           | DateTime | Creation timestamp       |
-| updated_at           | DateTime | Last update timestamp    |
-
-### Ownership Rules
-
-#### MEMBER
-
-Can:
-
-* View own notes
-* Update own notes
-* Delete own notes
-
-#### ADMIN
-
-Can:
-
-* View any note
-* Update any note
-* Delete any note
-* Access all notes endpoint
-
-### Open Library Integration
-
-Notes can contain book references retrieved from the Open Library API.
-
-Example:
-
-```json
-{
-  "title": "Learning React",
-  "book_reference_id": "OL45883W"
-}
-```
-
-This allows users to associate learning resources directly with notes.
-
-### Note-to-Task Conversion
-
-A note can be converted into one or more tasks.
-
-Workflow:
-
-```text
-FastAPI Note
-        │
-        ▼
-Convert To Task
-        │
-        ▼
-NestJS Task Service
-        │
-        ▼
-Task Created
-        │
-        ▼
-is_converted_to_task = true
-```
-
-This preserves clear ownership boundaries:
-
-FastAPI owns:
-
-* Notes
-* Note Content
-* Book References
-
-NestJS owns:
-
-* Tasks
-* Task Status
-* Notifications
-* Analytics
-* Activity Logs
-
-### Relationships
-
-User → Notes
-
-```text
-User (1)
-   │
-   ▼
-Notes (Many)
-```
-
-### Database Optimizations
-
-Indexes are created on:
-
-* owner_id
-* title
-* created_at
-
-**Benefits:**
-
-* Faster note search
-* Faster pagination
-* Faster sorting
-* Improved analytics queries
-
----
-
-## User Management & Authentication Schemas
-
-The User module provides the foundation for authentication, authorization, and cross-service identity management within the Team Productivity Platform.
-
-FastAPI acts as the authentication provider and JWT issuer, while NestJS consumes and validates the same JWT for authorization across platform services.
-
----
-
-## User Registration
-
-Users can create an account using their email address and password.
-
-### Request
-
-```json
-{
-  "email": "john.doe@example.com",
-  "password": "StrongPassword123!"
-}
-```
-
-Validation:
-
-* Email must be a valid email address
-* Password length: 8–128 characters
-
----
-
-## User Login
-
-Users authenticate using their registered credentials.
-
-### Request
-
-```json
-{
-  "email": "john.doe@example.com",
-  "password": "StrongPassword123!"
-}
-```
-
-### Response
-
-```json
-{
-  "access_token": "<jwt-token>",
-  "token_type": "bearer"
-}
-```
-
-The returned JWT is used for all authenticated requests to both FastAPI and NestJS services.
-
----
-
-## User Profile Response
-
-Authenticated user information is returned through profile endpoints.
-
-### Example Response
-
-```json
-{
-  "id": 1,
-  "email": "john.doe@example.com",
-  "role": "MEMBER",
-  "is_active": true,
-  "created_at": "2026-06-11T10:00:00Z",
-  "updated_at": "2026-06-11T10:00:00Z"
-}
-```
-
-Fields:
-
-| Field      | Description                |
-| ---------- | -------------------------- |
-| id         | Unique user identifier     |
-| email      | User email address         |
-| role       | User role                  |
-| is_active  | Account status             |
-| created_at | Account creation timestamp |
-| updated_at | Last update timestamp      |
-
----
-
-## Role-Based Access Control (RBAC)
-
-The platform supports two user roles.
-
-### ADMIN
-
-Permissions:
-
-* View all users
-* View all notes
-* Manage all notes
-* Manage all tasks
-* Access analytics dashboard
-* Access activity logs
-* Access admin dashboard
-
-### MEMBER
-
-Permissions:
-
-* Manage own notes
-* Manage own tasks
-* View personal analytics
-
----
-
-## Shared JWT Contract
-
-FastAPI is the single JWT issuer for the entire platform.
-
-NestJS validates the same token to provide a seamless authentication experience.
-
-### JWT Payload
-
-```json
-{
-  "sub": "1",
-  "email": "user@example.com",
-  "role": "ADMIN",
-  "iss": "team-productivity-platform",
-  "aud": "team-productivity-users",
-  "type": "access"
-}
-```
-
-### JWT Claims
-
-| Claim | Description       |
-| ----- | ----------------- |
-| sub   | User ID           |
-| email | User email        |
-| role  | User role         |
-| iss   | Token issuer      |
-| aud   | Intended audience |
-| type  | Token type        |
+Authentication is shared across backend services, allowing the FastAPI backend and the NestJS backend to validate the same JWT.
 
 ---
 
 ## Authentication Flow
 
-```text
-User
-  │
-  ▼
-FastAPI Login Endpoint
-  │
-  ▼
-JWT Issued
-  │
-  ▼
-Next.js Frontend
-  │
-  ├──────────────► FastAPI APIs
-  │
-  └──────────────► NestJS APIs
-                        │
-                        ▼
-                JWT Validation
 ```
+User
+ │
+ │ Register
+ ▼
+FastAPI
+ │
+ │ Store User
+ ▼
+PostgreSQL
 
-This architecture provides a single login experience across all backend services.
+--------------------------
+
+User
+ │
+ │ Login
+ ▼
+FastAPI
+ │
+ │ Verify Credentials
+ ▼
+Generate JWT
+ │
+ ▼
+Return Access Token
+ │
+ ▼
+Frontend Stores Token
+ │
+ ▼
+Authorization: Bearer <token>
+ │
+ ▼
+Protected API Endpoints
+```
 
 ---
 
-## Frontend Integration
+## Protected Routes
 
-The Next.js frontend stores the JWT after login and attaches it to every authenticated request.
+The following endpoints require authentication.
 
-Example Authorization Header:
+| Module | Authentication Required |
+|----------|------------------------|
+| Current User | Yes |
+| User Management | Yes |
+| Notes | Yes |
+| Update Notes | Yes |
+| Delete Notes | Yes |
+| Convert Note to Task | Yes |
+
+Public endpoints include:
+
+- Register
+- Login
+- Root endpoint
+- Health endpoint
+
+---
+
+# JWT Flow
+
+After successful authentication, the backend returns an access token.
+
+Example response:
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "access_token": "<jwt-token>",
+    "token_type": "bearer",
+    "user": {
+      "id": 1,
+      "email": "admin@example.com",
+      "role": "USER"
+    }
+  }
+}
+```
+
+---
+
+## Using the Token
+
+Include the token in every authenticated request.
+
+```
+Authorization: Bearer <access_token>
+```
+
+Example:
 
 ```http
-Authorization: Bearer <jwt-token>
+GET /api/v1/notes HTTP/1.1
+Host: localhost:8000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-The same token is accepted by:
+---
 
-* FastAPI
-* NestJS
+## JWT Lifecycle
 
-No secondary login flow is required.
+```
+Register User
+      │
+      ▼
+Store Hashed Password
+      │
+      ▼
+Login
+      │
+      ▼
+Verify Password
+      │
+      ▼
+Generate JWT
+      │
+      ▼
+Return Access Token
+      │
+      ▼
+Frontend Stores Token
+      │
+      ▼
+Authenticated Requests
+      │
+      ▼
+Protected Endpoints
+```
 
 ---
 
-## M2 Architecture Benefits
+# User Module
 
-This authentication architecture enables:
+The User module is responsible for managing user accounts and authenticated user information.
 
-* Common authentication across services
-* Role-based authorization
-* Admin and Member dashboards
-* Secure API access
-* NestJS integration without duplicate authentication
-* Future microservice expansion
-* Strong TypeScript type generation from OpenAPI schemas
+## Responsibilities
+
+- Register new users
+- Authenticate users
+- Retrieve authenticated user information
+- Manage user profiles
+- Support role-based authorization
 
 ---
 
-## User Service Layer
+## User Schema
 
-The User Service Layer contains all business logic related to user management and serves as the primary source of user identity information for authentication, authorization, and role-based access control.
+A user consists of the following information.
 
-Location:
+| Field | Type |
+|--------|------|
+| id | Integer |
+| email | String |
+| hashed_password | String |
+| role | String |
+| is_active | Boolean |
+| created_at | DateTime |
+| updated_at | DateTime |
+
+---
+
+## User Features
+
+- Secure password hashing
+- Email validation
+- JWT authentication
+- Profile retrieval
+- Role support
+- Active account verification
+
+---
+
+# Notes Module
+
+The Notes module provides complete CRUD functionality for personal notes.
+
+Each authenticated user can manage only their own notes unless they have administrator privileges.
+
+---
+
+## Responsibilities
+
+- Create notes
+- Retrieve notes
+- Search notes
+- Update notes
+- Delete notes
+- Pagination
+- Sorting
+- Administrator access
+- Convert notes into task payloads
+
+---
+
+## Note Schema
+
+| Field | Type |
+|--------|------|
+| id | Integer |
+| title | String |
+| content | String |
+| user_id | Integer |
+| created_at | DateTime |
+| updated_at | DateTime |
+
+---
+
+## Supported Operations
+
+- Create
+- Read
+- Update
+- Delete
+- Search
+- Pagination
+- Sorting
+- Note ownership validation
+- Administrator access
+- Note-to-task conversion
+
+---
+
+# API Documentation
+
+The FastAPI backend automatically generates OpenAPI documentation for all available endpoints.
+
+The documentation includes:
+
+- Request schemas
+- Response schemas
+- Authentication support
+- Validation rules
+- HTTP status codes
+- Interactive endpoint testing
+
+---
+
+## Swagger UI
+
+Interactive API documentation is available at:
 
 ```text
-app/services/user_service.py
+http://127.0.0.1:8000/docs
 ```
 
-### Responsibilities
+Swagger UI allows you to:
 
-The User Service is responsible for:
-
-* User creation
-* User retrieval
-* Email uniqueness validation
-* User activation and deactivation
-* Role-based access control (RBAC)
-* User listing for administrators
-* Providing user information for JWT authentication
+- View all API endpoints
+- Authenticate using JWT
+- Execute API requests
+- Inspect request bodies
+- Inspect response models
+- View validation errors
+- Test APIs directly from the browser
 
 ---
 
-## Supported Roles
+## ReDoc
 
-### ADMIN
-
-Administrators can:
-
-* View all users
-* Activate users
-* Deactivate users
-* Access administrative dashboards
-* View system analytics
-* Access activity logs
-
-### MEMBER
-
-Members can:
-
-* Access their own profile
-* Manage their own notes
-* Manage their own tasks
-* View personal analytics
-
----
-
-## User Creation
-
-Service Method:
-
-```python
-UserService.create_user()
-```
-
-Features:
-
-* Password hashing using bcrypt
-* Duplicate email validation
-* Default role assignment
-* Active account creation
-
-Default Role:
+Alternative API documentation is available at:
 
 ```text
-MEMBER
+http://127.0.0.1:8000/redoc
 ```
+
+ReDoc provides a clean, structured view of the API specification.
 
 ---
 
-## User Retrieval
+## OpenAPI Specification
 
-### Get User By Email
-
-Used during authentication.
-
-```python
-UserService.get_user_by_email()
-```
-
-Purpose:
-
-* Login validation
-* Registration validation
-* JWT authentication
-
----
-
-### Get User By ID
-
-```python
-UserService.get_user_by_id()
-```
-
-Purpose:
-
-* User lookup
-* Ownership validation
-* Profile retrieval
-
----
-
-### Get Active User By ID
-
-```python
-UserService.get_active_user_by_id()
-```
-
-Purpose:
-
-* JWT authentication
-* Current user retrieval
-* Security validation
-
-Validation:
-
-* User exists
-* User account is active
-
----
-
-## User Administration
-
-### Get All Users
-
-```python
-UserService.get_all_users()
-```
-
-Supports:
-
-* Admin dashboard
-* User monitoring
-* Analytics reporting
-
-Features:
-
-* Pagination
-* Sorting by creation date
-
----
-
-### Deactivate User
-
-```python
-UserService.deactivate_user()
-```
-
-Access:
+The generated OpenAPI schema is available at:
 
 ```text
-ADMIN only
+http://127.0.0.1:8000/openapi.json
 ```
 
-Purpose:
+This specification can be imported into tools such as:
 
-* User moderation
-* Account suspension
-* Administrative actions
+- Postman
+- Insomnia
+- Swagger Editor
+- API Gateway
+- Code Generators
 
 ---
 
-### Activate User
+# API Endpoints
 
-```python
-UserService.activate_user()
-```
+## Root Endpoints
 
-Access:
-
-```text
-ADMIN only
-```
-
-Purpose:
-
-* Restore suspended accounts
-* User reactivation
+| Method | Endpoint | Description | Authentication |
+|----------|----------|-------------|----------------|
+| GET | `/` | Application information | No |
+| GET | `/health` | Health check | No |
 
 ---
 
-## Role-Based Access Control (RBAC)
+## Authentication APIs
 
-Centralized RBAC validation is implemented through:
-
-```python
-UserService.validate_admin()
-```
-
-Validation:
-
-```text
-ADMIN → Allowed
-MEMBER → Forbidden
-```
-
-Used by:
-
-* User administration endpoints
-* Analytics endpoints
-* Activity log endpoints
-* Administrative dashboards
+| Method | Endpoint | Description | Authentication |
+|----------|----------|-------------|----------------|
+| POST | `/api/v1/auth/register` | Register a new user | No |
+| POST | `/api/v1/auth/login` | Authenticate user | No |
+| GET | `/api/v1/auth/me` | Get current authenticated user | Yes |
 
 ---
 
-## JWT Integration
+## User APIs
 
-The User Service provides the identity information used to generate JWT tokens.
+| Method | Endpoint | Description | Authentication |
+|----------|----------|-------------|----------------|
+| GET | `/api/v1/users` | List users | Yes |
+| GET | `/api/v1/users/me` | Current user profile | Yes |
+| GET | `/api/v1/users/{user_id}` | Get user by ID | Yes |
+| PUT | `/api/v1/users/{user_id}` | Update user | Yes |
+| DELETE | `/api/v1/users/{user_id}` | Delete user | Yes |
 
-JWT Payload:
+---
+
+## Notes APIs
+
+| Method | Endpoint | Description | Authentication |
+|----------|----------|-------------|----------------|
+| POST | `/api/v1/notes` | Create note | Yes |
+| GET | `/api/v1/notes` | List notes | Yes |
+| GET | `/api/v1/notes/{note_id}` | Get note by ID | Yes |
+| PUT | `/api/v1/notes/{note_id}` | Update note | Yes |
+| DELETE | `/api/v1/notes/{note_id}` | Delete note | Yes |
+| GET | `/api/v1/notes/admin/all` | List all notes (Admin) | Yes |
+| POST | `/api/v1/notes/{note_id}/convert-to-task` | Convert note to task | Yes |
+
+---
+
+## HTTP Status Codes
+
+| Status Code | Description |
+|--------------|-------------|
+| 200 | Request completed successfully |
+| 201 | Resource created successfully |
+| 202 | Request accepted |
+| 204 | Resource deleted successfully |
+| 400 | Bad request |
+| 401 | Unauthorized |
+| 403 | Forbidden |
+| 404 | Resource not found |
+| 409 | Conflict |
+| 422 | Validation error |
+| 500 | Internal server error |
+
+---
+
+# Response Format
+
+The API follows a consistent JSON response structure for successful operations.
+
+## Success Response
 
 ```json
 {
-  "sub": "1",
-  "email": "user@example.com",
-  "role": "ADMIN",
-  "iss": "team-productivity-platform",
-  "aud": "team-productivity-users",
-  "type": "access"
+    "success": true,
+    "message": "Operation completed successfully.",
+    "data": {}
 }
 ```
 
-Fields sourced from:
-
-```python
-user.id
-user.email
-user.role
-```
-
 ---
 
-## Shared Authentication Architecture
-
-FastAPI acts as the JWT issuer.
-
-NestJS acts as the JWT validator.
-
-The User Service provides the identity information consumed by both services.
-
-```text
-User
-  ↓
-FastAPI Authentication
-  ↓
-JWT Token
-  ↓
-Next.js Frontend
-  ↓
-FastAPI APIs
-NestJS APIs
-```
-
-This enables a single-login experience across the platform.
-
----
-
-## Frontend Integration
-
-The Next.js frontend uses user information for:
-
-* Role-based UI rendering
-* Profile pages
-* Dashboard personalization
-* Access control
-
-Examples:
-
-### Admin Dashboard
-
-Visible only to:
-
-```text
-ADMIN
-```
-
-Features:
-
-* User Management
-* Analytics
-* Activity Logs
-
-### Member Dashboard
-
-Visible to:
-
-```text
-MEMBER
-```
-
-Features:
-
-* Notes
-* Tasks
-* Personal Analytics
-
----
-
-## M2 Readiness
-
-The User Service is prepared for:
-
-* Shared JWT authentication
-* FastAPI ↔ NestJS integration
-* Role-based access control
-* Admin dashboards
-* Analytics reporting
-* User management features
-* Next.js frontend integration
-
----
-
-## Testing
-
-This project uses **Pytest** to ensure the correctness of core functionalities.
-
-### Run Tests
-
-```bash
-pytest
-```
-
----
-
-### Test Coverage
-
-#### Authentication Tests
-
-* User registration (`/auth/register`)
-* User login (`/auth/login`)
-* JWT token generation and validation
-
-#### Notes Tests
-
-* Create note (`POST /notes`)
-* Get notes (`GET /notes`)
-* Authorization using Bearer token
-* Ownership validation
-
----
-
-### Testing Approach
-
-* Uses `TestClient` from FastAPI
-* Simulates real API requests
-* Tests both success and failure cases
-* Ensures authentication is required for protected routes
-
----
-
-### Example Test Flow
-
-```bash
-Register → Login → Get Token → Access Protected Route
-```
-
----
-
-### Why Testing matters?
-
-* Prevents regressions
-* Ensures API reliability
-* Validates authentication & authorization logic
-* Helps maintain production-ready code quality
-
----
-
-## Final Status
-
-* All tests passing
-* Fully functional authentication system
-* Secure notes management
-* Dockerized backend
-* Clean architecture
-
----
-
-
-## Postman Collection
-
-This collection helps you test all API endpoints of the Notes Backend easily using Postman.
-
----
-
-### Import Collection
-
-1. Open **Postman**
-2. Click **Import**
-3. Select **Raw Text**
-4. Paste the JSON below
-5. Click **Import**
-
----
-
-### Base URL
-
-```bash
-http://127.0.0.1:8000
-```
-
-
----
-
-### Collection JSON
+## Login Response
 
 ```json
 {
-  "info": {
-    "name": "Notes App Backend",
-    "_postman_id": "12345-abcde-67890",
-    "description": "Postman collection for Notes App",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://127.0.0.1:8000"
-    },
-    {
-      "key": "token",
-      "value": ""
-    }
-  ],
-  "item": [
-    {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Register User",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": "{{base_url}}/auth/register"
-          }
-        },
-        {
-          "name": "Login User",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": "{{base_url}}/auth/login"
-          }
-        },
-        {
-          "name": "Get Current User",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": "{{base_url}}/auth/me"
-          }
+    "success": true,
+    "message": "Login successful.",
+    "data": {
+        "access_token": "<jwt-token>",
+        "token_type": "bearer",
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "role": "USER"
         }
-      ]
-    },
-    {
-      "name": "Notes",
-      "item": [
-        {
-          "name": "Create Note",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"My Note\",\n  \"content\": \"Hello World\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": "{{base_url}}/notes"
-          }
-        },
-        {
-          "name": "Get All Notes",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": "{{base_url}}/notes"
-          }
-        },
-        {
-          "name": "Get Note By ID",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": "{{base_url}}/notes/1"
-          }
-        },
-        {
-          "name": "Update Note",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Updated Note\",\n  \"content\": \"Updated content\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": "{{base_url}}/notes/1"
-          }
-        },
-        {
-          "name": "Delete Note",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": "{{base_url}}/notes/1"
-          }
-        }
-      ]
     }
-  ]
 }
 ```
+
 ---
+
+## Validation Error Response
+
+```json
+{
+    "detail": [
+        {
+            "type": "string_too_short",
+            "loc": [
+                "body",
+                "password"
+            ],
+            "msg": "String should have at least 8 characters.",
+            "input": "123"
+        }
+    ]
+}
+```
+
+---
+
+## Unauthorized Response
+
+```json
+{
+    "detail": "Could not validate credentials."
+}
+```
+
+---
+
+## Forbidden Response
+
+```json
+{
+    "detail": "Admin access required."
+}
+```
+
+---
+
+## Resource Not Found
+
+```json
+{
+    "detail": "Resource not found."
+}
+```
+
+---
+
+## Internal Server Error
+
+```json
+{
+    "detail": "Internal server error."
+}
+```
+
+---
+
+# Error Handling
+
+The FastAPI backend uses centralized exception handling to provide consistent error responses across all endpoints.
+
+Global exception handlers are responsible for:
+
+- Handling HTTP exceptions
+- Validation errors
+- Database exceptions
+- Authentication failures
+- Authorization failures
+- Unexpected server errors
+
+---
+
+## Common Errors
+
+| HTTP Status | Description |
+|--------------|-------------|
+| 400 | Invalid request or credentials |
+| 401 | Missing or invalid JWT token |
+| 403 | Insufficient permissions |
+| 404 | Requested resource not found |
+| 409 | Duplicate resource |
+| 422 | Request validation failed |
+| 500 | Unexpected server error |
+
+---
+
+## Validation Errors
+
+Request validation is handled automatically using **Pydantic v2**.
+
+Validation includes:
+
+- Required fields
+- Data types
+- Email format
+- Password length
+- String constraints
+- Numeric constraints
+- Custom validators
+
+---
+
+## Authentication Errors
+
+Protected endpoints automatically return appropriate responses when:
+
+- Authorization header is missing
+- JWT token is invalid
+- JWT token has expired
+- User account does not exist
+- User account is inactive
+
+---
+
+## Database Errors
+
+Database exceptions are handled centrally to prevent internal implementation details from being exposed.
+
+Examples include:
+
+- Connection failures
+- Constraint violations
+- Duplicate records
+- Transaction failures
+
+Appropriate HTTP status codes and user-friendly messages are returned while detailed errors are recorded in the application logs.
+
+---
+
+## Logging
+
+All exceptions are logged through the centralized logging system to simplify debugging and production monitoring.
+
+Logged information includes:
+
+- Timestamp
+- Request path
+- HTTP method
+- Response status
+- Exception details
+- Stack trace (development)
+
+---
+
