@@ -37,6 +37,7 @@ from __future__ import annotations
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.models.note import Note
 from app.repositories.base_repository import BaseRepository
@@ -236,19 +237,20 @@ class NoteRepository(BaseRepository[Note]):
     # Statistics
     # ======================================================
 
-    def total_notes(
+    def count_by_owner(
         self,
         owner_id: int,
     ) -> int:
         """
-        Return the total number of notes for a user.
+        Count notes owned by a user.
         """
         statement = (
-            select(Note)
+            select(func.count())
+            .select_from(Note)
             .where(Note.owner_id == owner_id)
         )
 
-        return len(self.db.scalars(statement).all())
+        return int(self.db.scalar(statement) or 0)
 
     def total_converted_notes(
         self,
@@ -283,3 +285,78 @@ class NoteRepository(BaseRepository[Note]):
         )
 
         return len(self.db.scalars(statement).all())
+    
+    def get_by_id(
+    self,
+    note_id: int,
+    ) -> Note | None:
+        """
+        Retrieve a note by its identifier.
+        """
+        statement = select(Note).where(
+            Note.id == note_id,
+        )
+
+        return self.db.scalar(statement)
+    
+    def list_all(
+        self,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[Note]:
+        """
+        Retrieve all notes.
+        """
+        statement = (
+            select(Note)
+            .order_by(Note.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+
+        return list(self.db.scalars(statement).all())
+    
+    def count_all(self) -> int:
+        """
+        Count all notes.
+        """
+        statement = select(func.count()).select_from(Note)
+
+        return int(self.db.scalar(statement) or 0)
+    
+    def count_converted(
+        self,
+        owner_id: int,
+    ) -> int:
+        """
+        Count converted notes.
+        """
+        statement = (
+            select(func.count())
+            .select_from(Note)
+            .where(
+                Note.owner_id == owner_id,
+                Note.is_converted_to_task.is_(True),
+            )
+        )
+
+        return int(self.db.scalar(statement) or 0)
+    
+    def count_pending_conversion(
+        self,
+        owner_id: int,
+    ) -> int:
+        """
+        Count notes pending conversion.
+        """
+        statement = (
+            select(func.count())
+            .select_from(Note)
+            .where(
+                Note.owner_id == owner_id,
+                Note.is_converted_to_task.is_(False),
+            )
+        )
+
+        return int(self.db.scalar(statement) or 0)
