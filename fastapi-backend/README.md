@@ -95,35 +95,69 @@ app/
 ├── core/
 │   ├── config.py
 │   ├── security.py
+│   ├── logging.py
+│   ├── constants.py
 │
 ├── db/
-│   ├── session.py
 │   ├── base.py
+│   ├── session.py
+│   ├── init_db.py
 │
 ├── models/
 │   ├── user.py
 │   ├── note.py
+│   ├── __init__.py
 │
 ├── schemas/
 │   ├── user.py
 │   ├── note.py
+│   ├── auth.py
 │   ├── token.py
+│   ├── common.py
 │
-├── api/
-│   ├── deps.py
-│   ├── routes/
-│   │   ├── auth.py
-│   │   ├── note.py
+├── repositories/
+│   ├── user_repository.py
+│   ├── note_repository.py
 │
 ├── services/
+│   ├── auth_service.py
 │   ├── user_service.py
 │   ├── note_service.py
 │
+├── api/
+│   ├── deps.py
+│   ├── router.py
+│   └── routes/
+│       ├── auth.py
+│       ├── users.py
+│       ├── notes.py
+│
+├── middleware/
+│   ├── auth.py
+│   ├── logging.py
+│
+├── utils/
+│   ├── helpers.py
+│   ├── pagination.py
+│
+├── exceptions/
+│   ├── handlers.py
+│   ├── exceptions.py
+│
 ├── tests/
+│   ├── conftest.py
 │   ├── test_auth.py
+│   ├── test_users.py
 │   ├── test_notes.py
 │
+└── __init__.py
+
+alembic/
+alembic.ini
+
 .env
+.env.example
+
 requirements.txt
 Dockerfile
 docker-compose.yml
