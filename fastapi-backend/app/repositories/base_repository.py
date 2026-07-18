@@ -36,6 +36,7 @@ from __future__ import annotations
 from typing import Generic, TypeVar
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -47,13 +48,15 @@ class BaseRepository(Generic[ModelType]):
     """
     Generic SQLAlchemy repository.
 
+    Provides common CRUD operations for all repositories.
+
     Parameters
     ----------
     db:
         Active SQLAlchemy session.
 
     model:
-        SQLAlchemy model class handled by this repository.
+        SQLAlchemy ORM model handled by this repository.
     """
 
     def __init__(
@@ -68,36 +71,48 @@ class BaseRepository(Generic[ModelType]):
     # Create
     # ==========================================================
 
-    def create(self, obj: ModelType) -> ModelType:
+    def create(
+        self,
+        obj: ModelType,
+    ) -> ModelType:
         """
-        Persist a model instance.
+        Persist a new model instance.
 
         Parameters
         ----------
         obj:
-            SQLAlchemy model instance.
+            SQLAlchemy ORM model.
 
         Returns
         -------
         ModelType
             Persisted model.
         """
-        self.db.add(obj)
-        self.db.commit()
-        self.db.refresh(obj)
-        return obj
+        try:
+            self.db.add(obj)
+            self.db.commit()
+            self.db.refresh(obj)
+            return obj
+
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise
 
     # ==========================================================
     # Read
     # ==========================================================
 
-    def get_by_id(self, obj_id: int) -> ModelType | None:
+    def get_by_id(
+        self,
+        obj_id: int,
+    ) -> ModelType | None:
         """
-        Retrieve a model by its primary key.
-        """
-        statement = select(self.model).where(self.model.id == obj_id)
+        Retrieve a model by primary key.
 
-        return self.db.scalar(statement)
+        Uses SQLAlchemy Session.get() which utilizes the
+        identity map before querying the database.
+        """
+        return self.db.get(self.model, obj_id)
 
     def get_all(
         self,
@@ -114,7 +129,11 @@ class BaseRepository(Generic[ModelType]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum rows to return.
+
+        Returns
+        -------
+        list[ModelType]
         """
         statement = (
             select(self.model)
@@ -124,9 +143,12 @@ class BaseRepository(Generic[ModelType]):
 
         return list(self.db.scalars(statement).all())
 
-    def exists(self, obj_id: int) -> bool:
+    def exists(
+        self,
+        obj_id: int,
+    ) -> bool:
         """
-        Check whether a record exists.
+        Determine whether a record exists.
         """
         return self.get_by_id(obj_id) is not None
 
@@ -134,7 +156,10 @@ class BaseRepository(Generic[ModelType]):
         """
         Return total number of records.
         """
-        statement = select(func.count()).select_from(self.model)
+        statement = (
+            select(func.count())
+            .select_from(self.model)
+        )
 
         return int(self.db.scalar(statement) or 0)
 
@@ -142,25 +167,46 @@ class BaseRepository(Generic[ModelType]):
     # Update
     # ==========================================================
 
-    def update(self, obj: ModelType) -> ModelType:
+    def update(
+        self,
+        obj: ModelType,
+    ) -> ModelType:
         """
         Persist changes to an existing model.
+
+        Returns
+        -------
+        ModelType
+            Updated model.
         """
-        self.db.add(obj)
-        self.db.commit()
-        self.db.refresh(obj)
-        return obj
+        try:
+            self.db.add(obj)
+            self.db.commit()
+            self.db.refresh(obj)
+            return obj
+
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise
 
     # ==========================================================
     # Delete
     # ==========================================================
 
-    def delete(self, obj: ModelType) -> None:
+    def delete(
+        self,
+        obj: ModelType,
+    ) -> None:
         """
-        Delete a model instance.
+        Permanently delete a model instance.
         """
-        self.db.delete(obj)
-        self.db.commit()
+        try:
+            self.db.delete(obj)
+            self.db.commit()
+
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise
 
     # ==========================================================
     # Session Helpers
@@ -172,20 +218,28 @@ class BaseRepository(Generic[ModelType]):
         """
         self.db.flush()
 
-    def refresh(self, obj: ModelType) -> None:
+    def refresh(
+        self,
+        obj: ModelType,
+    ) -> None:
         """
-        Refresh an object from the database.
+        Refresh an ORM object from the database.
         """
         self.db.refresh(obj)
 
     def commit(self) -> None:
         """
-        Commit current transaction.
+        Commit the current transaction.
         """
-        self.db.commit()
+        try:
+            self.db.commit()
+
+        except SQLAlchemyError:
+            self.db.rollback()
+            raise
 
     def rollback(self) -> None:
         """
-        Roll back current transaction.
+        Roll back the current transaction.
         """
         self.db.rollback()
