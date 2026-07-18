@@ -71,13 +71,13 @@ from app.services.user_service import UserService
 logger = get_logger(__name__)
 
 # ==========================================================
-# OAuth2
+# OAuth2 Authentication
 # ==========================================================
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login",
     scheme_name="JWT",
-    description="JWT Bearer authentication",
+    description="JWT Bearer Authentication",
 )
 
 # ==========================================================
@@ -87,16 +87,15 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 def get_db_session() -> Generator[Session, None, None]:
     """
-    Database session dependency.
+    Provide a SQLAlchemy database session.
 
-    This is a thin wrapper around the application's
-    SQLAlchemy session dependency to keep all API
-    dependencies centralized.
+    This wraps the application's database dependency so
+    every API dependency originates from this module.
 
     Yields
     ------
     Session
-        SQLAlchemy database session.
+        Active SQLAlchemy session.
     """
     yield from get_db()
 
@@ -115,7 +114,7 @@ def get_user_repository(
     db: DBSession,
 ) -> UserRepository:
     """
-    Create a UserRepository instance.
+    Return a UserRepository instance.
 
     Parameters
     ----------
@@ -126,7 +125,6 @@ def get_user_repository(
     -------
     UserRepository
     """
-
     return UserRepository(db)
 
 
@@ -134,7 +132,7 @@ def get_note_repository(
     db: DBSession,
 ) -> NoteRepository:
     """
-    Create a NoteRepository instance.
+    Return a NoteRepository instance.
 
     Parameters
     ----------
@@ -145,9 +143,12 @@ def get_note_repository(
     -------
     NoteRepository
     """
-
     return NoteRepository(db)
 
+
+# ==========================================================
+# Repository Dependency Aliases
+# ==========================================================
 
 UserRepositoryDep = Annotated[
     UserRepository,
@@ -168,13 +169,17 @@ def get_auth_service(
     repository: UserRepositoryDep,
 ) -> AuthService:
     """
-    Create AuthService.
+    Create an AuthService instance.
+
+    Parameters
+    ----------
+    repository:
+        User repository dependency.
 
     Returns
     -------
     AuthService
     """
-
     return AuthService(
         user_repository=repository,
     )
@@ -184,13 +189,17 @@ def get_user_service(
     repository: UserRepositoryDep,
 ) -> UserService:
     """
-    Create UserService.
+    Create a UserService instance.
+
+    Parameters
+    ----------
+    repository:
+        User repository dependency.
 
     Returns
     -------
     UserService
     """
-
     return UserService(
         user_repository=repository,
     )
@@ -200,17 +209,25 @@ def get_note_service(
     repository: NoteRepositoryDep,
 ) -> NoteService:
     """
-    Create NoteService.
+    Create a NoteService instance.
+
+    Parameters
+    ----------
+    repository:
+        Note repository dependency.
 
     Returns
     -------
     NoteService
     """
-
     return NoteService(
         note_repository=repository,
     )
 
+
+# ==========================================================
+# Service Dependency Aliases
+# ==========================================================
 
 AuthServiceDep = Annotated[
     AuthService,
@@ -227,6 +244,7 @@ NoteServiceDep = Annotated[
     Depends(get_note_service),
 ]
 
+
 # ==========================================================
 # Authentication Dependencies
 # ==========================================================
@@ -237,7 +255,7 @@ def get_current_user(
     auth_service: AuthServiceDep,
 ) -> User:
     """
-    Retrieve the authenticated user from the JWT access token.
+    Retrieve the authenticated user from a JWT.
 
     Workflow
     --------
@@ -248,6 +266,8 @@ def get_current_user(
         Validate Claims
             ↓
         Load User
+            ↓
+        Validate Active
             ↓
         Return ORM User
 
@@ -262,12 +282,12 @@ def get_current_user(
     Returns
     -------
     User
-        Authenticated user.
+        Authenticated ORM user.
 
     Raises
     ------
     AuthenticationError
-        Invalid or malformed token.
+        Invalid, expired or malformed token.
 
     UserNotFoundError
         User referenced by the token does not exist.
@@ -278,34 +298,41 @@ def get_current_user(
 
     try:
         payload = decode_access_token(token)
+
+        user_id = payload.get("user_id")
+
+        if user_id is None:
+            raise AuthenticationError(
+                "Authentication token is missing the user identifier."
+            )
+
+        user = auth_service.get_user(
+            user_id=int(user_id),
+        )
+
+        auth_service.ensure_active_user(user)
+
+        return user
+
+    except (
+        AuthenticationError,
+        UserNotFoundError,
+        InactiveUserError,
+    ):
+        raise
+
     except Exception as exc:
-        logger.warning(
-            "JWT decoding failed.",
+        logger.exception(
+            "Authentication dependency failed.",
             exc_info=exc,
         )
+
         raise AuthenticationError(
-            "Invalid or expired authentication token."
+            "Authentication failed."
         ) from exc
 
-    user_id = payload.get("user_id")
 
-    if user_id is None:
-        raise AuthenticationError(
-            "Authentication token is missing the user identifier."
-        )
-
-    user = auth_service.get_user(
-        user_id=int(user_id),
-    )
-
-    if user is None:
-        raise UserNotFoundError()
-
-    auth_service.ensure_active_user(user)
-
-    return user
-
-    # ==========================================================
+# ==========================================================
 # Optional Authentication
 # ==========================================================
 
@@ -315,27 +342,11 @@ def get_optional_current_user(
     auth_service: AuthServiceDep,
 ) -> User | None:
     """
-    Retrieve the authenticated user if a valid JWT is supplied.
+    Return the authenticated user if authentication
+    succeeds, otherwise return None.
 
-    Unlike ``get_current_user()``, this dependency returns
-    ``None`` when authentication information is unavailable
-    or invalid.
-
-    This dependency is intended for endpoints that support
-    both anonymous and authenticated users.
-
-    Parameters
-    ----------
-    token:
-        Optional bearer token.
-
-    auth_service:
-        Authentication service.
-
-    Returns
-    -------
-    User | None
-        Authenticated user if available; otherwise ``None``.
+    Intended for endpoints supporting both anonymous
+    and authenticated access.
     """
 
     if not token:
@@ -353,9 +364,6 @@ def get_optional_current_user(
             user_id=int(user_id),
         )
 
-        if user is None:
-            return None
-
         auth_service.ensure_active_user(user)
 
         return user
@@ -372,16 +380,14 @@ OptionalCurrentUser = Annotated[
     Depends(get_optional_current_user),
 ]
 
+
 # ==========================================================
 # Active User Dependency
 # ==========================================================
 
 
 def get_current_active_user(
-    current_user: Annotated[
-        User,
-        Depends(get_current_user),
-    ],
+    current_user: CurrentUser,
     auth_service: AuthServiceDep,
 ) -> User:
     """
@@ -401,17 +407,16 @@ def get_current_active_user(
         Active authenticated user.
     """
 
-    auth_service.ensure_active_user(
+    return auth_service.ensure_active_user(
         current_user,
     )
-
-    return current_user
 
 
 CurrentActiveUser = Annotated[
     User,
     Depends(get_current_active_user),
 ]
+
 
 # ==========================================================
 # Administrator Dependency
@@ -438,24 +443,18 @@ def get_current_admin(
     -------
     User
         Authenticated administrator.
-
-    Raises
-    ------
-    AuthorizationError
-        If the user is not an administrator.
     """
 
-    auth_service.ensure_admin(
+    return auth_service.ensure_admin(
         current_user,
     )
-
-    return current_user
 
 
 CurrentAdmin = Annotated[
     User,
     Depends(get_current_admin),
 ]
+
 
 # ==========================================================
 # Role-Based Access Control (RBAC)
@@ -480,20 +479,19 @@ def require_role(
         ...
     """
 
+    required = (
+        required_role.value
+        if isinstance(required_role, UserRole)
+        else str(required_role)
+    )
+
     def dependency(
         current_user: CurrentActiveUser,
     ) -> User:
-
         user_role = (
             current_user.role.value
-            if hasattr(current_user.role, "value")
-            else current_user.role
-        )
-
-        required = (
-            required_role.value
-            if hasattr(required_role, "value")
-            else required_role
+            if isinstance(current_user.role, UserRole)
+            else str(current_user.role)
         )
 
         if user_role != required:
@@ -523,18 +521,19 @@ def require_roles(
     """
 
     allowed = {
-        role.value if hasattr(role, "value") else role
+        role.value
+        if isinstance(role, UserRole)
+        else str(role)
         for role in allowed_roles
     }
 
     def dependency(
         current_user: CurrentActiveUser,
     ) -> User:
-
         user_role = (
             current_user.role.value
-            if hasattr(current_user.role, "value")
-            else current_user.role
+            if isinstance(current_user.role, UserRole)
+            else str(current_user.role)
         )
 
         if user_role not in allowed:
@@ -547,13 +546,18 @@ def require_roles(
     return dependency
 
 
+# ==========================================================
+# Current User Dependency Alias
+# ==========================================================
+
 CurrentUser = Annotated[
     User,
     Depends(get_current_user),
 ]
 
+
 # ==========================================================
-# Dependency Alias Exports
+# OAuth2 Dependency Aliases
 # ==========================================================
 
 OAuth2Token = Annotated[
@@ -565,6 +569,7 @@ OptionalOAuth2Token = Annotated[
     str | None,
     Depends(oauth2_scheme),
 ]
+
 
 # ==========================================================
 # Public Exports
@@ -603,7 +608,7 @@ __all__ = [
     "NoteServiceDep",
 
     # ------------------------------------------------------
-    # Authentication
+    # Authentication Dependencies
     # ------------------------------------------------------
     "get_current_user",
     "get_optional_current_user",
@@ -611,7 +616,7 @@ __all__ = [
     "get_current_admin",
 
     # ------------------------------------------------------
-    # Annotated User Dependencies
+    # Annotated Dependency Aliases
     # ------------------------------------------------------
     "CurrentUser",
     "CurrentActiveUser",

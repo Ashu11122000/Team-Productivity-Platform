@@ -25,15 +25,12 @@ Compatible With
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 
 from app.api.deps import (
     AuthServiceDep,
     CurrentUser,
 )
-from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
@@ -45,11 +42,6 @@ router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
-
-AuthenticatedUser = Annotated[
-    User,
-    Depends(CurrentUser),
-]
 
 
 @router.post(
@@ -75,6 +67,7 @@ def register(
 @router.post(
     "/login",
     response_model=AuthResponse,
+    status_code=status.HTTP_200_OK,
     summary="Login User",
     response_description="JWT access token.",
 )
@@ -94,11 +87,12 @@ def login(
 @router.get(
     "/me",
     response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
     summary="Current User",
     response_description="Authenticated user.",
 )
 def get_me(
-    current_user: AuthenticatedUser,
+    current_user: CurrentUser,
 ) -> UserResponse:
     """
     Return the currently authenticated user.

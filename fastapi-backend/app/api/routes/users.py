@@ -13,7 +13,7 @@ Responsibilities
 - Update user profile
 - Delete user
 
-Business logic is delegated to UserService.
+Business logic is delegated entirely to UserService.
 
 Compatible With
 ---------------
@@ -21,6 +21,7 @@ Compatible With
 - SQLAlchemy 2.x
 - Pydantic v2
 - Python 3.12+
+==========================================================
 """
 
 from __future__ import annotations
@@ -29,29 +30,29 @@ from typing import Annotated
 
 from fastapi import (
     APIRouter,
-    Depends,
     Path,
     Query,
     status,
 )
-from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
-from app.db.session import get_db
-from app.models.user import User
+from app.api.deps import (
+    CurrentUser,
+    UserServiceDep,
+)
 from app.schemas.user import (
     UserResponse,
+    UserSummary,
     UserUpdate,
 )
-from app.services.user_service import UserService
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"],
 )
 
-DatabaseSession = Annotated[Session, Depends(get_db)]
-CurrentUser = Annotated[User, Depends(get_current_user)]
+# ==========================================================
+# Current User
+# ==========================================================
 
 
 @router.get(
@@ -62,11 +63,20 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 )
 def get_current_user_api(
     current_user: CurrentUser,
+    user_service: UserServiceDep,
 ) -> UserResponse:
     """
     Return the currently authenticated user.
     """
-    return current_user
+
+    return user_service.get_current_user(
+        current_user,
+    )
+
+
+# ==========================================================
+# List Users
+# ==========================================================
 
 
 @router.get(
@@ -76,6 +86,8 @@ def get_current_user_api(
     response_description="List of users.",
 )
 def list_users_api(
+    current_user: CurrentUser,
+    user_service: UserServiceDep,
     page: Annotated[
         int,
         Query(
@@ -88,19 +100,17 @@ def list_users_api(
         Query(
             ge=1,
             le=100,
-            description="Number of users per page.",
+            description="Users per page.",
         ),
     ] = 20,
-    db: DatabaseSession = None,
-    current_user: CurrentUser = None,
 ) -> list[UserResponse]:
     """
-    Return paginated users.
+    Return a paginated list of users.
 
-    Accessible only by administrators.
+    Administrator access required.
     """
-    _, users = UserService.list_users(
-        db=db,
+
+    _, users = user_service.list_users(
         current_user=current_user,
         page=page,
         limit=limit,
@@ -108,6 +118,10 @@ def list_users_api(
 
     return users
 
+
+# ==========================================================
+# Get User
+# ==========================================================
 
 @router.get(
     "/{user_id}",
@@ -123,17 +137,20 @@ def get_user_api(
             description="User identifier.",
         ),
     ],
-    db: DatabaseSession,
-    current_user: CurrentUser,
+    user_service: UserServiceDep,
 ) -> UserResponse:
     """
     Retrieve a user by identifier.
     """
-    return UserService.get_user_by_id(
-        db=db,
-        current_user=current_user,
+
+    return user_service.get_user_by_id(
         user_id=user_id,
     )
+
+
+# ==========================================================
+# Update User
+# ==========================================================
 
 
 @router.put(
@@ -151,27 +168,33 @@ def update_user_api(
         ),
     ],
     user_data: UserUpdate,
-    db: DatabaseSession,
     current_user: CurrentUser,
+    user_service: UserServiceDep,
 ) -> UserResponse:
     """
     Update a user's profile.
 
-    A user may update their own profile.
-    Administrators may update any user.
+    Users may update their own profile.
+    Administrators may update any profile.
     """
-    return UserService.update_user(
-        db=db,
+
+    return user_service.update_user(
         current_user=current_user,
         user_id=user_id,
         user_data=user_data,
     )
 
 
+# ==========================================================
+# Delete User
+# ==========================================================
+
+
 @router.delete(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete User",
+    response_description="User deleted successfully.",
 )
 def delete_user_api(
     user_id: Annotated[
@@ -181,17 +204,214 @@ def delete_user_api(
             description="User identifier.",
         ),
     ],
-    db: DatabaseSession,
     current_user: CurrentUser,
+    user_service: UserServiceDep,
 ) -> None:
     """
     Delete a user.
 
-    A user may delete their own account.
-    Administrators may delete any user.
+    Users may delete their own account.
+    Administrators may delete any account except their own.
     """
-    UserService.delete_user(
-        db=db,
+
+    user_service.delete_user(
         current_user=current_user,
         user_id=user_id,
     )
+
+
+# ==========================================================
+# Active Users
+# ==========================================================
+
+@router.get(
+    "/active",
+    response_model=list[UserSummary],
+    summary="List Active Users",
+    response_description="List of active users.",
+)
+def list_active_users_api(
+    current_user: CurrentUser,
+    user_service: UserServiceDep,
+    page: Annotated[
+        int,
+        Query(
+            ge=1,
+            description="Page number.",
+        ),
+    ] = 1,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100,
+            description="Users per page.",
+        ),
+    ] = 20,
+) -> list[UserSummary]:
+    """
+    Return a paginated list of active users.
+
+    Administrator access required.
+    """
+
+    _, users = user_service.list_active_users(
+        current_user=current_user,
+        page=page,
+        limit=limit,
+    )
+
+    return users
+
+
+# ==========================================================
+# Search Users
+# ==========================================================
+
+
+@router.get(
+    "/search",
+    response_model=list[UserSummary],
+    summary="Search Users",
+    response_description="Matching users.",
+)
+def search_users_api(
+    query: Annotated[
+        str,
+        Query(
+            min_length=1,
+            description="Search query.",
+        ),
+    ],
+    current_user: CurrentUser,
+    user_service: UserServiceDep,
+    page: Annotated[
+        int,
+        Query(
+            ge=1,
+            description="Page number.",
+        ),
+    ] = 1,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=100,
+            description="Users per page.",
+        ),
+    ] = 20,
+) -> list[UserSummary]:
+    """
+    Search users by email.
+
+    Administrator access required.
+    """
+
+    return user_service.search_users(
+        current_user=current_user,
+        query=query,
+        page=page,
+        limit=limit,
+    )
+
+
+# ==========================================================
+# User Statistics
+# ==========================================================
+
+
+@router.get(
+    "/statistics",
+    response_model=dict[str, int],
+    summary="User Statistics",
+    response_description="Platform user statistics.",
+)
+def get_statistics_api(
+    current_user: CurrentUser,
+    user_service: UserServiceDep,
+) -> dict[str, int]:
+    """
+    Retrieve platform user statistics.
+
+    Administrator access required.
+    """
+
+    return user_service.get_statistics(
+        current_user=current_user,
+    )
+
+
+# ==========================================================
+# Activate User
+# ==========================================================
+
+@router.patch(
+    "/{user_id}/activate",
+    response_model=UserResponse,
+    summary="Activate User",
+    response_description="Activated user.",
+)
+def activate_user_api(
+    user_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="User identifier.",
+        ),
+    ],
+    current_user: CurrentUser,
+    user_service: UserServiceDep,
+) -> UserResponse:
+    """
+    Activate a user account.
+
+    Administrator access required.
+    """
+
+    return user_service.activate_user(
+        current_user=current_user,
+        user_id=user_id,
+    )
+
+
+# ==========================================================
+# Deactivate User
+# ==========================================================
+
+
+@router.patch(
+    "/{user_id}/deactivate",
+    response_model=UserResponse,
+    summary="Deactivate User",
+    response_description="Deactivated user.",
+)
+def deactivate_user_api(
+    user_id: Annotated[
+        int,
+        Path(
+            ge=1,
+            description="User identifier.",
+        ),
+    ],
+    current_user: CurrentUser,
+    user_service: UserServiceDep,
+) -> UserResponse:
+    """
+    Deactivate a user account.
+
+    Administrator access required.
+    """
+
+    return user_service.deactivate_user(
+        current_user=current_user,
+        user_id=user_id,
+    )
+
+
+# ==========================================================
+# Module Exports
+# ==========================================================
+
+__all__ = [
+    "router",
+]

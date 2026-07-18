@@ -41,6 +41,7 @@ from app.models.user import User
 from app.schemas.note import (
     NoteCreate,
     NoteResponse,
+    NoteToTaskResponse,
     NoteUpdate,
 )
 from app.services.note_service import NoteService
@@ -50,9 +51,20 @@ router = APIRouter(
     tags=["Notes"],
 )
 
-DatabaseSession = Annotated[Session, Depends(get_db)]
-CurrentUser = Annotated[User, Depends(get_current_user)]
+DatabaseSession = Annotated[
+    Session,
+    Depends(get_db),
+]
 
+CurrentUser = Annotated[
+    User,
+    Depends(get_current_user),
+]
+
+
+# ==========================================================
+# Create Note
+# ==========================================================
 
 @router.post(
     "",
@@ -71,10 +83,14 @@ def create_note_api(
     """
     return NoteService.create_note(
         db=db,
-        user_id=current_user.id,
+        current_user=current_user,
         note_data=note,
     )
 
+
+# ==========================================================
+# List Notes
+# ==========================================================
 
 @router.get(
     "",
@@ -83,6 +99,8 @@ def create_note_api(
     response_description="List of notes.",
 )
 def get_notes_api(
+    db: DatabaseSession,
+    current_user: CurrentUser,
     page: Annotated[
         int,
         Query(
@@ -110,8 +128,6 @@ def get_notes_api(
             description="Sorting strategy (newest, oldest, title).",
         ),
     ] = "newest",
-    db: DatabaseSession = None,
-    current_user: CurrentUser = None,
 ) -> list[NoteResponse]:
     """
     Retrieve paginated notes belonging to the authenticated user.
@@ -127,6 +143,9 @@ def get_notes_api(
 
     return notes
 
+# ==========================================================
+# Administrator
+# ==========================================================
 
 @router.get(
     "/admin/all",
@@ -135,6 +154,8 @@ def get_notes_api(
     response_description="List of all notes.",
 )
 def get_all_notes_admin_api(
+    db: DatabaseSession,
+    current_user: CurrentUser,
     page: Annotated[
         int,
         Query(
@@ -150,8 +171,12 @@ def get_all_notes_admin_api(
             description="Number of records per page.",
         ),
     ] = 20,
-    db: DatabaseSession = None,
-    current_user: CurrentUser = None,
+    sort_by: Annotated[
+        str,
+        Query(
+            description="Sorting strategy (newest, oldest, title).",
+        ),
+    ] = "newest",
 ) -> list[NoteResponse]:
     """
     Retrieve all notes.
@@ -163,10 +188,15 @@ def get_all_notes_admin_api(
         current_user=current_user,
         page=page,
         limit=limit,
+        sort_by=sort_by,
     )
 
     return notes
 
+
+# ==========================================================
+# Get Note
+# ==========================================================
 
 @router.get(
     "/{note_id}",
@@ -195,6 +225,10 @@ def get_note_api(
     )
 
 
+# ==========================================================
+# Update Note
+# ==========================================================
+
 @router.put(
     "/{note_id}",
     response_model=NoteResponse,
@@ -222,7 +256,10 @@ def update_note_api(
         note_id=note_id,
         note_data=note_data,
     )
-
+    
+    # ==========================================================
+# Delete Note
+# ==========================================================
 
 @router.delete(
     "/{note_id}",
@@ -250,10 +287,16 @@ def delete_note_api(
     )
 
 
+# ==========================================================
+# Convert Note to Task
+# ==========================================================
+
 @router.post(
     "/{note_id}/convert-to-task",
+    response_model=NoteToTaskResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Convert Note to Task",
+    response_description="Task conversion prepared.",
 )
 def convert_note_to_task_api(
     note_id: Annotated[
@@ -265,7 +308,7 @@ def convert_note_to_task_api(
     ],
     db: DatabaseSession,
     current_user: CurrentUser,
-):
+) -> NoteToTaskResponse:
     """
     Convert a note into a task payload.
     """
