@@ -9,33 +9,26 @@ Team Productivity Platform.
 Responsibilities
 ----------------
 ✓ Verify database connectivity
-✓ Create all SQLAlchemy tables
-✓ Log initialization status
-✓ Raise errors on startup failures
+✓ Initialize SQLAlchemy metadata (development)
+✓ Support Alembic migrations (production)
+✓ Log initialization lifecycle
+✓ Raise startup errors immediately
 
-Modules
--------
-- Authentication
-- Users
-- Notes
-- Future FastAPI modules
-
-Architecture
-------------
-FastAPI
-    │
-    ▼
-SQLAlchemy ORM
-    │
-    ▼
-PostgreSQL
-
+Compatible With
+---------------
+- SQLAlchemy 2.x
+- PostgreSQL
+- psycopg v3
+- Alembic
 ==========================================================
 """
+
+from __future__ import annotations
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.base import Base
 from app.db.session import engine
@@ -44,49 +37,55 @@ logger = get_logger(__name__)
 
 
 # ==========================================================
-# Database Connection Check
+# Database Connectivity
 # ==========================================================
 
-def check_database_connection() -> bool:
-    """
-    Verify that PostgreSQL is reachable.
 
-    Returns
-    -------
-    bool
-        True if the connection succeeds.
+def check_database_connection() -> None:
+    """
+    Verify database connectivity.
 
     Raises
     ------
     SQLAlchemyError
-        If the database cannot be reached.
+        If PostgreSQL cannot be reached.
     """
 
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
 
-        logger.info("Successfully connected to PostgreSQL.")
-
-        return True
+        logger.info("Database connection verified.")
 
     except SQLAlchemyError as exc:
         logger.exception(
-            "Failed to connect to PostgreSQL."
+            "Unable to connect to PostgreSQL."
         )
-        raise exc
+        raise
 
 
 # ==========================================================
-# Create Database Tables
+# Schema Initialization
 # ==========================================================
 
-def create_database() -> None:
-    """
-    Create all SQLAlchemy tables.
 
-    Tables are created only if they do not already exist.
+def create_tables() -> None:
     """
+    Create database tables.
+
+    This method is intended only for development.
+
+    Production environments should use Alembic
+    migrations instead.
+    """
+
+    if settings.is_production:
+        logger.info(
+            "Production environment detected. "
+            "Skipping SQLAlchemy create_all(). "
+            "Use Alembic migrations instead."
+        )
+        return
 
     try:
         Base.metadata.create_all(bind=engine)
@@ -95,31 +94,34 @@ def create_database() -> None:
             "Database tables created successfully."
         )
 
-    except SQLAlchemyError as exc:
+    except SQLAlchemyError:
         logger.exception(
             "Failed to create database tables."
         )
-        raise exc
+        raise
 
 
 # ==========================================================
-# Initialize Database
+# Database Initialization
 # ==========================================================
 
-def init_db() -> None:
+
+def initialize_database() -> None:
     """
     Initialize the database.
 
-    Steps
-    -----
-    1. Verify database connection.
-    2. Create all database tables.
+    Startup sequence
+
+    1. Verify PostgreSQL connectivity.
+    2. Create tables (development only).
     """
 
+    logger.info("=" * 80)
     logger.info("Initializing database...")
 
     check_database_connection()
 
-    create_database()
+    create_tables()
 
-    logger.info("Database initialization completed successfully.")
+    logger.info("Database initialization completed.")
+    logger.info("=" * 80)

@@ -9,48 +9,60 @@ models in the Team Productivity Platform.
 Responsibilities
 ----------------
 ✓ Shared SQLAlchemy metadata
-✓ Base class for all database models
-✓ Used by Alembic migrations
-✓ Enables SQLAlchemy 2.0 Declarative Mapping
+✓ Declarative base for all ORM models
+✓ Alembic migration support
+✓ SQLAlchemy 2.x compatible
+✓ Constraint naming conventions
 
 Database
 --------
 PostgreSQL
 
-Modules
--------
-- Authentication
-- Users
-- Notes
-- Future FastAPI modules
-
-Architecture
-------------
-FastAPI
-    │
-    ▼
-SQLAlchemy ORM
-    │
-    ▼
-PostgreSQL
-
+Compatible With
+---------------
+- SQLAlchemy 2.x
+- Alembic
+- PostgreSQL
 ==========================================================
 """
+
+from __future__ import annotations
 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
+# ==========================================================
+# SQLAlchemy Naming Convention
+# ==========================================================
+#
+# Recommended by SQLAlchemy/Alembic to generate predictable
+# constraint names across all database objects.
+#
+
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": (
+        "fk_%(table_name)s_"
+        "%(column_0_name)s_"
+        "%(referred_table_name)s"
+    ),
+    "pk": "pk_%(table_name)s",
+}
 
 # ==========================================================
 # Shared Metadata
 # ==========================================================
 
-metadata = MetaData()
-
+metadata = MetaData(
+    naming_convention=NAMING_CONVENTION,
+)
 
 # ==========================================================
-# Base Declarative Model
+# Declarative Base
 # ==========================================================
+
 
 class Base(DeclarativeBase):
     """
@@ -61,13 +73,18 @@ class Base(DeclarativeBase):
 
     def __repr__(self) -> str:
         """
-        Developer-friendly object representation.
+        Return a developer-friendly representation.
+
+        Uses mapped columns only to avoid exposing SQLAlchemy
+        internals or triggering lazy-loaded relationships.
         """
 
         values = ", ".join(
-            f"{key}={value!r}"
-            for key, value in vars(self).items()
-            if not key.startswith("_")
+            f"{column.key}={getattr(self, column.key)!r}"
+            for column in self.__table__.columns
         )
 
-        return f"{self.__class__.__name__}({values})"
+        return (
+            f"{self.__class__.__name__}"
+            f"({values})"
+        )

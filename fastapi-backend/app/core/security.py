@@ -8,18 +8,23 @@ Provides:
 ✓ Password hashing (Argon2)
 ✓ Password verification
 ✓ JWT Access Token creation
-✓ JWT decoding & validation
+✓ JWT decoding
+✓ JWT validation
+✓ Authentication helpers
 
-Compatible with:
-
+Compatible With
+---------------
 - FastAPI
-- SQLAlchemy 2.0
+- SQLAlchemy 2.x
 - Pydantic v2
 - python-jose
+- pwdlib
 ==========================================================
 """
 
-from datetime import datetime, timedelta, timezone
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -27,22 +32,32 @@ from jose import ExpiredSignatureError, JWTError, jwt
 from pwdlib import PasswordHash
 
 from app.core.config import settings
+from app.core.constants import (
+    ACCESS_TOKEN_TYPE,
+    INVALID_TOKEN_MESSAGE,
+    TOKEN_EXPIRED_MESSAGE,
+)
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 # ==========================================================
 # Password Hashing
 # ==========================================================
 
-password_hash = PasswordHash.recommended()
+_password_hasher = PasswordHash.recommended()
 
 # ==========================================================
 # Password Utilities
 # ==========================================================
 
+
 def hash_password(password: str) -> str:
     """
-    Hash a plain text password using Argon2.
+    Hash a plain-text password using Argon2.
     """
-    return password_hash.hash(password)
+
+    return _password_hasher.hash(password)
 
 
 def verify_password(
@@ -50,39 +65,47 @@ def verify_password(
     hashed_password: str,
 ) -> bool:
     """
-    Verify a password against its hash.
+    Verify a plain-text password against its hash.
     """
-    return password_hash.verify(
+
+    return _password_hasher.verify(
         plain_password,
         hashed_password,
     )
+
 
 # ==========================================================
 # JWT Utilities
 # ==========================================================
 
+
 def create_access_token(
+    *,
     user_id: str,
     email: str,
     role: str,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """
-    Create a JWT access token.
+    Create a signed JWT access token.
     """
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
-    expire = now + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    expire = now + (
+        expires_delta
+        or timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     )
 
-    payload = {
+    payload: dict[str, Any] = {
         "sub": email,
         "user_id": user_id,
         "role": role,
-        "type": "access",
-        "iat": now,
-        "exp": expire,
+        "type": ACCESS_TOKEN_TYPE.lower(),
+        "iat": int(now.timestamp()),
+        "exp": int(expire.timestamp()),
     }
 
     return jwt.encode(
@@ -106,19 +129,40 @@ def decode_access_token(
             algorithms=[settings.ALGORITHM],
         )
 
-        return payload
-
-    except ExpiredSignatureError:
+    except ExpiredSignatureError as exc:
+        logger.warning("Expired JWT received.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Access token has expired",
-        )
+            detail=TOKEN_EXPIRED_MESSAGE,
+        ) from exc
 
-    except JWTError:
+    except JWTError as exc:
+        logger.warning("Invalid JWT received.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid access token",
-        )
+            detail=INVALID_TOKEN_MESSAGE,
+        ) from exc
+
+    required_claims = (
+        "sub",
+        "user_id",
+        "role",
+        "type",
+    )
+
+    for claim in required_claims:
+        if claim not in payload:
+            logger.warning(
+                "JWT missing required claim: %s",
+                claim,
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=INVALID_TOKEN_MESSAGE,
+            )
+
+    return payload
 
 
 def get_token_subject(
@@ -130,12 +174,28 @@ def get_token_subject(
 
     payload = decode_access_token(token)
 
-    subject = payload.get("sub")
+    return str(payload["sub"])
 
-    if subject is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-        )
 
-    return subject
+def get_user_id(
+    token: str,
+) -> str:
+    """
+    Return the authenticated user's ID.
+    """
+
+    payload = decode_access_token(token)
+
+    return str(payload["user_id"])
+
+
+def get_user_role(
+    token: str,
+) -> str:
+    """
+    Return the authenticated user's role.
+    """
+
+    payload = decode_access_token(token)
+
+    return str(payload["role"])

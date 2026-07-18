@@ -11,28 +11,18 @@ Responsibilities
 ✓ Create SQLAlchemy engine
 ✓ Configure connection pooling
 ✓ Provide FastAPI database dependency
-✓ Handle PostgreSQL connections
-✓ Ensure proper session lifecycle
+✓ Manage SQLAlchemy session lifecycle
 
-Database
---------
-PostgreSQL + SQLAlchemy 2.0 + psycopg
-
-Architecture
-------------
-Next.js
-    │
-    ▼
-FastAPI
-    │
-    ▼
-SQLAlchemy ORM
-    │
-    ▼
-PostgreSQL
-
+Compatible With
+---------------
+- SQLAlchemy 2.x
+- PostgreSQL
+- psycopg v3
+- FastAPI
 ==========================================================
 """
+
+from __future__ import annotations
 
 from collections.abc import Generator
 
@@ -45,7 +35,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 # ==========================================================
-# Database Engine
+# SQLAlchemy Engine
 # ==========================================================
 
 engine = create_engine(
@@ -54,47 +44,52 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
-    pool_recycle=1800,
     pool_timeout=30,
-    future=True,
+    pool_recycle=1800,
 )
+
+logger.info("SQLAlchemy engine initialized.")
 
 # ==========================================================
 # Session Factory
 # ==========================================================
 
-SessionLocal = sessionmaker(
+SessionFactory: sessionmaker[Session] = sessionmaker(
     bind=engine,
     autoflush=False,
     autocommit=False,
     expire_on_commit=False,
 )
 
-logger.info("Database engine initialized successfully.")
-
 # ==========================================================
 # Database Dependency
 # ==========================================================
 
+
 def get_db() -> Generator[Session, None, None]:
     """
-    FastAPI dependency that provides a database session.
+    FastAPI dependency that provides a transactional
+    SQLAlchemy session.
 
-    Usage
-    -----
-    db: Session = Depends(get_db)
+    The session lifecycle is:
 
-    Lifecycle
-    ---------
-    - Create session
-    - Yield session
-    - Automatically close session
+    1. Create session
+    2. Yield to request
+    3. Roll back if an exception occurs
+    4. Close the session
     """
 
-    db = SessionLocal()
+    session = SessionFactory()
 
     try:
-        yield db
+        yield session
+
+    except Exception:
+        session.rollback()
+        logger.exception(
+            "Database transaction rolled back."
+        )
+        raise
 
     finally:
-        db.close()
+        session.close()
