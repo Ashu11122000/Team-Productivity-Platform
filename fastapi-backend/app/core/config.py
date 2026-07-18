@@ -1,89 +1,158 @@
-# BaseSettings automatically reads environment variables
-# SettingsConfigDict is used to define configuration behaviors for a BaseSettings model
-from pydantic_settings import BaseSettings, SettingsConfigDict
+"""
+==========================================================
+Application Configuration
+==========================================================
+
+Loads all application settings from .env using
+Pydantic Settings (v2).
+
+This file centralizes configuration for:
+
+✓ FastAPI
+✓ PostgreSQL
+✓ JWT Authentication
+✓ CORS
+✓ Logging
+✓ External APIs
+✓ NestJS Integration
+
+==========================================================
+"""
+
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings
+from pydantic import Field
+
 
 class Settings(BaseSettings):
     """
-    Application settings loaded from environment variables.
-    
-    This configuration is shared across:
-    - Authentication
-    - Notes Module
-    - Open Library Integration
-    - NestJS Service Integration
-    - JWT Security
+    Application settings.
     """
+
+    # ======================================================
     # Application
+    # ======================================================
+
     APP_NAME: str = "Team Productivity Platform API"
-    APP_VERSION: str = "v1"
+
+    APP_VERSION: str = "1.0.0"
+
     ENVIRONMENT: str = "development"
-    DEBUG: bool = False
-    
+
+    DEBUG: bool = True
+
+    # ======================================================
     # Server
+    # ======================================================
+
     HOST: str = "0.0.0.0"
+
     PORT: int = 8000
-    
-    # Frontend
-    FRONTEND_URL: str = "http://localhost:3000"
-    
-    # Database
-    DB_HOST: str
-    DB_PORT: int
-    DB_NAME: str
-    DB_USER: str
-    DB_PASSWORD: str
-    
-    # JWT Authentication
-    SECRET_KEY: str
+
+    # ======================================================
+    # Security
+    # ======================================================
+
+    SECRET_KEY: str = Field(..., min_length=32)
+
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    
-    # Shared JWT metadata for FastAPI + NestJS
-    JWT_ISSUER: str = "team-productivity-platform"
-    JWT_AUDIENCE: str = "team-productivity-users"
-    
-    # NestJS Integration
-    # NestJS owns:
-    # - Tasks
-    # - Categories
-    # - Tags
-    # - Notifications
-    # - Analytics
-    # - Activity Logs
-    
-    NESTJS_API_URL: str = "http://localhost:3001/api/v1"
-    
-    # Open Library Integration
-    OPEN_LIBRARY_BASE_URL: str = "https://openlibrary.org"
-    
-    # Public Holidays API
+
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # ======================================================
+    # PostgreSQL
+    # ======================================================
+
+    POSTGRES_HOST: str
+
+    POSTGRES_PORT: int
+
+    POSTGRES_USER: str
+
+    POSTGRES_PASSWORD: str
+
+    POSTGRES_DB: str
+
+    DATABASE_URL: str
+
+    # ======================================================
+    # CORS
+    # ======================================================
+
+    BACKEND_CORS_ORIGINS: str = (
+        "http://localhost:3000"
+    )
+
+    # ======================================================
+    # Logging
+    # ======================================================
+
+    LOG_LEVEL: str = "INFO"
+
+    # ======================================================
+    # NestJS
+    # ======================================================
+
+    NESTJS_API_URL: str = (
+        "http://localhost:3001/api/v1"
+    )
+
+    # ======================================================
+    # External APIs
+    # ======================================================
+
+    OPEN_LIBRARY_BASE_URL: str = (
+        "https://openlibrary.org"
+    )
+
     HOLIDAYS_API_BASE_URL: str = (
         "https://date.nager.at/api/v3"
     )
-    
-    # API Configuration
-    API_V_PREFIX: str = "/api/v1"
-    
-    # Environment Configuration
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-        case_sensitive=True,
-    )
-    
-    # Computed Database URL
+
+    # ======================================================
+    # API
+    # ======================================================
+
+    API_V1_PREFIX: str = "/api/v1"
+
+    # ======================================================
+    # Settings
+    # ======================================================
+
+    # Use a plain dict for model_config to avoid importing pydantic_settings
+    model_config: dict = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True,
+        "extra": "ignore",
+    }
+
+    # ======================================================
+    # Computed Properties
+    # ======================================================
+
     @property
-    def DATABASE_URL(self) -> str:
+    def cors_origins(self) -> list[str]:
         """
-        SQLAlchemy connection string (Database URL) that SQLAlchemy uses to connect to database
+        Convert comma-separated CORS origins
+        into a Python list.
         """
-        return (
-            f"postgresql://{self.DB_USER}:"
-            f"{self.DB_PASSWORD}@"
-            f"{self.DB_HOST}:"
-            f"{self.DB_PORT}/"
-            f"{self.DB_NAME}"
-        )
-        
-settings = Settings()
+        return [
+            origin.strip()
+            for origin in self.BACKEND_CORS_ORIGINS.split(",")
+            if origin.strip()
+        ]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """
+    Returns a cached Settings instance.
+
+    Prevents reloading .env on every import.
+    """
+    return Settings()
+
+
+settings = get_settings()
