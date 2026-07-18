@@ -1,8 +1,34 @@
-from datetime import datetime, timezone
+"""
+==========================================================
+Note Model
+==========================================================
+
+Represents a user note within the Team Productivity
+Platform.
+
+Responsibilities
+----------------
+✓ Store personal notes
+✓ Associate notes with users
+✓ Support Open Library integration
+✓ Support conversion to NestJS tasks
+
+Compatible With
+---------------
+- SQLAlchemy 2.x
+- PostgreSQL
+- Alembic
+- FastAPI
+==========================================================
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     ForeignKey,
     Index,
@@ -10,93 +36,137 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
-# relationship is used to define relationships between SQLAlchemy models
-from sqlalchemy.orm import relationship
-
+from app.core.constants import (
+    NOTE_CONTENT_MAX_LENGTH,
+    NOTE_TITLE_MAX_LENGTH,
+)
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class Note(Base):
+    """
+    Note database model.
+    """
+
     __tablename__ = "notes"
 
-    # Indexes for optimizing queries on frequency accessed columns like owner_id, created_at, and title
     __table_args__ = (
         Index("idx_notes_owner_id", "owner_id"),
         Index("idx_notes_created_at", "created_at"),
         Index("idx_notes_title", "title"),
+        Index(
+            "idx_notes_converted_to_task",
+            "is_converted_to_task",
+        ),
     )
 
+    # ======================================================
     # Primary Key
-    id = Column(
+    # ======================================================
+
+    id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
-        index=True,
+        autoincrement=True,
     )
 
+    # ======================================================
     # Note Data
-    title = Column(
-        String(255),
+    # ======================================================
+
+    title: Mapped[str] = mapped_column(
+        String(NOTE_TITLE_MAX_LENGTH),
         nullable=False,
     )
 
-    content = Column(
-        Text,
+    content: Mapped[str | None] = mapped_column(
+        Text().with_variant(
+            String(NOTE_CONTENT_MAX_LENGTH),
+            "sqlite",
+        ),
         nullable=True,
     )
 
+    # ======================================================
     # Ownership
-    owner_id = Column(
-        Integer,
+    # ======================================================
+
+    owner_id: Mapped[int] = mapped_column(
         ForeignKey(
             "users.id",
             ondelete="CASCADE",
         ),
         nullable=False,
-        index=True,
     )
 
+    # ======================================================
     # Open Library Integration
-    book_reference_id = Column(
+    # ======================================================
+
+    book_reference_id: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
 
+    # ======================================================
     # NestJS Integration
-    is_converted_to_task = Column(
+    # ======================================================
+
+    is_converted_to_task: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
         nullable=False,
     )
 
+    # ======================================================
     # Audit Fields
-    created_at = Column(
+    # ======================================================
+
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         nullable=False,
     )
 
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
 
+    # ======================================================
     # Relationships
-    owner = relationship(
+    # ======================================================
+
+    owner: Mapped["User"] = relationship(
         "User",
         back_populates="notes",
     )
 
-    # Representation of the Not Object for debugging and logging purposes
+    # ======================================================
+    # Representation
+    # ======================================================
+
     def __repr__(self) -> str:
-        
-        # Return a string representation of the Note object, including its ID, title, and owner ID
+        """
+        Return a developer-friendly representation.
+        """
+
         return (
-            f"<Note("
+            f"Note("
             f"id={self.id}, "
             f"title='{self.title}', "
-            f"owner_id={self.owner_id}"
-            f")>"
+            f"owner_id={self.owner_id}, "
+            f"is_converted_to_task={self.is_converted_to_task}"
+            f")"
         )

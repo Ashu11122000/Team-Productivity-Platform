@@ -1,120 +1,187 @@
-from datetime import datetime
-from typing import Optional
+"""
+==========================================================
+Note Schemas
+==========================================================
 
-# ConfigDict and Field are used for Pydantic model configuration and field definitions
-from pydantic import BaseModel, ConfigDict, Field
+Pydantic schemas for Notes.
+
+Responsibilities
+----------------
+✓ Note creation
+✓ Note update
+✓ Note response
+✓ Note summary
+✓ Paginated notes
+✓ Note → Task conversion
+
+Compatible With
+---------------
+- FastAPI
+- Pydantic v2
+- SQLAlchemy 2.x
+==========================================================
+"""
+
+from __future__ import annotations
+
+from pydantic import Field
+
+from app.core.constants import (
+    NOTE_CONTENT_MAX_LENGTH,
+    NOTE_TITLE_MAX_LENGTH,
+)
+from app.schemas.base import BaseSchema, EntitySchema
+from app.schemas.common import PaginationMeta
 
 
-class NoteBase(BaseModel):
+# ==========================================================
+# Base Note Schema
+# ==========================================================
+
+
+class NoteBase(BaseSchema):
+    """
+    Shared note fields.
+    """
+
     title: str = Field(
         ...,
         min_length=1,
-        max_length=255,
-        description="Note title",
-        examples=["Learning React"],
+        max_length=NOTE_TITLE_MAX_LENGTH,
+        description="Title of the note.",
+        examples=["Learning FastAPI"],
     )
 
-    content: Optional[str] = Field(
+    content: str | None = Field(
         default=None,
-        description="Detailed note content",
+        max_length=NOTE_CONTENT_MAX_LENGTH,
+        description="Detailed note content.",
         examples=[
-            "React hooks, state management, and component lifecycle notes"
+            "Dependency Injection, SQLAlchemy 2.x and JWT Authentication."
         ],
     )
 
 
+# ==========================================================
+# Create Note
+# ==========================================================
+
+
 class NoteCreate(NoteBase):
+    """
+    Schema for creating a note.
+    """
+
     pass
 
 
-class NoteUpdate(BaseModel):
-    title: Optional[str] = Field(
+# ==========================================================
+# Update Note
+# ==========================================================
+
+
+class NoteUpdate(BaseSchema):
+    """
+    Schema for updating a note.
+    """
+
+    title: str | None = Field(
         default=None,
         min_length=1,
-        max_length=255,
-        description="Updated note title",
+        max_length=NOTE_TITLE_MAX_LENGTH,
     )
 
-    content: Optional[str] = Field(
+    content: str | None = Field(
         default=None,
-        description="Updated note content",
+        max_length=NOTE_CONTENT_MAX_LENGTH,
     )
 
 
-class NoteResponse(NoteBase):
-    # from_attributes=True allows Pydantic to read data from ORM models directly
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int = Field(
-        ...,
-        description="Unique note identifier",
-        examples=[1],
-    )
-
-    owner_id: int = Field(
-        ...,
-        description="User ID of the note owner",
-        examples=[1],
-    )
-
-    book_reference_id: Optional[str] = Field(
-        default=None,
-        description="Optional Open Library book reference ID",
-        examples=["OL45883W"],
-    )
-
-    is_converted_to_task: bool = Field(
-        ...,
-        description="Whether the note has been converted into task(s)",
-        examples=[False],
-    )
-
-    created_at: datetime = Field(
-        ...,
-        description="Timestamp when the note was created",
-    )
-
-    updated_at: datetime = Field(
-        ...,
-        description="Timestamp when the note was last updated",
-    )
+# ==========================================================
+# Note Response
+# ==========================================================
 
 
-class PaginatedNotesResponse(BaseModel):
-    total: int = Field(
-        # ... means this field is required
-        ...,
-        description="Total matching notes",
-        examples=[125],
-    )
+class NoteResponse(EntitySchema):
+    """
+    Complete note response.
+    """
 
-    page: int = Field(
-        ...,
-        description="Current page",
-        examples=[1],
-    )
+    title: str
 
-    limit: int = Field(
-        ...,
-        description="Records per page",
-        examples=[10],
-    )
+    content: str | None
 
-    items: list[NoteResponse]
+    owner_id: int
+
+    book_reference_id: str | None
+
+    is_converted_to_task: bool
 
 
-class NoteToTaskResponse(BaseModel):
-    note_id: int = Field(
-        ...,
-        description="Source note ID",
-    )
+# ==========================================================
+# Public Note
+# ==========================================================
 
-    task_created: bool = Field(
-        ...,
-        description="Whether task creation succeeded",
-    )
 
-    message: str = Field(
-        ...,
-        description="Conversion result message",
-    )
+class NotePublic(BaseSchema):
+    """
+    Lightweight note representation.
+    """
+
+    id: int
+
+    title: str
+
+    created_at: str
+
+
+# ==========================================================
+# Note Summary
+# ==========================================================
+
+
+class NoteSummary(BaseSchema):
+    """
+    Lightweight note used in lists.
+    """
+
+    id: int
+
+    title: str
+
+    is_converted_to_task: bool
+
+
+# ==========================================================
+# Paginated Notes
+# ==========================================================
+
+
+class PaginatedNotesResponse(BaseSchema):
+    """
+    Paginated note response.
+    """
+
+    success: bool = True
+
+    data: list[NoteResponse]
+
+    pagination: PaginationMeta
+
+
+# ==========================================================
+# Note → Task Response
+# ==========================================================
+
+
+class NoteToTaskResponse(BaseSchema):
+    """
+    Response returned after converting
+    a note into a NestJS task.
+    """
+
+    note_id: int
+
+    task_created: bool
+
+    message: str
