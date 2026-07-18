@@ -54,7 +54,11 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, status
 
-from app.api.routes import auth, note
+from app.api.routes import (
+    auth,
+    notes,
+    users,
+)
 from app.core.config import settings
 from app.core.constants import (
     API_V1_PREFIX,
@@ -206,7 +210,13 @@ app.include_router(
 )
 
 app.include_router(
-    note.router,
+    users.router,
+    prefix=API_V1_PREFIX,
+    tags=["Users"],
+)
+
+app.include_router(
+    notes.router,
     prefix=API_V1_PREFIX,
     tags=["Notes"],
 )
