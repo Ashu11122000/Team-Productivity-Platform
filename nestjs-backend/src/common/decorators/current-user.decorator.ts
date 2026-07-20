@@ -1,23 +1,51 @@
-/* eslint-disable prettier/prettier */
+/**
+ * ============================================================================
+ * File: current-user.decorator.ts
+ * ============================================================================
+ *
+ * Enterprise Current User Decorator
+ * ============================================================================
+ */
 
-// This file defines a custom decorator to extract the current user from the request object in a NestJS application
-// createParamDecorator is a function that creates a custom decorator for extracting data from the request object
-// ExecutionContext is an interface that provides methods to access the current request and response objects in a NestJS a
-import {
-  createParamDecorator,
-  ExecutionContext,
-} from '@nestjs/common';
+import { createParamDecorator } from '@nestjs/common';
 
-// CurrentUser is a custom decorator that extracts the current user from the request object
-export const CurrentUser =
-  // createParamDecorator takes a function that receives the data passed to the decorator and the execution context
-  createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
+/**
+ * Represents the authenticated user attached to the request.
+ *
+ * This will later be replaced with a dedicated JwtPayload interface
+ * inside common/interfaces.
+ */
+type AuthenticatedUser = Record<string, unknown>;
 
-      // switchToHttp() is a method that returns an object that allows access to the HTTP request and response objects
-      // getRequest() is a method that returns the current HTTP request object
-      // ctx is the execution context that provides access to the current request and response objects
-      const request = ctx.switchToHttp().getRequest();
+/**
+ * Extracts the authenticated user (or one of its properties)
+ * from the current HTTP request.
+ *
+ * Examples
+ * --------
+ *
+ * @CurrentUser()
+ * user
+ *
+ * @CurrentUser('id')
+ * userId
+ *
+ * @CurrentUser('email')
+ * email
+ */
+export const CurrentUser = createParamDecorator<
+  keyof AuthenticatedUser | undefined,
+  unknown
+>((data, context) => {
+  const request = context.switchToHttp().getRequest<{
+    user?: AuthenticatedUser;
+  }>();
 
-      return request.user;
-    },
-  );
+  const user = request.user;
+
+  if (data === undefined) {
+    return user;
+  }
+
+  return user?.[data];
+});
