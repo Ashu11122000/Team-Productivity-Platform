@@ -36,36 +36,86 @@ import { registerAs } from '@nestjs/config';
  */
 export default registerAs('app', () => ({
   /**
-   * Application metadata.
+   * --------------------------------------------------------------------------
+   * Application Metadata
+   * --------------------------------------------------------------------------
    */
   name: process.env.APP_NAME ?? 'Team Productivity Platform NestJS API',
 
   version: process.env.APP_VERSION ?? '1.0.0',
 
   /**
-   * Current runtime environment.
+   * --------------------------------------------------------------------------
+   * Runtime Environment
+   * --------------------------------------------------------------------------
    */
   environment: process.env.NODE_ENV ?? 'development',
 
+  isDevelopment: process.env.NODE_ENV === 'development',
+
+  isProduction: process.env.NODE_ENV === 'production',
+
+  isTest: process.env.NODE_ENV === 'test',
+
   /**
-   * HTTP server configuration.
+   * --------------------------------------------------------------------------
+   * HTTP Server
+   * --------------------------------------------------------------------------
    */
   port: Number(process.env.PORT ?? 3001),
 
+  /**
+   * Global API prefix.
+   *
+   * Example:
+   * /api/v1/tasks
+   */
   apiPrefix: process.env.API_PREFIX ?? 'api/v1',
 
   /**
-   * Frontend configuration.
+   * Request timeout (milliseconds).
+   *
+   * Used by TimeoutInterceptor.
+   */
+  requestTimeout: Number(process.env.REQUEST_TIMEOUT ?? 30000),
+
+  /**
+   * Graceful shutdown timeout (milliseconds).
+   */
+  shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT ?? 10000),
+
+  /**
+   * Enable URI versioning.
+   */
+  enableVersioning:
+    (process.env.ENABLE_VERSIONING ?? 'true').toLowerCase() === 'true',
+
+  /**
+   * Enable Swagger documentation.
+   *
+   * The Swagger module may additionally check its own configuration namespace.
+   */
+  enableSwagger:
+    (process.env.ENABLE_SWAGGER ?? 'true').toLowerCase() === 'true',
+
+  /**
+   * --------------------------------------------------------------------------
+   * Frontend Configuration
+   * --------------------------------------------------------------------------
    */
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:3000',
 
   /**
-   * FastAPI integration.
+   * --------------------------------------------------------------------------
+   * FastAPI Integration
+   * --------------------------------------------------------------------------
    */
   fastApiBaseUrl: process.env.FASTAPI_BASE_URL ?? 'http://localhost:8000',
 
   /**
-   * Calendar / Holiday configuration.
+   * --------------------------------------------------------------------------
+   * Calendar / Holiday Configuration
+   * --------------------------------------------------------------------------
    */
   holiday: {
     country: process.env.HOLIDAY_COUNTRY ?? 'IN',
@@ -74,7 +124,9 @@ export default registerAs('app', () => ({
   },
 
   /**
-   * Scheduler configuration.
+   * --------------------------------------------------------------------------
+   * Scheduler Configuration
+   * --------------------------------------------------------------------------
    */
   scheduler: {
     reminderCron: process.env.REMINDER_CRON ?? '0 9 * * *',
@@ -83,18 +135,11 @@ export default registerAs('app', () => ({
   },
 
   /**
-   * Analytics configuration.
+   * --------------------------------------------------------------------------
+   * Analytics Configuration
+   * --------------------------------------------------------------------------
    */
   analytics: {
     cacheTtl: Number(process.env.ANALYTICS_CACHE_TTL ?? 600),
   },
-
-  /**
-   * Application information.
-   */
-  isDevelopment: process.env.NODE_ENV === 'development',
-
-  isProduction: process.env.NODE_ENV === 'production',
-
-  isTest: process.env.NODE_ENV === 'test',
 }));
