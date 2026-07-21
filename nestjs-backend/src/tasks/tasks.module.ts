@@ -1,32 +1,32 @@
 import { Module } from '@nestjs/common';
-
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { Task } from './entities/task.entity';
+import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
+
 import { Category } from '../categories/entities/category.entity';
 import { Tag } from '../tags/entities/tag.entity';
+
+import { TaskEntity } from './entities/task.entity';
 
 import { TasksController } from './controllers/tasks.controller';
 
 import { TasksService } from './services/task.service';
 
-import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
+import { TasksRepository } from './repositories/tasks.repository';
 
-import { NotificationsModule } from '../notifications/notifications.module';
+import { TaskMapper } from './mappers/task.mapper';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Task, Category, Tag]),
+    TypeOrmModule.forFeature([TaskEntity, Category, Tag]),
 
     ActivityLogsModule,
-
-    NotificationsModule,
   ],
 
   controllers: [TasksController],
 
-  providers: [TasksService],
+  providers: [TasksRepository, TaskMapper, TasksService],
 
-  exports: [TasksService],
+  exports: [TasksRepository, TasksService],
 })
 export class TasksModule {}

@@ -1,200 +1,318 @@
-/* eslint-disable prettier/prettier */
+/**
+ * ============================================================================
+ * File: analytics.service.ts
+ * ============================================================================
+ *
+ * Enterprise Analytics Service.
+ *
+ * Responsibilities
+ * ----------------
+ * - Coordinate analytics business operations.
+ * - Delegate database aggregation to AnalyticsRepository.
+ * - Convert internal analytics contracts into response DTOs.
+ * - Keep controllers free from business logic.
+ *
+ * Architecture
+ * ------------
+ *
+ * Controller
+ *      |
+ *      ▼
+ * AnalyticsService
+ *      |
+ *      ├── AnalyticsRepository
+ *      |
+ *      └── AnalyticsMapper
+ *
+ *
+ * Rules
+ * -----
+ * - No direct TypeORM access.
+ * - No QueryBuilder logic.
+ * - No entity leakage.
+ * - No HTTP concerns.
+ *
+ *
+ * Authentication
+ * --------------
+ * - FastAPI owns authentication.
+ * - NestJS validates JWT.
+ * - userId comes from JWT payload.
+ *
+ *
+ * Compatible With
+ * ----------------
+ * - NestJS 11
+ * - TypeORM 0.3+
+ * - TypeScript 5+
+ *
+ * ============================================================================
+ */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
-import { InjectRepository } from '@nestjs/typeorm';
+import { AnalyticsRepository } from '../repositories/analytics.repository';
 
-import { Repository } from 'typeorm';
-
-import { Task } from '../../tasks/entities/task.entity';
-import { Category } from '../../categories/entities/category.entity';
-import { Tag } from '../../tags/entities/tag.entity';
-import { Notification } from '../../notifications/entities/notification.entity';
-
-import { TaskStatus } from '../../common/enums/task-status.enum';
-import { TaskPriority } from '../../common/enums/task-priority.enum';
+import { AnalyticsMapper } from '../mappers/analytics.mapper';
 
 import { AnalyticsOverviewDto } from '../dto/analytics-overview.dto';
-import { TaskStatusStatsDto } from '../dto/task-status-stats.dto';
-import { TaskPriorityStatsDto } from '../dto/task-priority.dto';
-import { ProductivityStatsDto } from '../dto/productivity-stats.dto';
+import { DashboardResponseDto } from '../dto/dashboard-response.dto';
 
+import { AnalyticsFilter } from '../interfaces/analytics-filter.interface';
+import { AnalyticsOverview } from '../interfaces/analytics-overview.interface';
+import { TaskSummary } from '../interfaces/task-summary.interface';
+
+/**
+ * ============================================================================
+ * Analytics Service
+ * ============================================================================
+ */
 @Injectable()
 export class AnalyticsService {
-    constructor(
-        @InjectRepository(Task)
-        private readonly taskRepository: Repository<Task>,
+  /**
+   * Application logger.
+   */
+  private readonly logger = new Logger(AnalyticsService.name);
 
-        @InjectRepository(Category)
-        private readonly categoryRepository: Repository<Category>,
+  constructor(
+    private readonly analyticsRepository: AnalyticsRepository,
 
-        @InjectRepository(Tag)
-        private readonly tagRepository: Repository<Tag>,
+    private readonly analyticsMapper: AnalyticsMapper & Record<string, any>,
+  ) {}
 
-        @InjectRepository(Notification)
-        private readonly notificationRepository: Repository<Notification>,
-    ) {}
+  /**
+   * ==========================================================================
+   * Get Dashboard Analytics
+   * ==========================================================================
+   *
+   * Returns complete dashboard analytics.
+   *
+   * @param userId Authenticated user identifier.
+   * @param filter Analytics filter.
+   *
+   * @returns Dashboard response DTO.
+   * ==========================================================================
+   */
+  async getDashboard(
+    userId: string,
+    filter: AnalyticsFilter,
+  ): Promise<DashboardResponseDto> {
+    this.logger.debug(`Generating dashboard analytics for ${userId}`);
 
-    async getOverview(
-        userId: string,
-    ): Promise<AnalyticsOverviewDto> {
-        const totalTasks =
-            await this.taskRepository.count({
-                where: { userId },
-            });
+    const dashboard = await this.analyticsRepository.getDashboard(
+      userId,
+      filter,
+    );
 
-        const completedTasks =
-            await this.taskRepository.count({
-                where: {
-                    userId,
-                    status: TaskStatus.COMPLETED,
-                },
-            });
+    return this.analyticsMapper.toDashboardDto(dashboard);
+  }
 
-        const totalCategories =
-            await this.categoryRepository.count({
-                where: { userId },
-            });
+  /**
+   * ==========================================================================
+   * Get Analytics Overview
+   * ==========================================================================
+   *
+   * Returns high-level analytics information.
+   *
+   * @param userId Authenticated user identifier.
+   * @param filter Analytics filter.
+   *
+   * @returns Analytics overview DTO.
+   * ==========================================================================
+   */
+  async getOverview(
+    userId: string,
+    filter: AnalyticsFilter,
+  ): Promise<AnalyticsOverviewDto> {
+    const overview: AnalyticsOverview =
+      await this.analyticsRepository.getOverview(userId, filter);
 
-        const totalTags =
-            await this.tagRepository.count({
-                where: { userId },
-            });
+    return this.analyticsMapper.toOverviewDto(overview);
+  }
 
-        const totalNotifications =
-            await this.notificationRepository.count({
-                where: { userId },
-            });
+  /**
+   * ==========================================================================
+   * Get Task Summary
+   * ==========================================================================
+   *
+   * Returns task lifecycle statistics.
+   *
+   * Responsibilities
+   * ----------------
+   * - Request aggregated task summary from repository.
+   * - Convert internal aggregation contract into DTO.
+   *
+   *
+   * @param userId Authenticated user identifier.
+   * @param filter Analytics filter.
+   *
+   * @returns Task summary response DTO.
+   * ==========================================================================
+   */
+  async getTaskSummary(userId: string, filter: AnalyticsFilter) {
+    this.logger.debug(`Generating task summary analytics for ${userId}`);
 
-        return {
-            totalTasks,
-            completedTasks,
-            pendingTasks:
-                totalTasks - completedTasks,
-            totalCategories,
-            totalTags,
-            totalNotifications,
-        };
-    }
+    const summary: TaskSummary = await this.analyticsRepository.getTaskSummary(
+      userId,
+      filter,
+    );
 
-    async getTaskStatusStats(
-        userId: string,
-    ): Promise<TaskStatusStatsDto> {
-        return {
-            todo:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        status: TaskStatus.TODO,
-                    },
-                }),
+    return this.analyticsMapper.toTaskSummaryDto(summary);
+  }
 
-            inProgress:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        status:
-                            TaskStatus.IN_PROGRESS,
-                    },
-                }),
+  /**
+   * ==========================================================================
+   * Get Productivity Statistics
+   * ==========================================================================
+   *
+   * Returns productivity metrics.
+   *
+   * Metrics:
+   *
+   * - Total tasks
+   * - Completed tasks
+   * - Incomplete tasks
+   * - Completion rate
+   *
+   *
+   * Repository handles:
+   *
+   * - SQL aggregation
+   * - Counting
+   * - Calculations
+   *
+   * Service handles:
+   *
+   * - Coordination
+   * - DTO conversion
+   *
+   *
+   * @param userId Authenticated user identifier.
+   * @param filter Analytics filter.
+   *
+   * @returns Productivity statistics DTO.
+   * ==========================================================================
+   */
+  async getProductivity(userId: string, filter: AnalyticsFilter) {
+    this.logger.debug(`Generating productivity analytics for ${userId}`);
 
-            completed:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        status:
-                            TaskStatus.COMPLETED,
-                    },
-                }),
+    const productivity = await this.analyticsRepository.getProductivityStats(
+      userId,
+      filter,
+    );
 
-            cancelled:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        status:
-                            TaskStatus.CANCELLED,
-                    },
-                }),
-        };
-    }
+    return (this.analyticsMapper as any).toProductivityDto(productivity);
+  }
 
-    async getTaskPriorityStats(
-        userId: string,
-    ): Promise<TaskPriorityStatsDto> {
-        return {
-            low:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        priority:
-                            TaskPriority.LOW,
-                    },
-                }),
+  /**
+   * ==========================================================================
+   * Get Task Status Statistics
+   * ==========================================================================
+   *
+   * Returns task distribution grouped by status.
+   *
+   * Example:
+   *
+   * COMPLETED   -> 50
+   * IN_PROGRESS -> 20
+   * TODO        -> 15
+   *
+   *
+   * Responsibilities
+   * ----------------
+   * - Request status aggregation from repository.
+   * - Delegate DTO conversion to mapper.
+   *
+   *
+   * @param userId Authenticated user identifier.
+   * @param filter Analytics filter.
+   *
+   * @returns Task status statistics DTO.
+   * ==========================================================================
+   */
+  async getTaskStatusStats(userId: string, filter: AnalyticsFilter) {
+    this.logger.debug(`Generating task status analytics for ${userId}`);
 
-            medium:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        priority:
-                            TaskPriority.MEDIUM,
-                    },
-                }),
+    const statusStats = await this.analyticsRepository.getTaskStatusStats(
+      userId,
+      filter,
+    );
 
-            high:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        priority:
-                            TaskPriority.HIGH,
-                    },
-                }),
+    return (this.analyticsMapper as any).toTaskStatusStatsDto(statusStats);
+  }
 
-            urgent:
-                await this.taskRepository.count({
-                    where: {
-                        userId,
-                        priority:
-                            TaskPriority.URGENT,
-                    },
-                }),
-        };
-    }
+  /**
+   * ==========================================================================
+   * Get Task Priority Statistics
+   * ==========================================================================
+   *
+   * Returns task distribution grouped by priority.
+   *
+   * Example:
+   *
+   * HIGH     -> 30
+   * MEDIUM   -> 45
+   * LOW      -> 10
+   *
+   *
+   * Responsibilities
+   * ----------------
+   * - Request priority aggregation from repository.
+   * - Delegate DTO conversion to mapper.
+   *
+   *
+   * @param userId Authenticated user identifier.
+   * @param filter Analytics filter.
+   *
+   * @returns Task priority statistics DTO.
+   * ==========================================================================
+   */
+  async getTaskPriorityStats(userId: string, filter: AnalyticsFilter) {
+    this.logger.debug(`Generating task priority analytics for ${userId}`);
 
-    async getProductivity(
-        userId: string,
-    ): Promise<ProductivityStatsDto> {
-        const totalTasks =
-            await this.taskRepository.count({
-                where: { userId },
-            });
+    const priorityStats = await this.analyticsRepository.getTaskPriorityStats(
+      userId,
+      filter,
+    );
 
-        const completedTasks =
-            await this.taskRepository.count({
-                where: {
-                    userId,
-                    status: TaskStatus.COMPLETED,
-                },
-            });
+    return (this.analyticsMapper as any).toTaskPriorityStatsDto(priorityStats);
+  }
 
-        const activeTasks =
-            totalTasks - completedTasks;
+  /**
+   * ==========================================================================
+   * Get Productivity Trend
+   * ==========================================================================
+   *
+   * Returns productivity trend data for analytics charts.
+   *
+   * Example:
+   *
+   * Date          Created    Completed
+   * -----------------------------------
+   * 2026-07-01       10           5
+   * 2026-07-02       15           8
+   *
+   *
+   * Responsibilities
+   * ----------------
+   * - Request productivity trend aggregation.
+   * - Delegate response transformation to mapper.
+   *
+   *
+   * @param userId Authenticated user identifier.
+   * @param filter Analytics filter.
+   *
+   * @returns Productivity trend response DTO.
+   * ==========================================================================
+   */
+  async getProductivityTrend(userId: string, filter: AnalyticsFilter) {
+    this.logger.debug(`Generating productivity trend analytics for ${userId}`);
 
-        const completionRate =
-            totalTasks === 0
-                ? 0
-                : Number(
-                    (
-                        (completedTasks /
-                            totalTasks) *
-                        100
-                    ).toFixed(2),
-                );
+    const trend = await this.analyticsRepository.getProductivityTrend(
+      userId,
+      filter,
+    );
 
-        return {
-            totalTasks,
-            completedTasks,
-            activeTasks,
-            completionRate,
-        };
-    }
+    return (this.analyticsMapper as any).toProductivityTrendDto(trend);
+  }
 }

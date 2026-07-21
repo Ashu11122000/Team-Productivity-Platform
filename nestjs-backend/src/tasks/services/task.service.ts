@@ -1,469 +1,521 @@
 /* eslint-disable prettier/prettier */
 
-import {
-Injectable,
-NotFoundException,
-} from '@nestjs/common';
+/**
+ * ============================================================================
+ * File: tasks.service.ts
+ * ============================================================================
+ *
+ * Enterprise Tasks Service.
+ *
+ * Responsibilities
+ * ----------------
+ * - Coordinate task business operations.
+ * - Enforce business rules.
+ * - Delegate persistence to TasksRepository.
+ * - Delegate DTO mapping to TaskMapper.
+ * - Record activity logs.
+ * - Never expose entities outside the service layer.
+ *
+ * Architecture
+ * ------------
+ * Controller
+ *      │
+ *      ▼
+ * TasksService
+ *      │
+ *      ├────────────► TasksRepository
+ *      │
+ *      ├────────────► TaskMapper
+ *      │
+ *      └────────────► ActivityLogsService
+ *
+ * Notes
+ * -----
+ * - Contains business logic only.
+ * - No QueryBuilder logic.
+ * - No TypeORM persistence logic.
+ * - FastAPI owns authentication.
+ * - NestJS only validates JWTs.
+ *
+ * Future Improvements
+ * -------------------
+ * - Notifications integration.
+ * - Calendar reminders.
+ * - Domain events.
+ * - WebSocket broadcasting.
+ *
+ * Compatible With
+ * ----------------
+ * - NestJS 11
+ * - TypeORM 0.3+
+ * - PostgreSQL
+ * ============================================================================
+ */
 
-import {
-InjectRepository,
-} from '@nestjs/typeorm';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 
-import {
-FindOptionsWhere,
-ILike,
-In,
-Repository,
-} from 'typeorm';
+import { ActivityAction, ActivityEntityType } from '../../common/enums';
 
-import { Task } from '../entities/task.entity';
-import { Tag } from '../../tags/entities/tag.entity';
+import { ActivityLogsService } from '../../activity-logs/services/activity-logs.service';
+
+// import { CreateActivityLogDto } from '../../activity-logs/dto/create-activity-log.dto';
 
 import { CreateTaskDto } from '../dto/create-task.dto';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TaskQueryDto } from '../dto/task-query.dto';
+import { TaskResponseDto } from '../dto/task-response.dto';
 
-import { ActivityLogsService } from '../../activity-logs/services/activity-logs.service';
+import { TaskEntity } from '../entities/task.entity';
 
-import { NotificationsService } from '../../notifications/services/notifications.service';
+import { PaginationResult } from '../interfaces/pagination-result.interface';
+import { TaskFilter } from '../interfaces/task-filter.interface';
+import { TaskSummary } from '../interfaces/task-summary.interface';
 
-import { ActivityAction } from '../../common/enums/activity-action.enum';
-import { ActivityEntityType } from '../../common/enums/activity-entity-type.enum';
-import { TaskStatus } from '../../common/enums/task-status.enum';
+import { TaskMapper } from '../mappers/task.mapper';
+import { TasksRepository } from '../repositories/tasks.repository';
 
-import { NotificationType } from '../../common/enums/notification-type.enum';
-
+/**
+ * ============================================================================
+ * Enterprise Tasks Service
+ * ============================================================================
+ *
+ * Business orchestration layer for Tasks.
+ *
+ * Responsibilities
+ * ----------------
+ * - Validate business rules.
+ * - Coordinate repository operations.
+ * - Coordinate mapper operations.
+ * - Record activity logs.
+ * - Return DTOs only.
+ *
+ * Repository handles persistence.
+ * Mapper handles Entity → DTO conversion.
+ * ============================================================================
+ */
 @Injectable()
 export class TasksService {
-constructor(
-@InjectRepository(Task)
-private readonly taskRepository:
-Repository<Task>,
+  /**
+   * Application logger.
+   */
+  private readonly logger = new Logger(TasksService.name);
 
-    @InjectRepository(Tag)
-    private readonly tagRepository:
-        Repository<Tag>,
+  constructor(
+    private readonly tasksRepository: TasksRepository,
+    private readonly taskMapper: TaskMapper,
+    private readonly activityLogsService: ActivityLogsService,
+  ) {}
 
-    private readonly activityLogsService:
-        ActivityLogsService,
-
-    private readonly notificationsService:
-        NotificationsService,
-) {}
-
-async create(
-    createTaskDto: CreateTaskDto,
+  /**
+   * ==========================================================================
+   * Create Task
+   * ==========================================================================
+   *
+   * Creates a new task.
+   *
+   * Business Rules
+   * --------------
+   * - Prevent duplicate task titles.
+   * - Prevent duplicate Note → Task conversion.
+   * - Repository performs persistence.
+   * - Mapper converts entity to DTO.
+   * - Activity log recorded after successful creation.
+   *
+   * TODO
+   * ----
+   * - Validate Category existence.
+   * - Validate Tags.
+   * - Trigger Notifications.
+   *
+   * @param userId Authenticated user identifier.
+   * @param createTaskDto Incoming task payload.
+   * @returns Created task response.
+   */
+  async create(
     userId: string,
-): Promise<Task> {
-    const {
-        tagIds,
-        ...taskData
-    } = createTaskDto;
+    createTaskDto: CreateTaskDto,
+  ): Promise<TaskResponseDto> {
+    this.logger.log(
+      `Creating task "${createTaskDto.title}" for user "${userId}".`,
+    );
 
-    let tags: Tag[] = [];
+    const duplicateTitle = await this.tasksRepository.existsByTitle(
+      createTaskDto.title,
+      userId,
+    );
 
-    if (
-        tagIds &&
-        tagIds.length > 0
-    ) {
-        tags =
-            await this.tagRepository.find({
-                where: {
-                    id: In(tagIds),
-                    userId,
-                },
-            });
+    if (duplicateTitle) {
+      throw new ConflictException(
+        `Task "${createTaskDto.title}" already exists.`,
+      );
     }
 
-    const task =
-        this.taskRepository.create({
-            ...taskData,
+    if (createTaskDto.sourceNoteId) {
+      const existingTask = await this.tasksRepository.findBySourceNoteId(
+        createTaskDto.sourceNoteId,
+        userId,
+      );
 
-            dueDate:
-                createTaskDto.dueDate
-                    ? new Date(
-                        createTaskDto.dueDate,
-                    )
-                    : null,
-
-            userId,
-
-            tags,
-        });
-
-    const savedTask =
-        await this.taskRepository.save(
-            task,
+      if (existingTask) {
+        throw new ConflictException(
+          'This note has already been converted into a task.',
         );
+      }
+    }
 
-    await this.activityLogsService.log({
-        action:
-            ActivityAction.TASK_CREATED,
+    /**
+     * TODO:
+     * Validate Categories module once it has been
+     * refactored.
+     */
 
-        entityType:
-            ActivityEntityType.TASK,
+    /**
+     * TODO:
+     * Validate Tags module once it has been
+     * refactored.
+     */
 
-        entityId:
-            savedTask.id,
-
-        metadata: {
-            title:
-                savedTask.title,
-
-            status:
-                savedTask.status,
-
-            priority:
-                savedTask.priority,
-        },
-
-        userId,
-    });
-
-    return savedTask;
-}
-
-async findAll(
-    query: TaskQueryDto,
-    userId: string,
-): Promise<{
-    data: Task[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-}> {
-    const {
-        page = 1,
-        limit = 10,
-        status,
-        priority,
-        search,
-        sortBy = 'createdAt',
-        sortOrder = 'DESC',
-    } = query;
-    const where: FindOptionsWhere<Task> = {
-        userId,
+    const payload: Partial<TaskEntity> = {
+      ...createTaskDto,
+      dueDate: createTaskDto.dueDate
+        ? new Date(createTaskDto.dueDate)
+        : undefined,
+      userId,
     };
 
-    if (status) {
-        where.status = status;
-    }
+    const task = await this.tasksRepository.createTask(payload);
 
-    if (priority) {
-        where.priority = priority;
-    }
+    await this.activityLogsService.log({
+      action: ActivityAction.TASK_CREATED,
+      entityType: ActivityEntityType.TASK,
+      entityId: task.id,
+      userId,
+    });
 
-    if (search) {
-        const [data, total] =
-            await this.taskRepository.findAndCount({
-                where: [
-                    {
-                        userId,
-                        status,
-                        priority,
-                        title: ILike(
-                            `%${search}%`,
-                        ),
-                    },
-                ],
+    /**
+     * TODO:
+     * Dispatch notification after Notifications
+     * module has been refactored.
+     */
 
-                relations: {
-                    category: true,
-                    tags: true,
-                },
+    this.logger.log(`Task "${task.id}" created successfully.`);
 
-                order: {
-                    [sortBy]: sortOrder,
-                },
+    return this.taskMapper.toResponseDto(task);
+  }
 
-                skip:
-                    (page - 1) *
-                    limit,
+  /**
+   * ==========================================================================
+   * Find All Tasks
+   * ==========================================================================
+   *
+   * Returns a paginated collection of tasks belonging to the authenticated
+   * user.
+   *
+   * Responsibilities
+   * ----------------
+   * - Build the repository filter contract.
+   * - Delegate filtering, searching, sorting and pagination to the repository.
+   * - Map entities into response DTOs.
+   * - Return a standardized pagination response.
+   *
+   * @param userId Authenticated user identifier.
+   * @param query Query parameters.
+   * @returns Paginated task response.
+   */
+  async findAll(
+    userId: string,
+    query: TaskQueryDto,
+  ): Promise<PaginationResult<TaskResponseDto>> {
+    this.logger.debug(`Fetching tasks for user "${userId}".`);
 
-                take: limit,
-            });
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
 
-        return {
-            data,
-            total,
-            page,
-            limit,
+    const filter: TaskFilter = {
+      userId,
 
-            totalPages:
-                Math.ceil(
-                    total / limit,
-                ),
-        };
-    }
+      page,
+      limit,
 
-    const [data, total] =
-        await this.taskRepository.findAndCount({
-            where,
+      skip: (page - 1) * limit,
 
-            relations: {
-                category: true,
-                tags: true,
-            },
+      includeDeleted: (query as any).includeDeleted ?? false,
 
-            order: {
-                [sortBy]: sortOrder,
-            },
+      search: query.search,
 
-            skip:
-                (page - 1) * limit,
+      status: query.status,
+      priority: query.priority,
 
-            take: limit,
-        });
+      // Some query properties are optional and not defined on TaskQueryDto
+      // Cast to any to avoid TS errors when DTO doesn't include these fields.
+      categoryId: (query as any).categoryId,
+      tagIds: (query as any).tagIds,
+
+      dueDateFrom: (query as any).dueDateFrom,
+      dueDateTo: (query as any).dueDateTo,
+
+      completed: (query as any).completed,
+      overdue: (query as any).overdue,
+
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+    };
+
+    const result = await this.tasksRepository.findAll(filter);
 
     return {
-        data,
-        total,
-        page,
-        limit,
-
-        totalPages:
-            Math.ceil(
-                total / limit,
-            ),
+      ...result,
+      data: this.taskMapper.toResponseDtoList(result.data),
     };
-}
+  }
 
-async findOne(
+  /**
+   * ==========================================================================
+   * Find Task By Id
+   * ==========================================================================
+   *
+   * Retrieves a single task.
+   *
+   * Responsibilities
+   * ----------------
+   * - Ensure the task exists.
+   * - Delegate lookup to the repository.
+   * - Return mapped DTO.
+   *
+   * @param id Task identifier.
+   * @param userId Authenticated user identifier.
+   * @returns Task response.
+   */
+  async findById(id: string, userId: string): Promise<TaskResponseDto> {
+    this.logger.debug(`Fetching task "${id}".`);
+
+    const task = await this.tasksRepository.findByIdOrFail(id, userId);
+
+    return this.taskMapper.toResponseDto(task);
+  }
+
+  /**
+   * ==========================================================================
+   * Update Task
+   * ==========================================================================
+   *
+   * Updates an existing task.
+   *
+   * Business Rules
+   * --------------
+   * - Task must exist.
+   * - Updated title must remain unique.
+   * - Repository performs persistence.
+   * - Mapper converts entity to DTO.
+   * - Activity log recorded after successful update.
+   *
+   * TODO
+   * ----
+   * - Validate Categories.
+   * - Validate Tags.
+   * - Trigger Notifications.
+   *
+   * @param id Task identifier.
+   * @param userId Authenticated user identifier.
+   * @param updateTaskDto Updated payload.
+   * @returns Updated task response.
+   */
+  async update(
     id: string,
     userId: string,
-): Promise<Task> {
-    const task =
-        await this.taskRepository.findOne({
-            where: {
-                id,
-                userId,
-            },
-
-            relations: {
-                category: true,
-                tags: true,
-            },
-        });
-
-    if (!task) {
-        throw new NotFoundException(
-            'Task not found',
-        );
-    }
-
-    return task;
-}
-
-async update(
-    id: string,
     updateTaskDto: UpdateTaskDto,
-    userId: string,
-): Promise<Task> {
-    const task =
-        await this.findOne(
-            id,
-            userId,
+  ): Promise<TaskResponseDto> {
+    this.logger.log(`Updating task "${id}".`);
+
+    const task = await this.tasksRepository.findByIdOrFail(id, userId);
+
+    if (updateTaskDto.title && updateTaskDto.title !== task.title) {
+      const duplicateTitle = await this.tasksRepository.existsByTitle(
+        updateTaskDto.title,
+        userId,
+      );
+
+      if (duplicateTitle) {
+        throw new ConflictException(
+          `Task "${updateTaskDto.title}" already exists.`,
         );
-
-    const {
-        tagIds,
-        ...taskData
-    } = updateTaskDto;
-
-    const previousStatus =
-        task.status;
-
-    const previousPriority =
-        task.priority;
-
-    Object.assign(task, {
-        ...taskData,
-
-        dueDate:
-            updateTaskDto.dueDate
-                ? new Date(
-                    updateTaskDto.dueDate,
-                )
-                : task.dueDate,
-    });
-
-    let tagsAssigned = false;
-
-    if (tagIds) {
-        task.tags =
-            await this.tagRepository.find({
-                where: {
-                    id: In(tagIds),
-                    userId,
-                },
-            });
-
-        tagsAssigned =
-            tagIds.length > 0;
+      }
     }
 
-    const updatedTask =
-        await this.taskRepository.save(
-            task,
-        );
+    /**
+     * TODO:
+     * Validate Categories module after it has been
+     * refactored.
+     */
 
-    if (
-        previousStatus !==
-            TaskStatus.COMPLETED &&
-        updatedTask.status ===
-            TaskStatus.COMPLETED
-    ) {
-        await this.notificationsService.create({
-            title:
-                'Task Completed',
+    /**
+     * TODO:
+     * Validate Tags module after it has been
+     * refactored.
+     */
 
-            message:
-                `Task "${updatedTask.title}" has been completed.`,
+    // Ensure dueDate (string in DTO) is converted to Date for TaskEntity
+    const updatePayload = {
+      ...updateTaskDto,
+      dueDate: updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined,
+    } as Partial<TaskEntity>;
 
-            type:
-                NotificationType.TASK_COMPLETED,
-
-            userId,
-        });
-    }
-
-    if (tagsAssigned) {
-        await this.notificationsService.create({
-            title:
-                'Tags Assigned',
-
-            message:
-                `Tags were assigned to task "${updatedTask.title}".`,
-
-            type:
-                NotificationType.TAG_ASSIGNED,
-
-            userId,
-        });
-    }
+    const updatedTask = await this.tasksRepository.updateTask(task, updatePayload);
 
     await this.activityLogsService.log({
-        action:
-            ActivityAction.TASK_UPDATED,
-
-        entityType:
-            ActivityEntityType.TASK,
-
-        entityId:
-            updatedTask.id,
-
-        metadata: {
-            title:
-                updatedTask.title,
-
-            oldStatus:
-                previousStatus,
-
-            newStatus:
-                updatedTask.status,
-
-            oldPriority:
-                previousPriority,
-
-            newPriority:
-                updatedTask.priority,
-        },
-
-        userId,
+      action: ActivityAction.TASK_UPDATED,
+      entityType: ActivityEntityType.TASK,
+      entityId: updatedTask.id,
+      userId,
     });
 
-    return updatedTask;
-}
+    /**
+     * TODO:
+     * Dispatch notification after Notifications
+     * module has been refactored.
+     */
 
-async remove(
-    id: string,
-    userId: string,
-): Promise<void> {
-    const task =
-        await this.findOne(
-            id,
-            userId,
-        );
+    this.logger.log(`Task "${updatedTask.id}" updated successfully.`);
+
+    return this.taskMapper.toResponseDto(updatedTask);
+  }
+
+  /**
+   * ==========================================================================
+   * Remove Task
+   * ==========================================================================
+   *
+   * Soft deletes an existing task.
+   *
+   * Business Rules
+   * --------------
+   * - Task must exist.
+   * - Repository performs soft deletion.
+   * - Activity log recorded after successful deletion.
+   *
+   * TODO
+   * ----
+   * - Trigger Notifications module.
+   * - Publish domain events.
+   *
+   * @param id Task identifier.
+   * @param userId Authenticated user identifier.
+   */
+  async remove(id: string, userId: string): Promise<void> {
+    this.logger.log(`Deleting task "${id}".`);
+
+    const task = await this.tasksRepository.findByIdOrFail(id, userId);
+
+    await this.tasksRepository.softDelete(task);
 
     await this.activityLogsService.log({
-        action:
-            ActivityAction.TASK_DELETED,
-
-        entityType:
-            ActivityEntityType.TASK,
-
-        entityId:
-            task.id,
-
-        metadata: {
-            title:
-                task.title,
-
-            status:
-                task.status,
-
-            priority:
-                task.priority,
-        },
-
-        userId,
+      action: ActivityAction.TASK_DELETED,
+      entityType: ActivityEntityType.TASK,
+      entityId: task.id,
+      userId,
     });
 
-    await this.taskRepository.remove(
-        task,
-    );
-}
+    /**
+     * TODO:
+     * Dispatch notification after Notifications
+     * module has been refactored.
+     */
 
-async convertNoteToTask(
-    noteId: string,
-    title: string,
-    description: string | undefined,
-    userId: string,
-): Promise<Task> {
-    const task =
-        this.taskRepository.create({
-            title,
+    this.logger.log(`Task "${task.id}" deleted successfully.`);
+  }
 
-            description,
+  /**
+   * ==========================================================================
+   * Restore Task
+   * ==========================================================================
+   *
+   * Restores a previously soft-deleted task.
+   *
+   * Business Rules
+   * --------------
+   * - Task must exist.
+   * - Include deleted records during lookup.
+   * - Repository performs restoration.
+   * - Activity log recorded after successful restoration.
+   *
+   * @param id Task identifier.
+   * @param userId Authenticated user identifier.
+   * @returns Restored task response.
+   */
+  async restore(id: string, userId: string): Promise<TaskResponseDto> {
+    this.logger.log(`Restoring task "${id}".`);
 
-            userId,
+    const task = await this.tasksRepository.findByIdOrFail(id, userId, true);
 
-            isConvertedFromNote: true,
-
-            sourceNoteId: noteId,
-        });
-
-    const savedTask =
-        await this.taskRepository.save(
-            task,
-        );
+    const restoredTask = await this.tasksRepository.restore(task);
 
     await this.activityLogsService.log({
-        action:
-            ActivityAction.TASK_CREATED,
-
-        entityType:
-            ActivityEntityType.TASK,
-
-        entityId:
-            savedTask.id,
-
-        metadata: {
-            title:
-                savedTask.title,
-
-            sourceNoteId:
-                noteId,
-
-            convertedFromNote:
-                true,
-        },
-
-        userId,
+      action: ActivityAction.TASK_UPDATED,
+      entityType: ActivityEntityType.TASK,
+      entityId: restoredTask.id,
+      userId,
     });
 
-    return savedTask;
-}
+    /**
+     * TODO:
+     * Dispatch notification after Notifications
+     * module has been refactored.
+     */
 
+    this.logger.log(`Task "${restoredTask.id}" restored successfully.`);
+
+    return this.taskMapper.toResponseDto(restoredTask);
+  }
+
+  /**
+   * ==========================================================================
+   * Get Task Summary
+   * ==========================================================================
+   *
+   * Returns task summary statistics for the authenticated user.
+   *
+   * @param userId Authenticated user identifier.
+   * @returns Task summary.
+   */
+  async getSummary(userId: string): Promise<TaskSummary> {
+    this.logger.debug(`Fetching task summary for "${userId}".`);
+
+    return this.tasksRepository.getSummary(userId);
+  }
+
+  /**
+   * ==========================================================================
+   * Count Completed Tasks
+   * ==========================================================================
+   */
+  async countCompleted(userId: string): Promise<number> {
+    return this.tasksRepository.countCompletedTasks(userId);
+  }
+
+  /**
+   * ==========================================================================
+   * Count Pending Tasks
+   * ==========================================================================
+   */
+  async countPending(userId: string): Promise<number> {
+    return this.tasksRepository.countPendingTasks(userId);
+  }
+
+  /**
+   * ==========================================================================
+   * Count In Progress Tasks
+   * ==========================================================================
+   */
+  async countInProgress(userId: string): Promise<number> {
+    return this.tasksRepository.countInProgressTasks(userId);
+  }
+
+  /**
+   * ==========================================================================
+   * Count Overdue Tasks
+   * ==========================================================================
+   */
+  async countOverdue(userId: string): Promise<number> {
+    return this.tasksRepository.countOverdueTasks(userId);
+  }
 }
