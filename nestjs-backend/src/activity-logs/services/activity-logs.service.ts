@@ -1,191 +1,248 @@
-/* eslint-disable prettier/prettier */
+/**
+ * ============================================================================
+ * File: activity-logs.service.ts
+ * ============================================================================
+ *
+ * Enterprise Activity Logs Service.
+ *
+ * Responsibilities
+ * ----------------
+ * - Create activity logs.
+ * - Retrieve activity logs.
+ * - Validate business rules.
+ * - Coordinate repository operations.
+ * - Map entities into response DTOs.
+ *
+ * Notes
+ * -----
+ * This service intentionally contains business orchestration only.
+ * Database operations are delegated to ActivityLogsRepository.
+ *
+ * Compatible With
+ * ----------------
+ * - NestJS 11
+ * - TypeORM 0.3+
+ * - PostgreSQL
+ * - Node.js 22+
+ * ============================================================================
+ */
 
-import {
-    Injectable,
-    NotFoundException,
-    Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
-import {
-    InjectRepository,
-} from '@nestjs/typeorm';
+import { NotFoundException } from '../../common/exceptions';
 
-import {
-    FindOptionsWhere,
-    Repository,
-} from 'typeorm';
+import { PaginationResponseDto } from '../../common/dto';
 
 import { ActivityLog } from '../entities/activity-log.entity';
 
-import { ActivityAction } from '../../common/enums/activity-action.enum';
-import { ActivityEntityType } from '../../common/enums/activity-entity-type.enum';
-
 import { ActivityLogQueryDto } from '../dto/activity-log-query.dto';
+import { ActivityLogResponseDto } from '../dto/activity-log-response.dto';
+import { CreateActivityLogDto } from '../dto/create-activity-log.dto';
 
+import { ActivityLogMapper } from '../mappers/activity-log.mapper';
+
+import { ActivityLogsRepository } from '../repositories/activity-logs.repository';
+
+/**
+ * Allowed sortable database columns.
+ *
+ * Prevents arbitrary database column names from
+ * being supplied through query parameters.
+ */
+const ALLOWED_SORT_FIELDS: ReadonlyArray<keyof ActivityLog> = [
+  'action',
+  'entityType',
+  'createdAt',
+];
+
+/**
+ * ============================================================================
+ * Activity Logs Service
+ * ============================================================================
+ */
 @Injectable()
 export class ActivityLogsService {
-    private readonly logger =
-        new Logger(
-            ActivityLogsService.name,
-        );
+  /**
+   * Application logger.
+   */
+  private readonly logger = new Logger(ActivityLogsService.name);
 
-    constructor(
-        @InjectRepository(ActivityLog)
-        private readonly activityLogRepository:
-            Repository<ActivityLog>,
-    ) {}
+  constructor(
+    private readonly activityLogsRepository: ActivityLogsRepository,
+  ) {}
 
-    async log(params: {
-        action: ActivityAction;
-        entityType: ActivityEntityType;
-        entityId: string;
-        metadata?: Record<
-            string,
-            unknown
-        >;
-        userId: string;
-    }): Promise<ActivityLog> {
-        try {
-            this.logger.log(
-                `Creating activity log`,
-            );
+  /**
+   * ==========================================================================
+   * Create Activity Log
+   * ==========================================================================
+   *
+   * Creates a new immutable activity log.
+   *
+   * Activity logs are generated internally by
+   * application modules and should never be modified
+   * after creation.
+   *
+   * Steps
+   * -----
+   * 1. Create entity.
+   * 2. Persist entity.
+   * 3. Return response DTO.
+   *
+   * @param createActivityLogDto Activity log payload.
+   *
+   * @returns Created activity log.
+   * ==========================================================================
+   */
+  async log(
+    createActivityLogDto: CreateActivityLogDto,
+  ): Promise<ActivityLogResponseDto> {
+    this.logger.debug(`Creating activity log: ${createActivityLogDto.action}`);
 
-            const activityLog =
-                this.activityLogRepository.create({
-                    action:
-                        params.action,
+    const activityLog =
+      this.activityLogsRepository.create(createActivityLogDto);
 
-                    entityType:
-                        params.entityType,
+    const savedActivityLog =
+      await this.activityLogsRepository.save(activityLog);
 
-                    entityId:
-                        params.entityId,
+    this.logger.log(`Activity log created (${savedActivityLog.id})`);
 
-                    metadata:
-                        params.metadata,
+    return ActivityLogMapper.toResponse(savedActivityLog);
+  }
 
-                    userId:
-                        params.userId,
-                });
+  /**
+   * ==========================================================================
+   * Get Activity Logs
+   * ==========================================================================
+   *
+   * Returns paginated activity logs belonging to the authenticated user.
+   *
+   * Supports
+   * --------
+   * - Pagination
+   * - Filtering by action
+   * - Filtering by entity type
+   * - Sorting
+   *
+   * @param query Activity log query parameters.
+   * @param userId Authenticated user identifier.
+   *
+   * @returns Paginated activity logs.
+   * ==========================================================================
+   */
+  async findAll(
+    query: ActivityLogQueryDto,
+    userId: string,
+  ): Promise<PaginationResponseDto<ActivityLogResponseDto>> {
+    const page = query.page ?? 1;
 
-            this.logger.debug(
-                JSON.stringify(
-                    activityLog,
-                    null,
-                    2,
-                ),
-            );
+    const limit = query.limit ?? 10;
 
-            const savedLog =
-                await this.activityLogRepository.save(
-                    activityLog,
-                );
+    const action = query.action;
 
-            this.logger.log(
-                `Activity log created: ${savedLog.id}`,
-            );
+    const entityType = query.entityType;
 
-            return savedLog;
-        } catch (error) {
-            this.logger.error(
-                'Failed to create activity log',
-                error instanceof Error
-                    ? error.stack
-                    : String(error),
-            );
+    const sortBy = this.getSortField(query.sortBy);
 
-            throw error;
-        }
+    const sortOrder = query.sortOrder ?? 'DESC';
+
+    const [activityLogs, total] =
+      await this.activityLogsRepository.findAndCount({
+        userId,
+
+        page,
+
+        limit,
+
+        action,
+
+        entityType,
+
+        sortBy,
+
+        sortOrder,
+      });
+
+    return {
+      data: ActivityLogMapper.toResponseList(activityLogs),
+
+      total,
+
+      page,
+
+      limit,
+
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * ==========================================================================
+   * Get Activity Log
+   * ==========================================================================
+   *
+   * Retrieves a single activity log.
+   *
+   * @param id Activity log identifier.
+   * @param userId Authenticated user identifier.
+   *
+   * @returns Activity log response.
+   *
+   * @throws NotFoundException
+   * ==========================================================================
+   */
+  async findOne(id: string, userId: string): Promise<ActivityLogResponseDto> {
+    const activityLog = await this.getActivityLogOrFail(id, userId);
+
+    return ActivityLogMapper.toResponse(activityLog);
+  }
+
+  /**
+   * ==========================================================================
+   * Get Activity Log Entity
+   * ==========================================================================
+   *
+   * Internal helper used whenever the entity itself
+   * is required instead of the response DTO.
+   *
+   * @param id Activity log identifier.
+   * @param userId Authenticated user identifier.
+   *
+   * @returns ActivityLog entity.
+   *
+   * @throws NotFoundException
+   * ==========================================================================
+   */
+  private async getActivityLogOrFail(
+    id: string,
+    userId: string,
+  ): Promise<ActivityLog> {
+    const activityLog = await this.activityLogsRepository.findById(id);
+
+    if (!activityLog || activityLog.userId !== userId) {
+      throw new NotFoundException('Activity log not found.');
     }
 
-    async findAll(
-        query: ActivityLogQueryDto,
-        userId: string,
-    ): Promise<{
-        data: ActivityLog[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
-    }> {
-        const {
-            page = 1,
-            limit = 10,
-            action,
-            entityType,
-            sortBy = 'createdAt',
-            sortOrder = 'DESC',
-        } = query;
+    return activityLog;
+  }
 
-        const where:
-            FindOptionsWhere<ActivityLog> =
-            {
-                userId,
-            };
-
-        if (action) {
-            where.action =
-                action;
-        }
-
-        if (entityType) {
-            where.entityType =
-                entityType;
-        }
-
-        const [
-            data,
-            total,
-        ] =
-            await this.activityLogRepository.findAndCount(
-                {
-                    where,
-
-                    order: {
-                        [sortBy]:
-                            sortOrder,
-                    },
-
-                    skip:
-                        (page - 1) *
-                        limit,
-
-                    take: limit,
-                },
-            );
-
-        return {
-            data,
-            total,
-            page,
-            limit,
-            totalPages:
-                Math.ceil(
-                    total / limit,
-                ),
-        };
+  /**
+   * ==========================================================================
+   * Validate Sort Field
+   * ==========================================================================
+   *
+   * Prevents arbitrary database column names from
+   * being supplied through query parameters.
+   *
+   * @param field Requested sort field.
+   *
+   * @returns Safe database column.
+   * ==========================================================================
+   */
+  private getSortField(field?: string): keyof ActivityLog {
+    if (field && ALLOWED_SORT_FIELDS.includes(field as keyof ActivityLog)) {
+      return field as keyof ActivityLog;
     }
 
-    async findOne(
-        id: string,
-        userId: string,
-    ): Promise<ActivityLog> {
-        const activityLog =
-            await this.activityLogRepository.findOne(
-                {
-                    where: {
-                        id,
-                        userId,
-                    },
-                },
-            );
-
-        if (!activityLog) {
-            throw new NotFoundException(
-                'Activity log not found',
-            );
-        }
-
-        return activityLog;
-    }
+    return 'createdAt';
+  }
 }

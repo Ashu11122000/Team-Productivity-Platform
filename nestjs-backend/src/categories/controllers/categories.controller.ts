@@ -1,160 +1,301 @@
 /* eslint-disable prettier/prettier */
 
-import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
-    UseGuards,
-} from '@nestjs/common';
+/**
+ * ============================================================================
+ * File: categories.controller.ts
+ * ============================================================================
+ *
+ * Enterprise Categories Controller.
+ *
+ * Responsibilities
+ * ----------------
+ * - Handle HTTP requests related to category management.
+ * - Validate incoming requests.
+ * - Authenticate users.
+ * - Delegate business logic to CategoriesService.
+ * - Return standardized API responses.
+ *
+ * Business logic intentionally belongs in the service layer.
+ *
+ * Notes
+ * -----
+ * - Every endpoint requires JWT authentication.
+ * - JWTs are issued by the FastAPI authentication service.
+ * - NestJS only validates JWTs.
+ * - Categories are always scoped to the authenticated user.
+ *
+ * Compatible With
+ * ----------------
+ * - NestJS 11
+ * - TypeORM 0.3+
+ * - PostgreSQL
+ * - Swagger
+ * - Node.js 22+
+ * ============================================================================
+ */
+
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 
 import {
-    ApiBearerAuth,
-    ApiOperation,
-    ApiParam,
-    ApiQuery,
-    ApiResponse,
-    ApiTags,
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
-import { CategoriesService } from '../services/categories.service';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+
+import { CurrentUser } from '../../common/decorators';
+
+import type { JwtPayload } from '../../common/interfaces';
 
 import { Category } from '../entities/category.entity';
 
 import { CreateCategoryDto } from '../dto/create-category.dto';
-import { UpdateCategoryDto } from '../dto/update-category.dto';
+
 import { CategoryQueryDto } from '../dto/category-query.dto';
 
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CategoriesService } from '../services/categories.service';
+import { ParseUuidPipe } from '../../common/pipes';
+import { UpdateCategoryDto } from '../dto/update-category.dto';
 
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-
-import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
-
-@ApiTags('Categories')    // ApiTags is a decorator that adds metadata to the controller, which is used by Swagger to generate API documentation.
-@ApiBearerAuth('access-token')    // ApiBearerAuth is a decorator that adds metadata to the controller, which is used by Swagger to indicate that the controller requires authentication using a bearer token.
-@UseGuards(JwtAuthGuard)    // useGuards is a decorator that applies the specified guards to the controller, which in this case is the JwtAuthGuard that protects the routes by requiring a valid JWT token for authentication.
-@Controller('api/categories')    // Controller is a decorator that marks the class as a NestJS controller and defines the base route for all the routes in the controller, which in this case is 'api/categories'.
+/**
+ * ============================================================================
+ * Categories Controller
+ * ============================================================================
+ *
+ * All endpoints are protected by JWT authentication.
+ * Each operation is executed within the context of the
+ * authenticated user.
+ * ============================================================================
+ */
+@ApiTags('Categories')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('categories')
 export class CategoriesController {
-    // The constructor is used to inject the CategoriesService, which is a service that contains the business logic for handling category-related operations.
-    // the CategoriesService is injected using the @Injectable decorator, which allows it to be used in the controller to perform operations such as creating, retrieving, updating, and deleting categories.
-    constructor(
-        private readonly categoriesService: CategoriesService,
-    ) {}
+  /**
+   * --------------------------------------------------------------------------
+   * Constructor
+   * --------------------------------------------------------------------------
+   */
 
-    @Post()
-    @ApiOperation({    // ApiOperation is a decorator that adds metadata to the route handler, which is used by Swagger to generate API documentation.
-        summary: 'Create Category',
-    })
-    @ApiResponse({
-        status: 201,
-        type: Category,
-    })
-    async create(
-        @Body()
-        createCategoryDto: CreateCategoryDto,
+  constructor(private readonly categoriesService: CategoriesService) {}
 
-        @CurrentUser()
-        user: JwtPayload,
-    ): Promise<Category> {
-        return this.categoriesService.create(
-            createCategoryDto,
-            user.sub,
-        );
-    }
+  /**
+   * ==========================================================================
+   * Create Category
+   * ==========================================================================
+   *
+   * Creates a new category belonging to the authenticated user.
+   *
+   * @param createCategoryDto Category creation payload.
+   * @param user Authenticated JWT user.
+   *
+   * @returns Newly created category.
+   * ==========================================================================
+   */
+  @Post()
+  @ApiOperation({
+    summary: 'Create a new category',
+    description: 'Creates a category for the authenticated user.',
+  })
+  @ApiCreatedResponse({
+    description: 'Category created successfully.',
+    type: Category,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required.',
+  })
+  async create(
+    @Body()
+    createCategoryDto: CreateCategoryDto,
 
-    @Get()
-    @ApiOperation({
-        summary: 'Get User Categories',
-    })
-    @ApiQuery({
-        name: 'page',
-        required: false,
-    })
-    @ApiQuery({
-        name: 'limit',
-        required: false,
-    })
-    @ApiQuery({
-        name: 'search',
-        required: false,
-    })
-    async findAll(
-        @Query()
-        query: CategoryQueryDto,
+    @CurrentUser()
+    user: JwtPayload,
+  ): Promise<any> {
+    return this.categoriesService.create(createCategoryDto, user.sub);
+  }
 
-        @CurrentUser()
-        user: JwtPayload,
-    ) {
-        return this.categoriesService.findAll(
-            query,
-            user.sub,
-        );
-    }
+  /**
+   * ==========================================================================
+   * Get Categories
+   * ==========================================================================
+   *
+   * Returns paginated categories belonging to the authenticated user.
+   *
+   * Supports:
+   * - Pagination
+   * - Searching
+   * - Future filtering
+   *
+   * @param query Query parameters.
+   * @param user Authenticated JWT user.
+   *
+   * @returns Paginated category collection.
+   * ==========================================================================
+   */
+  @Get()
+  @ApiOperation({
+    summary: 'Retrieve categories',
+    description: 'Returns paginated categories for the authenticated user.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page.',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search categories by name.',
+  })
+  @ApiOkResponse({
+    description: 'Categories retrieved successfully.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required.',
+  })
+  async findAll(
+    @Query()
+    query: CategoryQueryDto,
 
-    @Get(':id')
-    @ApiOperation({
-        summary: 'Get Category By ID',
-    })
-    @ApiParam({
-        name: 'id',
-    })
-    async findOne(
-        @Param('id')
-        id: string,
+    @CurrentUser()
+    user: JwtPayload,
+  ) {
+    return this.categoriesService.findAll(query, user.sub);
+  }
 
-        @CurrentUser()
-        user: JwtPayload,
-    ): Promise<Category> {
-        return this.categoriesService.findOne(
-            id,
-            user.sub,
-        );
-    }
+  /**
+   * ==========================================================================
+   * Get Category By ID
+   * ==========================================================================
+   *
+   * Retrieves a single category owned by the authenticated user.
+   *
+   * @param id Category UUID.
+   * @param user Authenticated JWT user.
+   *
+   * @returns Category.
+   * ==========================================================================
+   */
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Retrieve category by ID',
+    description:
+      'Returns a single category belonging to the authenticated user.',
+  })
+  @ApiOkResponse({
+    description: 'Category retrieved successfully.',
+    type: Category,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Category not found.',
+  })
+  async findOne(
+    @Param('id', ParseUuidPipe)
+    id: string,
 
-    @Patch(':id')
-    @ApiOperation({
-        summary: 'Update Category',
-    })
-    @ApiResponse({
-        status: 200,
-        type: Category,
-    })
-    async update(
-        @Param('id')
-        id: string,
+    @CurrentUser()
+    user: JwtPayload,
+  ): Promise<any> {
+    return this.categoriesService.findOne(id, user.sub);
+  }
 
-        @Body()
-        updateCategoryDto: UpdateCategoryDto,
+  /**
+   * ==========================================================================
+   * Update Category
+   * ==========================================================================
+   *
+   * Updates an existing category belonging to the authenticated user.
+   *
+   * @param id Category UUID.
+   * @param updateCategoryDto Updated category data.
+   * @param user Authenticated JWT user.
+   *
+   * @returns Updated category.
+   * ==========================================================================
+   */
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Update category',
+    description:
+      'Updates an existing category owned by the authenticated user.',
+  })
+  @ApiOkResponse({
+    description: 'Category updated successfully.',
+    type: Category,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Category not found.',
+  })
+  async update(
+    @Param('id', ParseUuidPipe)
+    id: string,
 
-        @CurrentUser()
-        user: JwtPayload,
-    ): Promise<Category> {
-        return this.categoriesService.update(
-            id,
-            updateCategoryDto,
-            user.sub,
-        );
-    }
+    @Body()
+    updateCategoryDto: UpdateCategoryDto,
 
-    @Delete(':id')
-    @ApiOperation({
-        summary: 'Delete Category',
-    })
-    async remove(
-        @Param('id')
-        id: string,
+    @CurrentUser()
+    user: JwtPayload,
+  ): Promise<any> {
+    return this.categoriesService.update(id, updateCategoryDto, user.sub);
+  }
 
-        @CurrentUser()
-        user: JwtPayload,
-    ): Promise<void> {
-        return this.categoriesService.remove(
-            id,
-            user.sub,
-        );
-    }
+  /**
+   * ==========================================================================
+   * Delete Category
+   * ==========================================================================
+   *
+   * Deletes a category belonging to the authenticated user.
+   *
+   * @param id Category UUID.
+   * @param user Authenticated JWT user.
+   *
+   * @returns Void.
+   * ==========================================================================
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete category',
+    description: 'Deletes a category belonging to the authenticated user.',
+  })
+  @ApiNoContentResponse({
+    description: 'Category deleted successfully.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Category not found.',
+  })
+  async remove(
+    @Param('id', ParseUuidPipe)
+    id: string,
+
+    @CurrentUser()
+    user: JwtPayload,
+  ): Promise<void> {
+    return this.categoriesService.remove(id, user.sub);
+  }
 }
