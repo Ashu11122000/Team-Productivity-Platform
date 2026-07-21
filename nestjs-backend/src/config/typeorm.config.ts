@@ -3,25 +3,22 @@
  * File: typeorm.config.ts
  * ============================================================================
  *
- * TypeORM configuration for the Team Productivity Platform.
+ * TypeORM configuration for Team Productivity Platform.
  *
  * Responsibilities
- * ----------------
- * - Build TypeORM options.
- * - Configure PostgreSQL.
- * - Configure entities.
+ * ----------------------------------------------------------------------------
+ * - Configure PostgreSQL connection.
+ * - Configure TypeORM runtime options.
  * - Configure migrations.
- * - Configure logging.
- * - Configure connection pool.
+ * - Configure subscribers.
  *
- * This file is ONLY used by NestJS.
+ * Runtime usage:
+ * - NestJS application
  *
- * The TypeORM CLI DataSource will be created separately in:
+ * CLI usage:
+ * - src/database/data-source.ts
  *
- * src/database/data-source.ts
- *
- * Compatible With
- * ----------------
+ * Compatible:
  * - NestJS 11
  * - TypeORM 0.3+
  * - PostgreSQL
@@ -31,24 +28,19 @@
 import { join } from 'node:path';
 
 import { registerAs } from '@nestjs/config';
+
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 export default registerAs('typeorm', (): TypeOrmModuleOptions => ({
-  /**
-   * ------------------------------------------------------------------------
-   * Database Type
-   * ------------------------------------------------------------------------
-   */
+  // ------------------------------------------------------------------------
+  // Database
+  // ------------------------------------------------------------------------
+
   type: 'postgres',
 
-  /**
-   * ------------------------------------------------------------------------
-   * Connection
-   * ------------------------------------------------------------------------
-   */
-  host: process.env.DATABASE_HOST,
+  host: process.env.DATABASE_HOST ?? 'localhost',
 
-  port: Number(process.env.DATABASE_PORT),
+  port: Number(process.env.DATABASE_PORT ?? 5432),
 
   username: process.env.DATABASE_USER,
 
@@ -56,37 +48,43 @@ export default registerAs('typeorm', (): TypeOrmModuleOptions => ({
 
   database: process.env.DATABASE_NAME,
 
+  // ------------------------------------------------------------------------
+  // Entities
+  // ------------------------------------------------------------------------
+
   /**
-   * ------------------------------------------------------------------------
-   * Entities
-   * ------------------------------------------------------------------------
+   * Entities are registered through:
    *
-   * Automatically loads entities registered with
-   * TypeOrmModule.forFeature().
+   * TypeOrmModule.forFeature()
+   *
+   * inside feature modules.
    */
   autoLoadEntities: true,
 
+  // ------------------------------------------------------------------------
+  // Schema Management
+  // ------------------------------------------------------------------------
+
   /**
-   * ------------------------------------------------------------------------
-   * Synchronization
-   * ------------------------------------------------------------------------
+   * NEVER enable in production.
    *
-   * Never enable synchronize in production.
+   * Database changes must happen through migrations.
    */
   synchronize: false,
 
-  /**
-   * ------------------------------------------------------------------------
-   * Logging
-   * ------------------------------------------------------------------------
-   */
-  logging: process.env.NODE_ENV === 'development',
+  // ------------------------------------------------------------------------
+  // Logging
+  // ------------------------------------------------------------------------
 
-  /**
-   * ------------------------------------------------------------------------
-   * SSL
-   * ------------------------------------------------------------------------
-   */
+  logging:
+    process.env.NODE_ENV === 'development'
+      ? ['error', 'warn', 'schema']
+      : false,
+
+  // ------------------------------------------------------------------------
+  // SSL
+  // ------------------------------------------------------------------------
+
   ssl:
     process.env.NODE_ENV === 'production'
       ? {
@@ -94,11 +92,10 @@ export default registerAs('typeorm', (): TypeOrmModuleOptions => ({
         }
       : false,
 
-  /**
-   * ------------------------------------------------------------------------
-   * Connection Pool
-   * ------------------------------------------------------------------------
-   */
+  // ------------------------------------------------------------------------
+  // Connection Pool
+  // ------------------------------------------------------------------------
+
   extra: {
     max: 10,
 
@@ -109,28 +106,25 @@ export default registerAs('typeorm', (): TypeOrmModuleOptions => ({
     connectionTimeoutMillis: 5000,
   },
 
-  /**
-   * ------------------------------------------------------------------------
-   * Retry
-   * ------------------------------------------------------------------------
-   */
+  // ------------------------------------------------------------------------
+  // Retry
+  // ------------------------------------------------------------------------
+
   retryAttempts: 5,
 
   retryDelay: 3000,
 
-  /**
-   * ------------------------------------------------------------------------
-   * Migrations
-   * ------------------------------------------------------------------------
-   */
+  // ------------------------------------------------------------------------
+  // Migrations
+  // ------------------------------------------------------------------------
+
   migrations: [join(__dirname, '../database/migrations/*{.ts,.js}')],
 
   migrationsRun: false,
 
-  /**
-   * ------------------------------------------------------------------------
-   * Subscribers
-   * ------------------------------------------------------------------------
-   */
+  // ------------------------------------------------------------------------
+  // Subscribers
+  // ------------------------------------------------------------------------
+
   subscribers: [join(__dirname, '../database/subscribers/*{.ts,.js}')],
 }));
