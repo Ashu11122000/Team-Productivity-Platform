@@ -1,41 +1,104 @@
-/* eslint-disable prettier/prettier */
+/**
+ * ============================================================================
+ * File: activity-log-response.dto.ts
+ * ============================================================================
+ *
+ * Activity Log Response DTO.
+ *
+ * Responsibilities
+ * ----------------
+ * - Define the standardized API response for activity logs.
+ * - Provide Swagger documentation.
+ * - Decouple API responses from the persistence entity.
+ *
+ * Notes
+ * -----
+ * This DTO should be returned by controllers instead of exposing
+ * TypeORM entities directly.
+ *
+ * Compatible With
+ * ----------------
+ * - NestJS 11
+ * - Swagger
+ * - TypeScript 5+
+ * ============================================================================
+ */
 
 import { ApiProperty } from '@nestjs/swagger';
 
-import { ActivityAction } from '../../common/enums/activity-action.enum';
-import { ActivityEntityType } from '../../common/enums/activity-entity-type.enum';
+import { ActivityAction, ActivityEntityType } from '../../common/enums';
 
+/**
+ * Activity Log response model.
+ */
 export class ActivityLogResponseDto {
-    @ApiProperty()
-    id!: string;
+  /**
+   * Activity log identifier.
+   */
+  @ApiProperty({
+    description: 'Unique activity log identifier.',
+    example: '550e8400-e29b-41d4-a716-446655440010',
+  })
+  readonly id!: string;
 
-    @ApiProperty({
-        enum: ActivityAction,
-    })
-    action!: ActivityAction;
+  /**
+   * Performed action.
+   */
+  @ApiProperty({
+    description: 'Action performed by the user.',
+    enum: ActivityAction,
+    example: ActivityAction.TASK_CREATED,
+  })
+  readonly action!: ActivityAction;
 
-    @ApiProperty({
-        enum: ActivityEntityType,
-    })
-    entityType!: ActivityEntityType;
+  /**
+   * Target entity type.
+   */
+  @ApiProperty({
+    description: 'Entity type affected by the action.',
+    enum: ActivityEntityType,
+    example: ActivityEntityType.TASK,
+  })
+  readonly entityType!: ActivityEntityType;
 
-    @ApiProperty()
-    entityId!: string;
+  /**
+   * Target entity identifier.
+   */
+  @ApiProperty({
+    description: 'Identifier of the affected entity.',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  readonly entityId!: string;
 
-    @ApiProperty({
-        nullable: true,
-        example: {
-            title: 'Complete NestJS Phase 8',
-        },
-    })
-    metadata?: Record<
-        string,
-        unknown
-    > | null;
+  /**
+   * Additional contextual information.
+   */
+  @ApiProperty({
+    description: 'Additional metadata associated with the activity.',
+    nullable: true,
+    required: false,
+    example: {
+      title: 'Complete NestJS Phase 8',
+      priority: 'HIGH',
+    },
+  })
+  readonly metadata?: Record<string, unknown> | null;
 
-    @ApiProperty()
-    userId!: string;
+  /**
+   * User identifier.
+   */
+  @ApiProperty({
+    description: 'Identifier of the user who performed the action.',
+    example: 'c76b12ab-7d98-45b2-aaf2-18c32a3151d4',
+  })
+  readonly userId!: string;
 
-    @ApiProperty()
-    createdAt!: Date;
+  /**
+   * Activity creation timestamp.
+   */
+  @ApiProperty({
+    description: 'Timestamp when the activity occurred.',
+    example: '2026-07-21T10:15:30.000Z',
+  })
+  readonly createdAt!: Date;
 }

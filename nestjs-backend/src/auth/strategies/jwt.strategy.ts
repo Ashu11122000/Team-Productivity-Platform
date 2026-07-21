@@ -1,36 +1,82 @@
+/**
+ * ============================================================================
+ * File: jwt.strategy.ts
+ * ============================================================================
+ *
+ * Enterprise JWT Authentication Strategy.
+ *
+ * Responsibilities
+ * ----------------
+ * - Validate JWT access tokens issued by the FastAPI authentication service.
+ * - Verify signature, issuer, audience and expiration.
+ * - Extract the authenticated user payload.
+ * - Provide the authenticated user to Passport guards.
+ *
+ * Notes
+ * -----
+ * - FastAPI is the authentication owner.
+ * - NestJS NEVER generates JWT tokens.
+ * - NestJS ONLY validates incoming JWT access tokens.
+ *
+ * Compatible With
+ * ----------------
+ * - NestJS 11
+ * - Passport JWT
+ * - Node.js 22+
+ * ============================================================================
+ */
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 
-import {
-  ExtractJwt,
-  Strategy,
-  //StrategyOptionsWithoutRequest,
-} from 'passport-jwt';
+import { ExtractJwt, Strategy, StrategyOptions } from 'passport-jwt';
 
+import { JwtPayload } from '../../common/interfaces';
+
+/**
+ * Enterprise JWT authentication strategy.
+ *
+ * This strategy validates JWT access tokens produced by
+ * the FastAPI authentication service.
+ */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(private readonly configService: ConfigService) {
-    const secret = configService.getOrThrow<string>('jwt.secret');
-
-    console.log('JWT SECRET =', secret);
-    console.log('JWT ISSUER =', configService.get<string>('jwt.issuer'));
-    console.log('JWT AUDIENCE =', configService.get<string>('jwt.audience'));
-
-    super({
+    const jwtOptions: StrategyOptions = {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+
       ignoreExpiration: false,
-      secretOrKey: secret,
-      issuer: configService.get<string>('jwt.issuer'),
-      audience: configService.get<string>('jwt.audience'),
+
+      secretOrKey: configService.getOrThrow<string>('jwt.secret'),
+
+      issuer: configService.getOrThrow<string>('jwt.issuer'),
+
+      audience: configService.getOrThrow<string>('jwt.audience'),
+
       algorithms: ['HS256'],
-    });
+    };
+
+    super(jwtOptions);
   }
 
-  validate(payload: JwtPayload): JwtPayload {
-    console.log('JWT PAYLOAD =', JSON.stringify(payload, null, 2));
-
+  /**
+   * Validates the decoded JWT payload.
+   *
+   * Passport automatically verifies:
+   * - Signature
+   * - Expiration
+   * - Issuer
+   * - Audience
+   *
+   * This method is responsible only for returning the
+   * authenticated user object that will later be attached
+   * to request.user.
+   *
+   * @param payload Decoded JWT payload.
+   * @returns Authenticated user payload.
+   */
+  override validate(payload: JwtPayload): JwtPayload {
     return payload;
   }
 }
