@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
 
 import { Category } from '../categories/entities/category.entity';
-import { Tag } from '../tags/entities/tag.entity';
+import { TagEntity } from '../tags/entities/tag.entity';
 
 import { TaskEntity } from './entities/task.entity';
 
@@ -18,7 +18,7 @@ import { TaskMapper } from './mappers/task.mapper';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TaskEntity, Category, Tag]),
+    TypeOrmModule.forFeature([TaskEntity, Category, TagEntity]),
 
     ActivityLogsModule,
   ],

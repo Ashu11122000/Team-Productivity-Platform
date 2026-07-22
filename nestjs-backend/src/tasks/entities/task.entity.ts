@@ -60,10 +60,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { Category } from '../../categories/entities/category.entity';
 import { TaskPriority } from '../../common/enums/task-priority.enum';
 import { TaskStatus } from '../../common/enums/task-status.enum';
-import { Tag } from '../../tags/entities/tag.entity';
+import { Category } from '../../categories/entities/category.entity';
+import { TagEntity } from '../../tags/entities/tag.entity';
 
 /**
  * Task database entity.
@@ -358,7 +358,7 @@ export class TaskEntity {
     nullable: true,
     type: () => Category,
   })
-  @ManyToOne(() => Category, (category) => category.tasks, {
+  @ManyToOne(() => Category, (category: Category) => category.tasks, {
     nullable: true,
     eager: false,
     cascade: false,
@@ -368,7 +368,7 @@ export class TaskEntity {
   @JoinColumn({
     name: 'categoryId',
   })
-  category?: Category | null;
+  category?: Category;
 
   /**
    * Tags associated with this task.
@@ -383,9 +383,9 @@ export class TaskEntity {
   @ApiProperty({
     description: 'Tags associated with the task.',
     required: false,
-    type: () => [Tag],
+    type: () => [TagEntity],
   })
-  @ManyToMany(() => Tag, (tag) => tag.tasks, {
+  @ManyToMany(() => TagEntity, (tag) => tag.tasks, {
     eager: false,
     cascade: false,
   })
@@ -400,7 +400,7 @@ export class TaskEntity {
       referencedColumnName: 'id',
     },
   })
-  tags?: Tag[];
+  tags?: TagEntity[];
 
   /**
    * Timestamp when the task was created.

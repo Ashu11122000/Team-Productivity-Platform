@@ -39,7 +39,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { Task } from '../../tasks/entities/task.entity';
+import { TaskEntity } from '../../tasks/entities/task.entity';
 
 /**
  * ============================================================================
@@ -139,11 +139,11 @@ export class Category {
    *
    * One category can contain multiple tasks.
    */
-  @OneToMany(() => Task, (task) => task.category, {
+  @OneToMany(() => TaskEntity, (task) => task.category, {
     cascade: false,
     eager: false,
   })
-  tasks!: Task[];
+  tasks!: TaskEntity[];
 
   /**
    * --------------------------------------------------------------------------

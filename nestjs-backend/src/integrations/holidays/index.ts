@@ -46,3 +46,5 @@ export * from './holiday-api.interface';
 // ============================================================================
 
 export * from './holiday-response.interface';
+
+export * from './holiday-api.module';

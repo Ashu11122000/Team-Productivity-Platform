@@ -162,15 +162,14 @@ export class CategoriesService {
      * Can later be moved to an
      * asynchronous domain event.
      */
-    await this.notificationsService.create({
-      title: 'Category Created',
-
-      message: `Category "${savedCategory.name}" was created successfully.`,
-
-      type: NotificationType.CATEGORY_UPDATED,
-
+    await this.notificationsService.create(
+      {
+        title: 'Category Created',
+        message: `Category "${savedCategory.name}" was created successfully.`,
+        type: NotificationType.CATEGORY_UPDATED,
+      },
       userId,
-    });
+    );
 
     /**
      * Return DTO instead of entity.
@@ -394,15 +393,14 @@ export class CategoriesService {
     /**
      * Notification
      */
-    await this.notificationsService.create({
-      title: 'Category Updated',
-
-      message: `Category "${updatedCategory.name}" was updated successfully.`,
-
-      type: NotificationType.CATEGORY_UPDATED,
-
+    await this.notificationsService.create(
+      {
+        title: 'Category Updated',
+        message: `Category "${updatedCategory.name}" was updated successfully.`,
+        type: NotificationType.CATEGORY_UPDATED,
+      },
       userId,
-    });
+    );
 
     return CategoryMapper.toResponse(updatedCategory);
   }
@@ -449,15 +447,14 @@ export class CategoriesService {
     /**
      * Notification
      */
-    await this.notificationsService.create({
-      title: 'Category Deleted',
-
-      message: `Category "${category.name}" was deleted.`,
-
-      type: NotificationType.CATEGORY_UPDATED,
-
+    await this.notificationsService.create(
+      {
+        title: 'Category Deleted',
+        message: `Category "${category.name}" was deleted.`,
+        type: NotificationType.CATEGORY_UPDATED,
+      },
       userId,
-    });
+    );
 
     await this.categoriesRepository.remove(category);
   }
