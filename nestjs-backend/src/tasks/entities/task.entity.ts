@@ -392,11 +392,11 @@ export class TaskEntity {
   @JoinTable({
     name: 'task_tags',
     joinColumn: {
-      name: 'task_id',
+      name: 'taskId',
       referencedColumnName: 'id',
     },
     inverseJoinColumn: {
-      name: 'tag_id',
+      name: 'tagId',
       referencedColumnName: 'id',
     },
   })
