@@ -54,7 +54,7 @@ import { ActivityLogsService } from '../services/activity-logs.service';
 @ApiTags('Activity Logs')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
-@Controller('api/activity-logs')
+@Controller('activity-logs')
 export class ActivityLogsController {
   constructor(private readonly activityLogsService: ActivityLogsService) {}
 

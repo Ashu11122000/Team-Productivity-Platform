@@ -63,7 +63,7 @@ import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 @ApiTags('Notifications')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
-@Controller('api/notifications')
+@Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 

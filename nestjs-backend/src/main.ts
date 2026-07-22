@@ -4,27 +4,7 @@
  * ============================================================================
  *
  * Enterprise application bootstrap.
- *
- * Responsibilities
- * ----------------------------------------------------------------------------
- * - Create Nest application
- * - Configure logger
- * - Configure security middleware
- * - Configure HTTP middleware
- * - Configure CORS
- * - Configure API versioning
- * - Configure global prefix
- * - Register global pipes
- * - Register global filters
- * - Register global interceptors
- * - Configure Swagger
- * - Enable graceful shutdown
- * - Start HTTP server
- *
- * Compatible With
- * ----------------------------------------------------------------------------
- * - NestJS 11
- * - Node.js 22+
+ * Compatible with NestJS 11
  * ============================================================================
  */
 
@@ -55,29 +35,23 @@ import { AppValidationPipe } from './common/pipes';
 
 async function bootstrap(): Promise<void> {
   /**
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    * Create Application
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    */
 
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
 
-  /**
-   * ==========================================================================
-   * Logger
-   * ==========================================================================
-   */
-
   app.useLogger(app.get(PinoLogger));
 
   const logger = new Logger('Bootstrap');
 
   /**
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    * Configuration
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    */
 
   const configService = app.get(ConfigService);
@@ -89,9 +63,29 @@ async function bootstrap(): Promise<void> {
   const swaggerConfig = configService.get('swagger', { infer: true });
 
   /**
-   * ==========================================================================
-   * Security Middleware
-   * ==========================================================================
+   * --------------------------------------------------------------------------
+   * Defaults (if config missing)
+   * --------------------------------------------------------------------------
+   */
+
+  const appName = appConfig?.name ?? 'Team Productivity Platform NestJS API';
+
+  const environment =
+    appConfig?.environment ?? process.env.NODE_ENV ?? 'development';
+
+  const port = appConfig?.port ?? Number(process.env.PORT ?? 3001);
+
+  const globalPrefix =
+    appConfig?.globalPrefix ??
+    process.env.API_PREFIX?.replace('/v1', '') ??
+    'api';
+
+  const apiVersion = appConfig?.apiVersion ?? '1';
+
+  /**
+   * --------------------------------------------------------------------------
+   * Middleware
+   * --------------------------------------------------------------------------
    */
 
   app.use(helmet());
@@ -101,9 +95,9 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
 
   /**
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    * CORS
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    */
 
   app.enableCors({
@@ -116,75 +110,45 @@ async function bootstrap(): Promise<void> {
   });
 
   /**
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    * Global Prefix
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    */
 
-  app.setGlobalPrefix(appConfig?.globalPrefix ?? 'api');
+  app.setGlobalPrefix(globalPrefix);
 
   /**
-   * ==========================================================================
-   * API Versioning
-   * ==========================================================================
+   * --------------------------------------------------------------------------
+   * Versioning
+   * --------------------------------------------------------------------------
    */
 
   app.enableVersioning({
     type: VersioningType.URI,
-    defaultVersion: appConfig?.apiVersion ?? '1',
+    defaultVersion: apiVersion,
   });
 
   /**
-   * ==========================================================================
-   * Resolve Global Providers
-   * ==========================================================================
+   * --------------------------------------------------------------------------
+   * Global Providers
+   * --------------------------------------------------------------------------
    */
 
-  const validationPipe = app.get(AppValidationPipe);
+  app.useGlobalPipes(app.get(AppValidationPipe));
 
-  const exceptionFilter = app.get(AllExceptionsFilter);
-
-  const loggingInterceptor = app.get(LoggingInterceptor);
-
-  const responseInterceptor = app.get(ResponseInterceptor);
-
-  const timeoutInterceptor = app.get(TimeoutInterceptor);
-
-  const cacheInterceptor = app.get(CacheInterceptor);
-
-  /**
-   * ==========================================================================
-   * Global Validation
-   * ==========================================================================
-   */
-
-  app.useGlobalPipes(validationPipe);
-
-  /**
-   * ==========================================================================
-   * Global Exception Filter
-   * ==========================================================================
-   */
-
-  app.useGlobalFilters(exceptionFilter);
-
-  /**
-   * ==========================================================================
-   * Global Interceptors
-   * ==========================================================================
-   */
+  app.useGlobalFilters(app.get(AllExceptionsFilter));
 
   app.useGlobalInterceptors(
-    loggingInterceptor,
-    responseInterceptor,
-    timeoutInterceptor,
-    cacheInterceptor,
+    app.get(LoggingInterceptor),
+    app.get(ResponseInterceptor),
+    app.get(TimeoutInterceptor),
+    app.get(CacheInterceptor),
   );
 
   /**
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    * Swagger
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    */
 
   if (swaggerConfig?.enabled) {
@@ -192,40 +156,32 @@ async function bootstrap(): Promise<void> {
   }
 
   /**
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    * Graceful Shutdown
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    */
 
   app.enableShutdownHooks();
 
   /**
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    * Start Server
-   * ==========================================================================
+   * --------------------------------------------------------------------------
    */
-
-  const port = appConfig?.port ?? 3001;
 
   await app.listen(port);
 
-  /**
-   * ==========================================================================
-   * Startup Information
-   * ==========================================================================
-   */
-
-  const applicationUrl = await app.getUrl();
+  const url = await app.getUrl();
 
   logger.log('========================================');
-  logger.log(appConfig?.name ?? 'Team Productivity Platform');
+  logger.log(appName);
   logger.log('Application started successfully');
-  logger.log(`Environment : ${appConfig?.environment}`);
+  logger.log(`Environment : ${environment}`);
   logger.log(`Port        : ${port}`);
-  logger.log(`API         : ${applicationUrl}/${appConfig?.globalPrefix}/v1`);
+  logger.log(`API         : ${url}/${globalPrefix}/v${apiVersion}`);
 
   if (swaggerConfig?.enabled) {
-    logger.log(`Swagger     : ${applicationUrl}/${swaggerConfig.path}`);
+    logger.log(`Swagger     : ${url}/${swaggerConfig.path ?? 'api/docs'}`);
   }
 
   logger.log('========================================');

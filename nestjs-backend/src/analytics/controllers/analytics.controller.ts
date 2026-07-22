@@ -58,7 +58,7 @@ import type { AnalyticsFilter } from '../interfaces/analytics-filter.interface';
 @ApiTags('Analytics')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
-@Controller('api/analytics')
+@Controller('analytics')
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 

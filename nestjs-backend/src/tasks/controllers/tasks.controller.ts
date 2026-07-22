@@ -83,7 +83,7 @@ import { PaginationResult } from '../interfaces/pagination-result.interface';
 @ApiTags('Tasks')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
-@Controller('api/tasks')
+@Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 

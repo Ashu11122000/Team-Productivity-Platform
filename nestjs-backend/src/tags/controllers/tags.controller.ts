@@ -81,7 +81,7 @@ import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 @ApiTags('Tags')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
-@Controller('api/tags')
+@Controller('tags')
 export class TagsController {
   constructor(private readonly tagsService: TagsService) {}
 
