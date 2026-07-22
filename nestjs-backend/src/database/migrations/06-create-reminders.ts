@@ -39,8 +39,8 @@ import {
   TableForeignKey,
 } from 'typeorm';
 
-export class CreateReminders1719000000007 implements MigrationInterface {
-  name = 'CreateReminders1719000000007';
+export class CreateReminders1753170006000 implements MigrationInterface {
+  name = 'CreateReminders1753170006000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // =========================================================================

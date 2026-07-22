@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
-export class CreateActivityLogs1718300000004 implements MigrationInterface {
-  name = 'CreateActivityLogs1718300000004';
+export class CreateActivityLogs1753170004000 implements MigrationInterface {
+  name = 'CreateActivityLogs1753170004000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // =========================================================================

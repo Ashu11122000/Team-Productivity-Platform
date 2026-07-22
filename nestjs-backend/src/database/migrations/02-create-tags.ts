@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateTasks00 implements MigrationInterface {
-  name = 'CreateTasks00';
+export class CreateTags1753170002000 implements MigrationInterface {
+  public readonly name = 'CreateTags1753170002000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -9,189 +9,83 @@ export class CreateTasks00 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "public"."task_status_enum"
-      AS ENUM (
-        'TODO',
-        'IN_PROGRESS',
-        'COMPLETED',
-        'CANCELLED'
-      )
-    `);
-
-    await queryRunner.query(`
-      CREATE TYPE "public"."task_priority_enum"
-      AS ENUM (
-        'LOW',
-        'MEDIUM',
-        'HIGH',
-        'URGENT'
-      )
-    `);
-
-    await queryRunner.query(`
-      CREATE TABLE "tasks" (
+      CREATE TABLE "tags" (
 
         "id"
           uuid
           NOT NULL
           DEFAULT uuid_generate_v4(),
 
-
-
-        "title"
-          character varying(255)
+        "name"
+          character varying(100)
           NOT NULL,
 
-
-
-        "description"
-          text,
-
-
-
-        "status"
-          "public"."task_status_enum"
-          NOT NULL
-          DEFAULT 'TODO',
-
-
-
-        "priority"
-          "public"."task_priority_enum"
-          NOT NULL
-          DEFAULT 'MEDIUM',
-
-
-
-        "dueDate"
-          timestamp,
-
-
+        "color"
+          character varying(20),
 
         /**
-         * User reference from FastAPI.
+         * User ownership reference.
          *
+         * Users are managed by FastAPI.
          * No foreign key intentionally.
          */
         "userId"
           character varying(100)
           NOT NULL,
 
-
-
-        "isConvertedFromNote"
-          boolean
-          NOT NULL
-          DEFAULT false,
-
-
-
-        "sourceNoteId"
-          character varying(100),
-
-
-
         "createdAt"
           timestamp
           NOT NULL
           DEFAULT now(),
-
-
 
         "updatedAt"
           timestamp
           NOT NULL
           DEFAULT now(),
 
-
-
         "deletedAt"
           timestamp,
 
-
+        CONSTRAINT
+          "PK_tags_id"
+          PRIMARY KEY ("id"),
 
         CONSTRAINT
-          "PK_tasks_id"
-          PRIMARY KEY ("id")
+          "UQ_TAG_USER_NAME"
+          UNIQUE (
+            "userId",
+            "name"
+          )
 
       )
     `);
 
     await queryRunner.query(`
       CREATE INDEX
-      "IDX_TASK_USER_ID"
-      ON "tasks"
+      "IDX_TAG_USER_ID"
+      ON "tags"
       ("userId")
     `);
 
     await queryRunner.query(`
       CREATE INDEX
-      "IDX_TASK_USER_STATUS"
-      ON "tasks"
-      ("userId","status")
-    `);
-
-    await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_USER_PRIORITY"
-      ON "tasks"
-      ("userId","priority")
-    `);
-
-    await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_DUE_DATE"
-      ON "tasks"
-      ("dueDate")
-    `);
-
-    await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_CREATED_AT"
-      ON "tasks"
-      ("createdAt")
+      "IDX_TAG_USER_NAME"
+      ON "tags"
+      ("userId","name")
     `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      DROP INDEX
-      "public"."IDX_TASK_CREATED_AT"
+      DROP INDEX "public"."IDX_TAG_USER_NAME"
     `);
 
     await queryRunner.query(`
-      DROP INDEX
-      "public"."IDX_TASK_DUE_DATE"
+      DROP INDEX "public"."IDX_TAG_USER_ID"
     `);
 
     await queryRunner.query(`
-      DROP INDEX
-      "public"."IDX_TASK_USER_PRIORITY"
-    `);
-
-    await queryRunner.query(`
-      DROP INDEX
-      "public"."IDX_TASK_USER_STATUS"
-    `);
-
-    await queryRunner.query(`
-      DROP INDEX
-      "public"."IDX_TASK_USER_ID"
-    `);
-
-    await queryRunner.query(`
-      DROP TABLE
-      "tasks"
-    `);
-
-    await queryRunner.query(`
-      DROP TYPE
-      "public"."task_priority_enum"
-    `);
-
-    await queryRunner.query(`
-      DROP TYPE
-      "public"."task_status_enum"
+      DROP TABLE "tags"
     `);
   }
 }
