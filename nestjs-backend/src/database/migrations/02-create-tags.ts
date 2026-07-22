@@ -10,68 +10,36 @@ export class CreateTags1753170002000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE "tags" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
-        "id"
-          uuid
-          NOT NULL
-          DEFAULT uuid_generate_v4(),
+        "name" character varying(100) NOT NULL,
 
-        "name"
-          character varying(100)
-          NOT NULL,
+        "color" character varying(9),
 
-        "color"
-          character varying(20),
+        "userId" character varying(100) NOT NULL,
 
-        /**
-         * User ownership reference.
-         *
-         * Users are managed by FastAPI.
-         * No foreign key intentionally.
-         */
-        "userId"
-          character varying(100)
-          NOT NULL,
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-        "createdAt"
-          timestamp
-          NOT NULL
-          DEFAULT now(),
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-        "updatedAt"
-          timestamp
-          NOT NULL
-          DEFAULT now(),
+        "deletedAt" TIMESTAMPTZ,
 
-        "deletedAt"
-          timestamp,
-
-        CONSTRAINT
-          "PK_tags_id"
+        CONSTRAINT "PK_tags_id"
           PRIMARY KEY ("id"),
 
-        CONSTRAINT
-          "UQ_TAG_USER_NAME"
-          UNIQUE (
-            "userId",
-            "name"
-          )
-
+        CONSTRAINT "UQ_TAG_USER_NAME"
+          UNIQUE ("userId", "name")
       )
     `);
 
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TAG_USER_ID"
-      ON "tags"
-      ("userId")
+      CREATE INDEX "IDX_TAG_USER_ID"
+      ON "tags" ("userId")
     `);
 
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TAG_USER_NAME"
-      ON "tags"
-      ("userId","name")
+      CREATE INDEX "IDX_TAG_USER_NAME"
+      ON "tags" ("userId", "name")
     `);
   }
 

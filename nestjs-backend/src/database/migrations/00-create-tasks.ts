@@ -1,161 +1,124 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateTasks1753170000000 implements MigrationInterface {
-  name = 'CreateTasks1753170000000';
+export class UpdateTasksAddColumns1753170007000 implements MigrationInterface {
+  public readonly name = 'UpdateTasksAddColumns1753170007000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // -------------------------------------------------------------------------
+    // New Columns
+    // -------------------------------------------------------------------------
+
     await queryRunner.query(`
-      CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+      ALTER TABLE "tasks"
+      ADD COLUMN "completedAt" TIMESTAMPTZ
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "public"."task_status_enum"
-      AS ENUM (
-        'TODO',
-        'IN_PROGRESS',
-        'COMPLETED',
-        'CANCELLED'
-      )
+      ALTER TABLE "tasks"
+      ADD COLUMN "reminderAt" TIMESTAMPTZ
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "public"."task_priority_enum"
-      AS ENUM (
-        'LOW',
-        'MEDIUM',
-        'HIGH',
-        'URGENT'
-      )
+      ALTER TABLE "tasks"
+      ADD COLUMN "estimatedMinutes" INTEGER
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "tasks" (
-
-        "id"
-          uuid
-          NOT NULL
-          DEFAULT uuid_generate_v4(),
-
-
-        "title"
-          character varying(255)
-          NOT NULL,
-
-
-        "description"
-          text,
-
-
-        "status"
-          "public"."task_status_enum"
-          NOT NULL
-          DEFAULT 'TODO',
-
-
-        "priority"
-          "public"."task_priority_enum"
-          NOT NULL
-          DEFAULT 'MEDIUM',
-
-
-        "dueDate"
-          timestamp,
-
-
-        /**
-         * User comes from FastAPI.
-         * No foreign key intentionally.
-         */
-        "userId"
-          character varying(100)
-          NOT NULL,
-
-
-        "isConvertedFromNote"
-          boolean
-          NOT NULL
-          DEFAULT false,
-
-
-        "sourceNoteId"
-          character varying(100),
-
-
-        "createdAt"
-          timestamp
-          NOT NULL
-          DEFAULT now(),
-
-
-        "updatedAt"
-          timestamp
-          NOT NULL
-          DEFAULT now(),
-
-
-        "deletedAt"
-          timestamp,
-
-
-        CONSTRAINT "PK_tasks_id"
-          PRIMARY KEY ("id")
-
-      )
+      ALTER TABLE "tasks"
+      ADD COLUMN "userId" VARCHAR(100) NOT NULL DEFAULT ''
     `);
 
-    // User ownership queries
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_USER_ID"
-      ON "tasks"
-      ("userId")
+      ALTER TABLE "tasks"
+      ADD COLUMN "isConvertedFromNote" BOOLEAN NOT NULL DEFAULT FALSE
     `);
 
-    // Dashboard status filtering
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_USER_STATUS"
-      ON "tasks"
-      ("userId","status")
+      ALTER TABLE "tasks"
+      ADD COLUMN "sourceNoteId" VARCHAR(100)
     `);
 
-    // Dashboard priority analytics
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_USER_PRIORITY"
-      ON "tasks"
-      ("userId","priority")
+      ALTER TABLE "tasks"
+      ADD COLUMN "categoryId" UUID
     `);
 
-    // Upcoming deadlines
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
+
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_DUE_DATE"
-      ON "tasks"
-      ("dueDate")
+      CREATE INDEX "IDX_TASK_COMPLETED_AT"
+      ON "tasks" ("completedAt")
     `);
 
-    // Analytics trends
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_CREATED_AT"
-      ON "tasks"
-      ("createdAt")
+      CREATE INDEX "IDX_TASK_REMINDER_AT"
+      ON "tasks" ("reminderAt")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_TASK_CATEGORY_ID"
+      ON "tasks" ("categoryId")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_TASK_DELETED_AT"
+      ON "tasks" ("deletedAt")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_TASK_TITLE"
+      ON "tasks" ("title")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_TASK_STATUS"
+      ON "tasks" ("status")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_TASK_PRIORITY"
+      ON "tasks" ("priority")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_TASK_USER_ID"
+      ON "tasks" ("userId")
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_TASK_USER_STATUS"
+      ON "tasks" ("userId", "status")
+    `);
+
+    // -------------------------------------------------------------------------
+    // Foreign Key
+    // -------------------------------------------------------------------------
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      ADD CONSTRAINT "FK_TASK_CATEGORY"
+      FOREIGN KEY ("categoryId")
+      REFERENCES "categories"("id")
+      ON DELETE SET NULL
+      ON UPDATE CASCADE
     `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
-      DROP INDEX "public"."IDX_TASK_CREATED_AT"
-    `);
+    // -------------------------------------------------------------------------
+    // Foreign Key
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
-      DROP INDEX "public"."IDX_TASK_DUE_DATE"
+      ALTER TABLE "tasks"
+      DROP CONSTRAINT "FK_TASK_CATEGORY"
     `);
 
-    await queryRunner.query(`
-      DROP INDEX "public"."IDX_TASK_USER_PRIORITY"
-    `);
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
       DROP INDEX "public"."IDX_TASK_USER_STATUS"
@@ -166,15 +129,70 @@ export class CreateTasks1753170000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      DROP TABLE "tasks"
+      DROP INDEX "public"."IDX_TASK_PRIORITY"
     `);
 
     await queryRunner.query(`
-      DROP TYPE "public"."task_priority_enum"
+      DROP INDEX "public"."IDX_TASK_STATUS"
     `);
 
     await queryRunner.query(`
-      DROP TYPE "public"."task_status_enum"
+      DROP INDEX "public"."IDX_TASK_TITLE"
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX "public"."IDX_TASK_DELETED_AT"
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX "public"."IDX_TASK_CATEGORY_ID"
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX "public"."IDX_TASK_REMINDER_AT"
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX "public"."IDX_TASK_COMPLETED_AT"
+    `);
+
+    // -------------------------------------------------------------------------
+    // Columns
+    // -------------------------------------------------------------------------
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      DROP COLUMN "categoryId"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      DROP COLUMN "sourceNoteId"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      DROP COLUMN "isConvertedFromNote"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      DROP COLUMN "userId"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      DROP COLUMN "estimatedMinutes"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      DROP COLUMN "reminderAt"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "tasks"
+      DROP COLUMN "completedAt"
     `);
   }
 }

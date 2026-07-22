@@ -1,15 +1,23 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 export class CreateActivityLogs1753170004000 implements MigrationInterface {
-  name = 'CreateActivityLogs1753170004000';
+  public readonly name = 'CreateActivityLogs1753170004000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // =========================================================================
-    // ENUMS
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // PostgreSQL Extension
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
-      CREATE TYPE "activity_logs_action_enum"
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+    `);
+
+    // -------------------------------------------------------------------------
+    // Enums
+    // -------------------------------------------------------------------------
+
+    await queryRunner.query(`
+      CREATE TYPE "activity_action_enum"
       AS ENUM (
         'TASK_CREATED',
         'TASK_UPDATED',
@@ -26,7 +34,7 @@ export class CreateActivityLogs1753170004000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "activity_logs_entity_type_enum"
+      CREATE TYPE "activity_entity_type_enum"
       AS ENUM (
         'TASK',
         'CATEGORY',
@@ -34,165 +42,122 @@ export class CreateActivityLogs1753170004000 implements MigrationInterface {
       )
     `);
 
-    // =========================================================================
-    // TABLE
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Table
+    // -------------------------------------------------------------------------
 
     await queryRunner.createTable(
       new Table({
         name: 'activity_logs',
 
+        comment: 'Stores immutable user activity logs.',
+
         columns: [
           {
             name: 'id',
-
             type: 'uuid',
-
             isPrimary: true,
-
             generationStrategy: 'uuid',
-
             default: 'uuid_generate_v4()',
           },
 
           {
             name: 'action',
-
             type: 'enum',
-
-            enumName: 'activity_logs_action_enum',
-
-            isNullable: false,
+            enumName: 'activity_action_enum',
           },
 
           {
             name: 'entityType',
-
             type: 'enum',
-
-            enumName: 'activity_logs_entity_type_enum',
-
-            isNullable: false,
+            enumName: 'activity_entity_type_enum',
           },
 
           {
             name: 'entityId',
-
             type: 'uuid',
-
-            isNullable: false,
           },
 
           {
             name: 'metadata',
-
             type: 'jsonb',
-
             isNullable: true,
           },
 
           /**
-           * User reference from FastAPI.
+           * User identifier from FastAPI.
            *
            * No foreign key intentionally.
            */
           {
             name: 'userId',
-
             type: 'varchar',
-
             length: '100',
-
-            isNullable: false,
           },
 
           {
             name: 'createdAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             default: 'CURRENT_TIMESTAMP',
           },
         ],
       }),
-
       true,
     );
 
-    // =========================================================================
-    // INDEXES
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
 
-    await queryRunner.createIndices(
-      'activity_logs',
+    await queryRunner.createIndices('activity_logs', [
+      new TableIndex({
+        name: 'IDX_ACTIVITY_USER_ID',
+        columnNames: ['userId'],
+      }),
 
-      [
-        /**
-         * User activity lookup
-         */
-        new TableIndex({
-          name: 'IDX_ACTIVITY_USER_ID',
+      new TableIndex({
+        name: 'IDX_ACTIVITY_ACTION',
+        columnNames: ['action'],
+      }),
 
-          columnNames: ['userId'],
-        }),
+      new TableIndex({
+        name: 'IDX_ACTIVITY_ENTITY_TYPE',
+        columnNames: ['entityType'],
+      }),
 
-        /**
-         * Dashboard activity feed optimization
-         *
-         * WHERE userId = ?
-         * ORDER BY createdAt DESC
-         */
-        new TableIndex({
-          name: 'IDX_ACTIVITY_USER_CREATED_AT',
+      new TableIndex({
+        name: 'IDX_ACTIVITY_ENTITY_ID',
+        columnNames: ['entityId'],
+      }),
 
-          columnNames: ['userId', 'createdAt'],
-        }),
+      /**
+       * Optional enterprise indexes
+       * Useful for dashboards and audit history queries.
+       */
 
-        /**
-         * Filter by action
-         */
-        new TableIndex({
-          name: 'IDX_ACTIVITY_ACTION',
+      new TableIndex({
+        name: 'IDX_ACTIVITY_USER_CREATED_AT',
+        columnNames: ['userId', 'createdAt'],
+      }),
 
-          columnNames: ['action'],
-        }),
-
-        /**
-         * Filter by entity type
-         */
-        new TableIndex({
-          name: 'IDX_ACTIVITY_ENTITY_TYPE',
-
-          columnNames: ['entityType'],
-        }),
-
-        /**
-         * Entity history lookup
-         */
-        new TableIndex({
-          name: 'IDX_ACTIVITY_ENTITY_ID',
-
-          columnNames: ['entityId'],
-        }),
-
-        /**
-         * Time based analytics
-         */
-        new TableIndex({
-          name: 'IDX_ACTIVITY_CREATED_AT',
-
-          columnNames: ['createdAt'],
-        }),
-      ],
-    );
+      new TableIndex({
+        name: 'IDX_ACTIVITY_CREATED_AT',
+        columnNames: ['createdAt'],
+      }),
+    ]);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // =========================================================================
-    // DROP INDEXES
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
 
     await queryRunner.dropIndex('activity_logs', 'IDX_ACTIVITY_CREATED_AT');
+
+    await queryRunner.dropIndex(
+      'activity_logs',
+      'IDX_ACTIVITY_USER_CREATED_AT',
+    );
 
     await queryRunner.dropIndex('activity_logs', 'IDX_ACTIVITY_ENTITY_ID');
 
@@ -200,31 +165,24 @@ export class CreateActivityLogs1753170004000 implements MigrationInterface {
 
     await queryRunner.dropIndex('activity_logs', 'IDX_ACTIVITY_ACTION');
 
-    await queryRunner.dropIndex(
-      'activity_logs',
-      'IDX_ACTIVITY_USER_CREATED_AT',
-    );
-
     await queryRunner.dropIndex('activity_logs', 'IDX_ACTIVITY_USER_ID');
 
-    // =========================================================================
-    // DROP TABLE
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Table
+    // -------------------------------------------------------------------------
 
     await queryRunner.dropTable('activity_logs');
 
-    // =========================================================================
-    // DROP ENUMS
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Enums
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
-      DROP TYPE IF EXISTS
-      "activity_logs_entity_type_enum"
+      DROP TYPE IF EXISTS "activity_entity_type_enum"
     `);
 
     await queryRunner.query(`
-      DROP TYPE IF EXISTS
-      "activity_logs_action_enum"
+      DROP TYPE IF EXISTS "activity_action_enum"
     `);
   }
 }

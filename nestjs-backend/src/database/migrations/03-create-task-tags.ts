@@ -1,111 +1,86 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateTaskTags1753170003000 implements MigrationInterface {
-  name = 'CreateTaskTags1753170003000';
+  public readonly name = 'CreateTaskTags1753170003000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE "task_tags" (
+        "task_id" uuid NOT NULL,
+        "tag_id" uuid NOT NULL,
 
-        "taskId"
-          uuid
-          NOT NULL,
-
-
-        "tagId"
-          uuid
-          NOT NULL,
-
-
-        CONSTRAINT
-          "PK_TASK_TAGS"
-          PRIMARY KEY (
-            "taskId",
-            "tagId"
-          )
-
+        CONSTRAINT "PK_TASK_TAGS"
+          PRIMARY KEY ("task_id", "tag_id")
       )
     `);
 
-    /**
-     * Task lookup optimization.
-     *
-     * Used when fetching:
-     *
-     * Task -> Tags
-     */
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
+
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_TAG_TASK_ID"
-      ON "task_tags"
-      ("taskId")
+      CREATE INDEX "IDX_TASK_TAG_TASK_ID"
+      ON "task_tags" ("task_id")
     `);
 
-    /**
-     * Tag lookup optimization.
-     *
-     * Used when fetching:
-     *
-     * Tag -> Tasks
-     */
     await queryRunner.query(`
-      CREATE INDEX
-      "IDX_TASK_TAG_TAG_ID"
-      ON "task_tags"
-      ("tagId")
+      CREATE INDEX "IDX_TASK_TAG_TAG_ID"
+      ON "task_tags" ("tag_id")
+    `);
+
+    // -------------------------------------------------------------------------
+    // Foreign Keys
+    // -------------------------------------------------------------------------
+
+    await queryRunner.query(`
+      ALTER TABLE "task_tags"
+      ADD CONSTRAINT "FK_TASK_TAG_TASK"
+      FOREIGN KEY ("task_id")
+      REFERENCES "tasks" ("id")
+      ON DELETE CASCADE
+      ON UPDATE CASCADE
     `);
 
     await queryRunner.query(`
       ALTER TABLE "task_tags"
-
-      ADD CONSTRAINT
-      "FK_TASK_TAG_TASK"
-
-      FOREIGN KEY ("taskId")
-
-      REFERENCES "tasks"("id")
-
+      ADD CONSTRAINT "FK_TASK_TAG_TAG"
+      FOREIGN KEY ("tag_id")
+      REFERENCES "tags" ("id")
       ON DELETE CASCADE
-    `);
-
-    await queryRunner.query(`
-      ALTER TABLE "task_tags"
-
-      ADD CONSTRAINT
-      "FK_TASK_TAG_TAG"
-
-      FOREIGN KEY ("tagId")
-
-      REFERENCES "tags"("id")
-
-      ON DELETE CASCADE
+      ON UPDATE CASCADE
     `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
-      ALTER TABLE "task_tags"
-
-      DROP CONSTRAINT
-      "FK_TASK_TAG_TAG"
-    `);
+    // -------------------------------------------------------------------------
+    // Foreign Keys
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
       ALTER TABLE "task_tags"
-
-      DROP CONSTRAINT
-      "FK_TASK_TAG_TASK"
+      DROP CONSTRAINT "FK_TASK_TAG_TAG"
     `);
 
     await queryRunner.query(`
-      DROP INDEX
-      "public"."IDX_TASK_TAG_TAG_ID"
+      ALTER TABLE "task_tags"
+      DROP CONSTRAINT "FK_TASK_TAG_TASK"
+    `);
+
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
+
+    await queryRunner.query(`
+      DROP INDEX "public"."IDX_TASK_TAG_TAG_ID"
     `);
 
     await queryRunner.query(`
-      DROP INDEX
-      "public"."IDX_TASK_TAG_TASK_ID"
+      DROP INDEX "public"."IDX_TASK_TAG_TASK_ID"
     `);
+
+    // -------------------------------------------------------------------------
+    // Table
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
       DROP TABLE "task_tags"

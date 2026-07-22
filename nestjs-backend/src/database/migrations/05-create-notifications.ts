@@ -1,46 +1,44 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
 export class CreateNotifications1753170005000 implements MigrationInterface {
-  name = 'CreateNotifications1753170005000';
+  public readonly name = 'CreateNotifications1753170005000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // =========================================================================
-    // ENUMS
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // PostgreSQL Extension
+    // -------------------------------------------------------------------------
+
+    await queryRunner.query(`
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+    `);
+
+    // -------------------------------------------------------------------------
+    // Enums
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
       CREATE TYPE "notification_type_enum"
       AS ENUM (
-
         'TASK_DUE',
-
         'TASK_OVERDUE',
-
         'TASK_COMPLETED',
-
         'CATEGORY_UPDATED',
-
         'TAG_ASSIGNED',
-
         'SYSTEM'
-
       )
     `);
 
     await queryRunner.query(`
       CREATE TYPE "notification_status_enum"
       AS ENUM (
-
         'UNREAD',
-
         'READ'
-
       )
     `);
 
-    // =========================================================================
-    // TABLE
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Table
+    // -------------------------------------------------------------------------
 
     await queryRunner.createTable(
       new Table({
@@ -49,198 +47,169 @@ export class CreateNotifications1753170005000 implements MigrationInterface {
         columns: [
           {
             name: 'id',
-
             type: 'uuid',
-
             isPrimary: true,
-
             generationStrategy: 'uuid',
-
             default: 'uuid_generate_v4()',
           },
 
           {
             name: 'title',
-
             type: 'varchar',
-
             length: '255',
-
-            isNullable: false,
           },
 
           {
             name: 'message',
-
             type: 'text',
-
-            isNullable: false,
           },
 
           {
             name: 'type',
-
             type: 'enum',
-
             enumName: 'notification_type_enum',
-
-            isNullable: false,
           },
 
           {
             name: 'status',
-
             type: 'enum',
-
             enumName: 'notification_status_enum',
-
             default: `'UNREAD'`,
           },
 
           /**
-           * User reference from FastAPI.
-           *
-           * No FK intentionally.
+           * FastAPI authenticated user identifier.
+           * No foreign key intentionally.
            */
           {
             name: 'userId',
-
             type: 'varchar',
-
-            length: '100',
-
-            isNullable: false,
+            length: '255',
           },
 
-          /**
-           * Related domain object.
-           */
           {
-            name: 'relatedEntityType',
-
-            type: 'varchar',
-
-            length: '100',
-
+            name: 'entityId',
+            type: 'uuid',
             isNullable: true,
           },
 
           {
-            name: 'relatedEntityId',
-
+            name: 'entityType',
             type: 'varchar',
-
-            length: '100',
-
+            length: '50',
             isNullable: true,
           },
 
           {
             name: 'readAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             isNullable: true,
           },
 
           {
             name: 'createdAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             default: 'CURRENT_TIMESTAMP',
           },
 
           {
             name: 'updatedAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             default: 'CURRENT_TIMESTAMP',
           },
 
           {
             name: 'deletedAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             isNullable: true,
           },
         ],
       }),
     );
 
-    // =========================================================================
-    // INDEXES
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
 
-    await queryRunner.createIndices(
-      'notifications',
+    await queryRunner.createIndices('notifications', [
+      new TableIndex({
+        name: 'IDX_NOTIFICATION_USER_ID',
+        columnNames: ['userId'],
+      }),
 
-      [
-        new TableIndex({
-          name: 'IDX_NOTIFICATION_USER_ID',
+      new TableIndex({
+        name: 'IDX_NOTIFICATION_STATUS',
+        columnNames: ['status'],
+      }),
 
-          columnNames: ['userId'],
-        }),
+      new TableIndex({
+        name: 'IDX_NOTIFICATION_TYPE',
+        columnNames: ['type'],
+      }),
 
-        new TableIndex({
-          name: 'IDX_NOTIFICATION_USER_STATUS',
+      new TableIndex({
+        name: 'IDX_NOTIFICATION_CREATED_AT',
+        columnNames: ['createdAt'],
+      }),
 
-          columnNames: ['userId', 'status'],
-        }),
+      new TableIndex({
+        name: 'IDX_NOTIFICATION_USER_STATUS',
+        columnNames: ['userId', 'status'],
+      }),
 
-        new TableIndex({
-          name: 'IDX_NOTIFICATION_USER_CREATED_AT',
+      new TableIndex({
+        name: 'IDX_NOTIFICATION_USER_TYPE',
+        columnNames: ['userId', 'type'],
+      }),
 
-          columnNames: ['userId', 'createdAt'],
-        }),
-
-        new TableIndex({
-          name: 'IDX_NOTIFICATION_TYPE',
-
-          columnNames: ['type'],
-        }),
-
-        new TableIndex({
-          name: 'IDX_NOTIFICATION_RELATED_ENTITY',
-
-          columnNames: ['relatedEntityType', 'relatedEntityId'],
-        }),
-      ],
-    );
+      new TableIndex({
+        name: 'IDX_NOTIFICATION_USER_STATUS_CREATED',
+        columnNames: ['userId', 'status', 'createdAt'],
+      }),
+    ]);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex(
-      'notifications',
-      'IDX_NOTIFICATION_RELATED_ENTITY',
-    );
-
-    await queryRunner.dropIndex('notifications', 'IDX_NOTIFICATION_TYPE');
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
 
     await queryRunner.dropIndex(
       'notifications',
-      'IDX_NOTIFICATION_USER_CREATED_AT',
+      'IDX_NOTIFICATION_USER_STATUS_CREATED',
     );
+
+    await queryRunner.dropIndex('notifications', 'IDX_NOTIFICATION_USER_TYPE');
 
     await queryRunner.dropIndex(
       'notifications',
       'IDX_NOTIFICATION_USER_STATUS',
     );
 
+    await queryRunner.dropIndex('notifications', 'IDX_NOTIFICATION_CREATED_AT');
+
+    await queryRunner.dropIndex('notifications', 'IDX_NOTIFICATION_TYPE');
+
+    await queryRunner.dropIndex('notifications', 'IDX_NOTIFICATION_STATUS');
+
     await queryRunner.dropIndex('notifications', 'IDX_NOTIFICATION_USER_ID');
+
+    // -------------------------------------------------------------------------
+    // Table
+    // -------------------------------------------------------------------------
 
     await queryRunner.dropTable('notifications');
 
+    // -------------------------------------------------------------------------
+    // Enums
+    // -------------------------------------------------------------------------
+
     await queryRunner.query(`
-      DROP TYPE IF EXISTS
-      "notification_status_enum"
+      DROP TYPE IF EXISTS "notification_status_enum"
     `);
 
     await queryRunner.query(`
-      DROP TYPE IF EXISTS
-      "notification_type_enum"
+      DROP TYPE IF EXISTS "notification_type_enum"
     `);
   }
 }

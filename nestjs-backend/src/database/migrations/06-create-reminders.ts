@@ -1,98 +1,62 @@
-/*
- * ============================================================================
- * File: 06-Create-reminders.ts
- * ============================================================================
- *
- * Reminders Database Migration
- *
- * Responsibilities
- * ----------------------------------------------------------------------------
- * - Create reminders table.
- * - Create reminder enums.
- * - Add indexes for dashboard queries.
- *
- * Ownership
- * ----------------------------------------------------------------------------
- * Users are owned by FastAPI.
- *
- * Therefore:
- *
- * userId
- * -------
- * Stored as reference only.
- *
- * No foreign key is created.
- *
- * Compatible:
- * ----------------------------------------------------------------------------
- * - PostgreSQL
- * - TypeORM 0.3+
- *
- * ============================================================================
- */
-
 import {
   MigrationInterface,
   QueryRunner,
   Table,
-  TableIndex,
   TableForeignKey,
+  TableIndex,
 } from 'typeorm';
 
 export class CreateReminders1753170006000 implements MigrationInterface {
-  name = 'CreateReminders1753170006000';
+  public readonly name = 'CreateReminders1753170006000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // =========================================================================
-    // ENUMS
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // PostgreSQL Extension
+    // -------------------------------------------------------------------------
+
+    await queryRunner.query(`
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+    `);
+
+    // -------------------------------------------------------------------------
+    // Enums
+    // -------------------------------------------------------------------------
 
     await queryRunner.query(`
       CREATE TYPE "reminder_type_enum"
       AS ENUM (
-
+        'GENERAL',
         'TASK',
-
         'NOTE',
-
+        'EVENT',
         'SYSTEM'
-
-      )
-    `);
-
-    await queryRunner.query(`
-      CREATE TYPE "reminder_repeat_enum"
-      AS ENUM (
-
-        'NONE',
-
-        'DAILY',
-
-        'WEEKLY',
-
-        'MONTHLY',
-
-        'YEARLY'
-
       )
     `);
 
     await queryRunner.query(`
       CREATE TYPE "reminder_status_enum"
       AS ENUM (
-
-        'ACTIVE',
-
+        'PENDING',
+        'TRIGGERED',
         'COMPLETED',
-
         'CANCELLED'
-
       )
     `);
 
-    // =========================================================================
-    // TABLE
-    // =========================================================================
+    await queryRunner.query(`
+      CREATE TYPE "reminder_repeat_enum"
+      AS ENUM (
+        'NONE',
+        'DAILY',
+        'WEEKLY',
+        'MONTHLY',
+        'YEARLY'
+      )
+    `);
+
+    // -------------------------------------------------------------------------
+    // Table
+    // -------------------------------------------------------------------------
 
     await queryRunner.createTable(
       new Table({
@@ -101,140 +65,130 @@ export class CreateReminders1753170006000 implements MigrationInterface {
         columns: [
           {
             name: 'id',
-
             type: 'uuid',
-
             isPrimary: true,
-
             generationStrategy: 'uuid',
-
             default: 'uuid_generate_v4()',
           },
 
           {
+            name: 'userId',
+            type: 'uuid',
+          },
+
+          {
             name: 'title',
-
             type: 'varchar',
-
-            length: '255',
-
-            isNullable: false,
+            length: '150',
           },
 
           {
             name: 'description',
-
             type: 'text',
-
             isNullable: true,
           },
 
           {
             name: 'type',
-
             type: 'enum',
-
             enumName: 'reminder_type_enum',
-
-            isNullable: false,
-          },
-
-          {
-            name: 'repeat',
-
-            type: 'enum',
-
-            enumName: 'reminder_repeat_enum',
-
-            default: `'NONE'`,
+            default: `'GENERAL'`,
           },
 
           {
             name: 'status',
-
             type: 'enum',
-
             enumName: 'reminder_status_enum',
-
-            default: `'ACTIVE'`,
+            default: `'PENDING'`,
           },
 
-          /**
-           * User reference from FastAPI.
-           */
           {
-            name: 'userId',
-
-            type: 'varchar',
-
-            length: '100',
-
-            isNullable: false,
-          },
-
-          /**
-           * Optional relation with Task.
-           *
-           * Tasks are owned by NestJS.
-           */
-          {
-            name: 'taskId',
-
-            type: 'uuid',
-
-            isNullable: true,
+            name: 'repeat',
+            type: 'enum',
+            enumName: 'reminder_repeat_enum',
+            default: `'NONE'`,
           },
 
           {
             name: 'remindAt',
+            type: 'timestamptz',
+          },
 
-            type: 'timestamp',
-
-            isNullable: false,
+          {
+            name: 'triggeredAt',
+            type: 'timestamptz',
+            isNullable: true,
           },
 
           {
             name: 'completedAt',
+            type: 'timestamptz',
+            isNullable: true,
+          },
 
-            type: 'timestamp',
+          {
+            name: 'reminderOffsetMinutes',
+            type: 'integer',
+            default: 0,
+          },
 
+          {
+            name: 'sendNotification',
+            type: 'boolean',
+            default: true,
+          },
+
+          {
+            name: 'sendEmail',
+            type: 'boolean',
+            default: false,
+          },
+
+          {
+            name: 'taskId',
+            type: 'uuid',
+            isNullable: true,
+          },
+
+          {
+            name: 'notificationId',
+            type: 'uuid',
+            isNullable: true,
+          },
+
+          {
+            name: 'metadata',
+            type: 'jsonb',
             isNullable: true,
           },
 
           {
             name: 'createdAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             default: 'CURRENT_TIMESTAMP',
           },
 
           {
             name: 'updatedAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             default: 'CURRENT_TIMESTAMP',
           },
 
           {
             name: 'deletedAt',
-
-            type: 'timestamp',
-
+            type: 'timestamptz',
             isNullable: true,
           },
         ],
       }),
     );
 
-    // =========================================================================
-    // TASK RELATION
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Foreign Key
+    // -------------------------------------------------------------------------
 
     await queryRunner.createForeignKey(
       'reminders',
-
       new TableForeignKey({
         name: 'FK_REMINDER_TASK',
 
@@ -245,98 +199,80 @@ export class CreateReminders1753170006000 implements MigrationInterface {
         referencedColumnNames: ['id'],
 
         onDelete: 'SET NULL',
+
+        onUpdate: 'CASCADE',
       }),
     );
 
-    // =========================================================================
-    // INDEXES
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Indexes
+    // -------------------------------------------------------------------------
 
-    await queryRunner.createIndices(
-      'reminders',
+    await queryRunner.createIndices('reminders', [
+      new TableIndex({
+        name: 'IDX_REMINDER_USER',
+        columnNames: ['userId'],
+      }),
 
-      [
-        /**
-         * User reminders lookup
-         */
-        new TableIndex({
-          name: 'IDX_REMINDER_USER_ID',
+      new TableIndex({
+        name: 'IDX_REMINDER_STATUS',
+        columnNames: ['status'],
+      }),
 
-          columnNames: ['userId'],
-        }),
+      new TableIndex({
+        name: 'IDX_REMINDER_TYPE',
+        columnNames: ['type'],
+      }),
 
-        /**
-         * Dashboard upcoming reminders
-         */
-        new TableIndex({
-          name: 'IDX_REMINDER_USER_REMIND_AT',
+      new TableIndex({
+        name: 'IDX_REMINDER_REPEAT',
+        columnNames: ['repeat'],
+      }),
 
-          columnNames: ['userId', 'remindAt'],
-        }),
+      new TableIndex({
+        name: 'IDX_REMINDER_REMIND_AT',
+        columnNames: ['remindAt'],
+      }),
 
-        /**
-         * Active reminder scheduler query
-         */
-        new TableIndex({
-          name: 'IDX_REMINDER_STATUS',
+      new TableIndex({
+        name: 'IDX_REMINDER_TASK',
+        columnNames: ['taskId'],
+      }),
 
-          columnNames: ['status'],
-        }),
+      new TableIndex({
+        name: 'IDX_REMINDER_NOTIFICATION',
+        columnNames: ['notificationId'],
+      }),
 
-        /**
-         * Task reminder lookup
-         */
-        new TableIndex({
-          name: 'IDX_REMINDER_TASK_ID',
+      new TableIndex({
+        name: 'IDX_REMINDER_USER_REMIND_AT',
+        columnNames: ['userId', 'remindAt'],
+      }),
 
-          columnNames: ['taskId'],
-        }),
-      ],
-    );
+      new TableIndex({
+        name: 'IDX_REMINDER_USER_STATUS',
+        columnNames: ['userId', 'status'],
+      }),
+    ]);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // =========================================================================
-    // DROP INDEXES
-    // =========================================================================
-
-    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_TASK_ID');
-
-    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_STATUS');
-
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_USER_STATUS');
     await queryRunner.dropIndex('reminders', 'IDX_REMINDER_USER_REMIND_AT');
-
-    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_USER_ID');
-
-    // =========================================================================
-    // DROP FOREIGN KEY
-    // =========================================================================
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_NOTIFICATION');
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_TASK');
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_REMIND_AT');
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_REPEAT');
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_TYPE');
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_STATUS');
+    await queryRunner.dropIndex('reminders', 'IDX_REMINDER_USER');
 
     await queryRunner.dropForeignKey('reminders', 'FK_REMINDER_TASK');
 
-    // =========================================================================
-    // DROP TABLE
-    // =========================================================================
-
     await queryRunner.dropTable('reminders');
 
-    // =========================================================================
-    // DROP ENUMS
-    // =========================================================================
-
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS
-      "reminder_status_enum"
-    `);
-
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS
-      "reminder_repeat_enum"
-    `);
-
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS
-      "reminder_type_enum"
-    `);
+    await queryRunner.query(`DROP TYPE IF EXISTS "reminder_repeat_enum"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "reminder_status_enum"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "reminder_type_enum"`);
   }
 }
