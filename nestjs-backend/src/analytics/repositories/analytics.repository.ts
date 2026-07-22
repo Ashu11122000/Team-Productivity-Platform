@@ -63,14 +63,14 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { TaskEntity } from '../../tasks/entities/task.entity';
-
+import { ProductivityStats } from '../interfaces/productivity-stats.interface';
 import { AnalyticsFilter } from '../interfaces/analytics-filter.interface';
-
+import { ProductivityTrend } from '../interfaces/productivity-trend.interface';
 import { AnalyticsOverview } from '../interfaces/analytics-overview.interface';
 
 import { TaskSummary } from '../interfaces/task-summary.interface';
 
-import { ChartData } from '../interfaces/chart-data.interface';
+//import { ChartData } from '../interfaces/chart-data.interface';
 
 import { TaskStatus, TaskPriority } from '../../common/enums';
 
@@ -582,57 +582,86 @@ export class AnalyticsRepository {
    * @returns Productivity statistics.
    * ==========================================================================
    */
+  /**
+   * ==========================================================================
+   * Get Productivity Statistics
+   * ==========================================================================
+   */
   async getProductivityStats(
     userId: string,
     filter: AnalyticsFilter,
-  ): Promise<{
-    total: number;
-    completed: number;
-    incomplete: number;
-    completionRate: number;
-  }> {
+  ): Promise<ProductivityStats> {
     const queryBuilder = this.createBaseQuery(userId);
 
     this.applyFilters(queryBuilder, filter);
 
     const result = await queryBuilder
-
       .select([
         `
-          COUNT(task.id)
-          `,
+        COUNT(task.id)
+      `,
         'total',
 
         `
-          COUNT(
-            CASE
-              WHEN task.status = :completed
-              THEN 1
-            END
-          )
-          `,
+        COUNT(
+          CASE
+            WHEN task.status = :completed
+            THEN 1
+          END
+        )
+      `,
         'completed',
+
+        `
+        COUNT(
+          CASE
+            WHEN task.status = :pending
+            THEN 1
+          END
+        )
+      `,
+        'pending',
+
+        `
+        COUNT(
+          CASE
+            WHEN task.status = :inProgress
+            THEN 1
+          END
+        )
+      `,
+        'inProgress',
+
+        `
+        COUNT(
+          CASE
+            WHEN task.dueDate < NOW()
+            AND task.status != :completed
+            THEN 1
+          END
+        )
+      `,
+        'overdue',
       ])
-
-      .setParameter('completed', TaskStatus.COMPLETED)
-
+      .setParameters({
+        completed: TaskStatus.COMPLETED,
+        pending: TaskStatus.TODO,
+        inProgress: TaskStatus.IN_PROGRESS,
+      })
       .getRawOne();
 
-    const total = Number(result.total ?? 0);
-
-    const completed = Number(result.completed ?? 0);
+    const totalTasks = Number(result.total ?? 0);
+    const completedTasks = Number(result.completed ?? 0);
 
     return {
-      total,
-
-      completed,
-
-      incomplete: total - completed,
-
-      completionRate: this.calculateCompletionRate(completed, total),
+      totalTasks,
+      completedTasks,
+      pendingTasks: Number(result.pending ?? 0),
+      inProgressTasks: Number(result.inProgress ?? 0),
+      overdueTasks: Number(result.overdue ?? 0),
+      completionRate: this.calculateCompletionRate(completedTasks, totalTasks),
     };
   }
-
   /**
    * ==========================================================================
    * Get Task Status Statistics
@@ -791,73 +820,85 @@ export class AnalyticsRepository {
    * @returns Productivity chart data.
    * ==========================================================================
    */
+  /**
+   * ==========================================================================
+   * Get Productivity Trend
+   * ==========================================================================
+   */
   async getProductivityTrend(
     userId: string,
     filter: AnalyticsFilter,
-  ): Promise<ChartData[]> {
+  ): Promise<ProductivityTrend[]> {
     const queryBuilder = this.createBaseQuery(userId);
 
     this.applyFilters(queryBuilder, filter);
 
     const rows = await queryBuilder
-
       .select(
         `
-          DATE_TRUNC(
-            'day',
-            task.createdAt
-          )
-          `,
+        DATE_TRUNC(
+          'day',
+          task.createdAt
+        )
+      `,
         'date',
       )
-
       .addSelect(
         `
-          COUNT(task.id)
-          `,
+        COUNT(task.id)
+      `,
         'created',
       )
-
       .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.status = :completed
-              THEN 1
-            END
-          )
-          `,
+        COUNT(
+          CASE
+            WHEN task.status = :completed
+            THEN 1
+          END
+        )
+      `,
         'completed',
       )
-
-      .setParameter(
-        'completed',
-
-        TaskStatus.COMPLETED,
+      .addSelect(
+        `
+        COUNT(
+          CASE
+            WHEN task.dueDate < NOW()
+            AND task.status != :completed
+            THEN 1
+          END
+        )
+      `,
+        'overdue',
       )
-
+      .setParameter('completed', TaskStatus.COMPLETED)
       .groupBy(
         `
-          DATE_TRUNC(
-            'day',
-            task.createdAt
-          )
-          `,
+        DATE_TRUNC(
+          'day',
+          task.createdAt
+        )
+      `,
       )
-
-      .orderBy(
-        'date',
-
-        'ASC',
-      )
-
+      .orderBy('date', 'ASC')
       .getRawMany();
 
-    return rows.map((row) => ({
-      label: new Date(row.date).toISOString().split('T')[0],
+    return rows.map((row) => {
+      const tasksCreated = Number(row.created);
+      const tasksCompleted = Number(row.completed);
 
-      value: Number(row.completed),
-    }));
+      return {
+        period: new Date(row.date).toISOString().split('T')[0],
+        tasksCreated,
+        tasksCompleted,
+        overdueTasks: Number(row.overdue ?? 0),
+        productivityRate: this.calculateCompletionRate(
+          tasksCompleted,
+          tasksCreated,
+        ),
+      };
+    });
   }
 
   /**

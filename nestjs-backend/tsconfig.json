@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-
     "module": "commonjs",
 
     "rootDir": "./src",
@@ -29,5 +28,17 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+
+  "include": [
+    "src/**/*.ts"
+  ],
+
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.spec.ts",
+    "**/*.e2e-spec.ts"
+  ]
 }
