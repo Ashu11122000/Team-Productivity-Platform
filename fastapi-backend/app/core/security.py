@@ -104,6 +104,11 @@ def create_access_token(
         "user_id": user_id,
         "role": role,
         "type": ACCESS_TOKEN_TYPE.lower(),
+
+        # Standard JWT claims
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+
         "iat": int(now.timestamp()),
         "exp": int(expire.timestamp()),
     }
@@ -127,6 +132,8 @@ def decode_access_token(
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
+            issuer=settings.JWT_ISSUER,
+            audience=settings.JWT_AUDIENCE,
         )
 
     except ExpiredSignatureError as exc:
@@ -148,6 +155,8 @@ def decode_access_token(
         "user_id",
         "role",
         "type",
+        "iss",
+        "aud",
     )
 
     for claim in required_claims:

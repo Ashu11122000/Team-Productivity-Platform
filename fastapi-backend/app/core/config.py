@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # ======================================================
-    # Security
+    # JWT Security
     # ======================================================
 
     SECRET_KEY: str = Field(
@@ -77,11 +77,21 @@ class Settings(BaseSettings):
         description="JWT Secret Key",
     )
 
-    ALGORITHM: str = "HS256"
+    ALGORITHM: Literal["HS256"] = "HS256"
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
         default=30,
         gt=0,
+    )
+
+    JWT_ISSUER: str = Field(
+        default="team-productivity-platform",
+        description="JWT issuer",
+    )
+
+    JWT_AUDIENCE: str = Field(
+        default="team-productivity-api",
+        description="JWT audience",
     )
 
     # ======================================================
@@ -189,34 +199,18 @@ class Settings(BaseSettings):
 
     @property
     def is_development(self) -> bool:
-        """
-        True if running in development mode.
-        """
-
         return self.ENVIRONMENT == "development"
 
     @property
     def is_testing(self) -> bool:
-        """
-        True if running in testing mode.
-        """
-
         return self.ENVIRONMENT == "testing"
 
     @property
     def is_staging(self) -> bool:
-        """
-        True if running in staging mode.
-        """
-
         return self.ENVIRONMENT == "staging"
 
     @property
     def is_production(self) -> bool:
-        """
-        True if running in production mode.
-        """
-
         return self.ENVIRONMENT == "production"
 
 
@@ -224,9 +218,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Return a cached Settings instance.
-
-    The configuration is loaded only once during the
-    application's lifetime.
     """
 
     return Settings()
