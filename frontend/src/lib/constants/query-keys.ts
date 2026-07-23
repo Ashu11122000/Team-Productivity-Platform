@@ -47,6 +47,10 @@ export const QUERY_KEYS = {
 
   note: (id: number | string) => ['notes', id] as const,
 
+  noteList: (params?: unknown) => ['notes', 'list', params] as const,
+
+  noteSearch: (query?: string) => ['notes', 'search', query] as const,
+
   /**
    * ==========================================================================
    * Tasks (NestJS)
@@ -69,6 +73,8 @@ export const QUERY_KEYS = {
 
   category: (id: string) => ['categories', id] as const,
 
+  categoryList: (params?: unknown) => ['categories', 'list', params] as const,
+
   /**
    * ==========================================================================
    * Tags (NestJS)
@@ -79,6 +85,8 @@ export const QUERY_KEYS = {
 
   tag: (id: string) => ['tags', id] as const,
 
+  tagList: (params?: unknown) => ['tags', 'list', params] as const,
+
   /**
    * ==========================================================================
    * Reminders (NestJS)
@@ -88,6 +96,8 @@ export const QUERY_KEYS = {
   reminders: ['reminders'] as const,
 
   reminder: (id: string) => ['reminders', id] as const,
+
+  reminderList: (params?: unknown) => ['reminders', 'list', params] as const,
 
   reminderStatistics: ['reminders', 'statistics'] as const,
 
@@ -101,6 +111,8 @@ export const QUERY_KEYS = {
 
   notification: (id: string) => ['notifications', id] as const,
 
+  notificationList: (params?: unknown) => ['notifications', 'list', params] as const,
+
   notificationSummary: ['notifications', 'summary'] as const,
 
   notificationStats: ['notifications', 'stats'] as const,
@@ -113,6 +125,14 @@ export const QUERY_KEYS = {
 
   dashboard: ['dashboard'] as const,
 
+  dashboardOverview: ['dashboard', 'overview'] as const,
+
+  dashboardStats: ['dashboard', 'stats'] as const,
+
+  dashboardRecentActivity: ['dashboard', 'recent-activity'] as const,
+
+  dashboardTaskSummary: ['dashboard', 'task-summary'] as const,
+
   /**
    * ==========================================================================
    * Analytics (NestJS)
@@ -120,6 +140,8 @@ export const QUERY_KEYS = {
    */
 
   analytics: ['analytics'] as const,
+
+  analyticsOverview: ['analytics', 'overview'] as const,
 
   taskAnalytics: ['analytics', 'tasks'] as const,
 
@@ -139,6 +161,10 @@ export const QUERY_KEYS = {
 
   activityLog: (id: string) => ['activity-logs', id] as const,
 
+  activityLogList: (params?: unknown) => ['activity-logs', 'list', params] as const,
+
+  activityLogFilter: (filters?: unknown) => ['activity-logs', 'filter', filters] as const,
+
   /**
    * ==========================================================================
    * Calendar (NestJS)
@@ -153,9 +179,17 @@ export const QUERY_KEYS = {
 
   /**
    * ==========================================================================
-   * User Preferences
+   * Settings / Preferences
    * ==========================================================================
    */
+
+  settings: ['settings'] as const,
+
+  userSettings: ['settings', 'user'] as const,
+
+  appearanceSettings: ['settings', 'appearance'] as const,
+
+  notificationSettings: ['settings', 'notifications'] as const,
 
   preferences: ['preferences'] as const,
 } as const;

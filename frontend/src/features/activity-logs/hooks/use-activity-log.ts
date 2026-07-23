@@ -1,34 +1,32 @@
 /**
  * ============================================================================
- * File: features/categories/hooks/use-category.ts
+ * File: features/activity-logs/hooks/use-activity-log.ts
  * ============================================================================
  *
- * Category Detail Query Hook
+ * Activity Log Detail Query Hook
  *
  * Responsibilities
  * ----------------------------------------------------------------------------
- * - Fetch a single category by ID.
+ * - Fetch a single activity log.
  * - Use centralized React Query keys.
- * - Provide typed category response.
+ * - Provide typed API responses.
  * ============================================================================
  */
 
-'use client';
-
 import { useQuery } from '@tanstack/react-query';
 
-import { getCategory } from '../api/get-category';
+import { getActivityLog } from '../api/get-activity-log';
 
 import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
-import type { CategoryResponse } from '../types/category.types';
+import type { ActivityLog } from '../types/activity-log.types';
 
-export function useCategory(id?: string) {
-  return useQuery<CategoryResponse>({
-    queryKey: QUERY_KEYS.category(id ?? ''),
+export const useActivityLog = (id?: string) => {
+  return useQuery<ActivityLog>({
+    queryKey: QUERY_KEYS.activityLog(id ?? ''),
 
-    queryFn: () => getCategory(id as string),
+    queryFn: () => getActivityLog(id as string),
 
     enabled: Boolean(id),
   });
-}
+};

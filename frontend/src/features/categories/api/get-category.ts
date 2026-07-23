@@ -1,17 +1,27 @@
+/**
+ * ============================================================================
+ * File: features/categories/api/get-category.ts
+ * ============================================================================
+ *
+ * Get Category API
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Fetch a single category by ID.
+ * - Communicate with NestJS backend.
+ * - Use centralized API routes.
+ * - Return typed category response.
+ * ============================================================================
+ */
+
 import { nestjsClient } from '@/services/nestjs/client';
 
-import type {
-  Category,
-  CategoryResponse,
-} from '../types/category.types';
+import { NESTJS_ROUTES } from '@/lib/constants/api-routes';
 
-export async function getCategory(
-  id: string,
-): Promise<Category> {
-  const response =
-    await nestjsClient.get<
-      CategoryResponse
-    >(`/categories/${id}`);
+import type { CategoryResponse } from '../types/category.types';
 
-  return response.data.data;
+export async function getCategory(id: string): Promise<CategoryResponse> {
+  const response = await nestjsClient.get<CategoryResponse>(NESTJS_ROUTES.CATEGORIES.BY_ID(id));
+
+  return response.data;
 }
