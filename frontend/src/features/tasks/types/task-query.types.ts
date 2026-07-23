@@ -1,18 +1,82 @@
-// features/tasks/types/task-query.types.ts
+/**
+ * ============================================================================
+ * File: features/tasks/types/task-query.types.ts
+ * ============================================================================
+ *
+ * Task Query Types
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Define query parameters for retrieving tasks.
+ * - Mirror the NestJS task query DTO.
+ * - Provide strongly typed filtering, sorting, and pagination.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - Task management is owned by the NestJS backend.
+ * - Used by React Query hooks and task service APIs.
+ * ============================================================================
+ */
 
-import {
-  TaskPriority,
-  TaskStatus,
-} from './task.types';
+import type { TaskPriority, TaskStatus } from './task.types';
+
+/**
+ * ============================================================================
+ * Sort Order
+ * ============================================================================
+ */
+
+export type SortOrder = 'ASC' | 'DESC';
+
+/**
+ * ============================================================================
+ * Task Query Parameters
+ * ============================================================================
+ */
 
 export interface TaskQueryParams {
-  page?: number;
+  /**
+   * Page number (1-based).
+   */
+  readonly page?: number;
 
-  limit?: number;
+  /**
+   * Number of records per page.
+   */
+  readonly limit?: number;
 
-  search?: string;
+  /**
+   * Search term.
+   */
+  readonly search?: string;
 
-  status?: TaskStatus;
+  /**
+   * Filter by task status.
+   */
+  readonly status?: TaskStatus;
 
-  priority?: TaskPriority;
+  /**
+   * Filter by task priority.
+   */
+  readonly priority?: TaskPriority;
+
+  /**
+   * Filter by category.
+   */
+  readonly categoryId?: string;
+
+  /**
+   * Filter by tag.
+   */
+  readonly tagId?: string;
+
+  /**
+   * Field used for sorting.
+   */
+  readonly sortBy?: string;
+
+  /**
+   * Sort direction.
+   */
+  readonly sortOrder?: SortOrder;
 }

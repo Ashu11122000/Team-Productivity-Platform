@@ -1,21 +1,68 @@
+/**
+ * ============================================================================
+ * File: features/auth/hooks/use-current-user.ts
+ * ============================================================================
+ *
+ * Current User Query Hook
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Fetch the authenticated user's profile from the FastAPI backend.
+ * - Cache the authenticated user using TanStack Query.
+ * - Provide configurable enable/disable behavior.
+ * - Avoid unnecessary refetches for stable user profile data.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - Authentication is fully owned by the FastAPI backend.
+ * - The shared Axios client automatically attaches the JWT.
+ * - This hook should only execute after authentication restoration.
+ * ============================================================================
+ */
+
 import { useQuery } from '@tanstack/react-query';
 
 import { getCurrentUser } from '../api/current-user';
+import type { AuthMeResponse } from '../types/auth.types';
 
 import { QUERY_KEYS } from '@/lib/constants/query-keys';
 
-interface UseCurrentUserOptions {
-  enabled?: boolean;
+/**
+ * ============================================================================
+ * Hook Options
+ * ============================================================================
+ */
+
+export interface UseCurrentUserOptions {
+  readonly enabled?: boolean;
 }
 
-const CURRENT_USER_STALE_TIME = 10 * 60 * 1000;
+/**
+ * ============================================================================
+ * Cache Configuration
+ * ============================================================================
+ */
 
-const CURRENT_USER_GC_TIME = 30 * 60 * 1000;
+/**
+ * User profile changes infrequently.
+ */
+export const CURRENT_USER_STALE_TIME = 10 * 60 * 1000;
+
+/**
+ * Keep cached profile for 30 minutes after becoming unused.
+ */
+export const CURRENT_USER_GC_TIME = 30 * 60 * 1000;
+
+/**
+ * ============================================================================
+ * Current User Query
+ * ============================================================================
+ */
 
 export function useCurrentUser(options: UseCurrentUserOptions = {}) {
   const { enabled = true } = options;
 
-  return useQuery({
+  return useQuery<AuthMeResponse>({
     queryKey: QUERY_KEYS.profile,
 
     queryFn: getCurrentUser,
@@ -26,8 +73,12 @@ export function useCurrentUser(options: UseCurrentUserOptions = {}) {
 
     gcTime: CURRENT_USER_GC_TIME,
 
-    retry: 0,
+    retry: false,
 
     refetchOnWindowFocus: false,
+
+    refetchOnReconnect: true,
+
+    refetchOnMount: false,
   });
 }

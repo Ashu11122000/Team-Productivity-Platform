@@ -1,25 +1,78 @@
-export type CreateTaskStatus =
-  | 'TODO'
-  | 'IN_PROGRESS'
-  | 'COMPLETED';
+/**
+ * ============================================================================
+ * File: features/tasks/types/create-task.types.ts
+ * ============================================================================
+ *
+ * Create Task Types
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Define request contracts for creating tasks.
+ * - Mirror the NestJS CreateTaskDto.
+ * - Provide reusable task-related enums and DTOs.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - Task management is owned by the NestJS backend.
+ * - Authentication is provided by the FastAPI backend.
+ * ============================================================================
+ */
 
-export type CreateTaskPriority =
-  | 'LOW'
-  | 'MEDIUM'
-  | 'HIGH';
+/**
+ * ============================================================================
+ * Task Status
+ * ============================================================================
+ */
+
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
+
+/**
+ * ============================================================================
+ * Task Priority
+ * ============================================================================
+ */
+
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+
+/**
+ * ============================================================================
+ * Create Task Request
+ * ============================================================================
+ */
 
 export interface CreateTaskRequest {
-  title: string;
+  /**
+   * Task title.
+   */
+  readonly title: string;
 
-  description?: string;
+  /**
+   * Optional task description.
+   */
+  readonly description?: string;
 
-  status?: CreateTaskStatus;
+  /**
+   * Initial task status.
+   */
+  readonly status?: TaskStatus;
 
-  priority?: CreateTaskPriority;
+  /**
+   * Task priority.
+   */
+  readonly priority?: TaskPriority;
 
-  dueDate?: string | null;
+  /**
+   * Due date (ISO 8601).
+   */
+  readonly dueDate?: string | null;
 
-  categoryId?: string | null;
+  /**
+   * Related category identifier.
+   */
+  readonly categoryId?: string | null;
 
-  tagIds?: string[];
+  /**
+   * Associated tag identifiers.
+   */
+  readonly tagIds?: readonly string[];
 }

@@ -1,30 +1,55 @@
+/**
+ * ============================================================================
+ * File: features/tasks/api/update-task.ts
+ * ============================================================================
+ *
+ * Update Task API
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Update an existing task via the NestJS backend.
+ * - Return the updated task.
+ * - Keep the frontend aligned with the NestJS API contract.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - Task management is fully owned by the NestJS backend.
+ * - Authentication is handled by the FastAPI backend.
+ * - The shared NestJS Axios client automatically attaches the JWT.
+ * ============================================================================
+ */
+
+import { NESTJS_ROUTES } from '@/lib/constants/api-routes';
 import { nestjsClient } from '@/services/nestjs/client';
 
-import { API_ROUTES } from '@/lib/constants/api-routes';
-
 import type { Task } from '../types/task.types';
+import type { UpdateTaskRequest } from '../types/update-task.types';
 
-import type {
-  UpdateTaskRequest,
-} from '../types/update-task.types';
+/**
+ * ============================================================================
+ * Update Task Response
+ * ============================================================================
+ */
 
 interface UpdateTaskResponse {
-  success: boolean;
+  readonly success: boolean;
 
-  message: string;
+  readonly message: string;
 
-  data: Task;
+  readonly data: Task;
 }
 
-export async function updateTask(
-  id: string,
-  payload: UpdateTaskRequest,
-): Promise<Task> {
-  const response =
-    await nestjsClient.patch<UpdateTaskResponse>(
-      `${API_ROUTES.TASKS.BASE}/${id}`,
-      payload,
-    );
+/**
+ * ============================================================================
+ * Update Task
+ * ============================================================================
+ */
 
-  return response.data.data;
+export async function updateTask(id: string, payload: UpdateTaskRequest): Promise<Task> {
+  const { data } = await nestjsClient.patch<UpdateTaskResponse>(
+    NESTJS_ROUTES.TASKS.BY_ID(id),
+    payload,
+  );
+
+  return data.data;
 }

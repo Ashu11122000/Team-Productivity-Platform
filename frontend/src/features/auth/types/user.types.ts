@@ -7,9 +7,10 @@
  *
  * Responsibilities
  * ----------------------------------------------------------------------------
- * - Shared authenticated user model.
- * - Matches FastAPI user responses.
- * - Used throughout authentication and protected pages.
+ * - Define the shared authenticated user model.
+ * - Mirror the FastAPI user response contract.
+ * - Provide reusable user-related types across the application.
+ * - Maintain strict typing for authentication and authorization.
  * ============================================================================
  */
 
@@ -19,9 +20,12 @@ import type { UserRole } from '@/lib/constants/roles';
  * ============================================================================
  * User Identifier
  * ============================================================================
+ *
+ * The frontend treats identifiers as strings to remain compatible with
+ * backend UUIDs and avoid coupling to database implementation details.
  */
 
-export type UserId = number;
+export type UserId = string;
 
 /**
  * ============================================================================
@@ -31,38 +35,38 @@ export type UserId = number;
 
 export interface User {
   /**
-   * Database primary key.
+   * Unique user identifier.
    */
-  id: UserId;
+  readonly id: UserId;
 
   /**
    * User email address.
    */
-  email: string;
+  readonly email: string;
 
   /**
    * Application role.
    */
-  role: UserRole;
+  readonly role: UserRole;
 
   /**
    * Optional display name.
    * Reserved for future backend support.
    */
-  full_name?: string | null;
+  readonly full_name?: string | null;
 
   /**
-   * Whether the account is active.
+   * Indicates whether the account is active.
    */
-  is_active?: boolean;
+  readonly is_active?: boolean;
 
   /**
-   * Record creation timestamp.
+   * Record creation timestamp (ISO 8601).
    */
-  created_at?: string | null;
+  readonly created_at?: string | null;
 
   /**
-   * Record last update timestamp.
+   * Record last update timestamp (ISO 8601).
    */
-  updated_at?: string | null;
+  readonly updated_at?: string | null;
 }

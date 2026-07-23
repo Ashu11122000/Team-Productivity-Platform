@@ -1,61 +1,161 @@
-export type TaskStatus =
-  | 'TODO'
-  | 'IN_PROGRESS'
-  | 'COMPLETED';
+/**
+ * ============================================================================
+ * File: features/tasks/types/task.types.ts
+ * ============================================================================
+ *
+ * Task Types
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Define shared task-related domain models.
+ * - Mirror the NestJS task response DTOs.
+ * - Provide reusable types across the Tasks feature.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - Tasks are managed by the NestJS backend.
+ * - Authentication is handled by the FastAPI backend.
+ * ============================================================================
+ */
 
-export type TaskPriority =
-  | 'LOW'
-  | 'MEDIUM'
-  | 'HIGH';
+/**
+ * ============================================================================
+ * Task Status
+ * ============================================================================
+ */
+
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
+
+/**
+ * ============================================================================
+ * Task Priority
+ * ============================================================================
+ */
+
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+
+/**
+ * ============================================================================
+ * Task Category
+ * ============================================================================
+ */
 
 export interface TaskCategory {
-  id: string;
+  readonly id: string;
 
-  name: string;
+  readonly name: string;
 
-  description?: string | null;
+  readonly description?: string | null;
 
-  color?: string | null;
+  readonly color?: string | null;
 }
+
+/**
+ * ============================================================================
+ * Task Tag
+ * ============================================================================
+ */
+
+export interface TaskTag {
+  readonly id: string;
+
+  readonly name: string;
+
+  readonly color?: string | null;
+}
+
+/**
+ * ============================================================================
+ * Task
+ * ============================================================================
+ */
 
 export interface Task {
-  id: string;
+  /**
+   * Unique task identifier.
+   */
+  readonly id: string;
 
-  title: string;
+  /**
+   * Task title.
+   */
+  readonly title: string;
 
-  description: string | null;
+  /**
+   * Optional task description.
+   */
+  readonly description: string | null;
 
-  status: TaskStatus;
+  /**
+   * Current task status.
+   */
+  readonly status: TaskStatus;
 
-  priority: TaskPriority;
+  /**
+   * Task priority.
+   */
+  readonly priority: TaskPriority;
 
-  dueDate: string | null;
+  /**
+   * Due date (ISO 8601).
+   */
+  readonly dueDate: string | null;
 
-  userId: string;
+  /**
+   * Owner of the task.
+   */
+  readonly userId: string;
 
-  isConvertedFromNote: boolean;
+  /**
+   * Indicates whether this task originated from a note.
+   */
+  readonly isConvertedFromNote: boolean;
 
-  sourceNoteId: string | null;
+  /**
+   * Source note identifier.
+   */
+  readonly sourceNoteId: string | null;
 
-  categoryId: string | null;
+  /**
+   * Related category identifier.
+   */
+  readonly categoryId: string | null;
 
-  category: TaskCategory | null;
+  /**
+   * Category details.
+   */
+  readonly category: TaskCategory | null;
 
-  tags: unknown[];
+  /**
+   * Associated tags.
+   */
+  readonly tags: readonly TaskTag[];
 
-  createdAt: string;
+  /**
+   * Creation timestamp (ISO 8601).
+   */
+  readonly createdAt: string;
 
-  updatedAt: string;
+  /**
+   * Last update timestamp (ISO 8601).
+   */
+  readonly updatedAt: string;
 }
 
+/**
+ * ============================================================================
+ * Tasks Response
+ * ============================================================================
+ */
+
 export interface TasksResponse {
-  data: Task[];
+  readonly data: readonly Task[];
 
-  total: number;
+  readonly total: number;
 
-  page: number;
+  readonly page: number;
 
-  limit: number;
+  readonly limit: number;
 
-  totalPages: number;
+  readonly totalPages: number;
 }

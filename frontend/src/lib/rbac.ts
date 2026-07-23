@@ -11,11 +11,16 @@
  * - Permission helpers.
  * - Route authorization.
  * - Component authorization.
- * - Shared across FastAPI & NestJS modules.
+ * - Shared across the entire frontend application.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - Authentication is handled by the FastAPI backend.
+ * - Authorization is performed on the frontend using shared role definitions.
  * ============================================================================
  */
 
-import type { UserRole } from '@/lib/constants/roles';
+import { ROLES, type UserRole } from '@/lib/constants/roles';
 
 /**
  * ============================================================================
@@ -42,7 +47,7 @@ export function hasRole(
 
 export function hasAnyRole(
   userRole: UserRole | null | undefined,
-  ...allowedRoles: UserRole[]
+  ...allowedRoles: readonly UserRole[]
 ): boolean {
   return hasRole(userRole, allowedRoles);
 }
@@ -66,27 +71,40 @@ export function hasAllRoles(
 
 /**
  * ============================================================================
- * Admin
+ * Check Admin Role
  * ============================================================================
  */
 
 export function isAdmin(role: UserRole | null | undefined): boolean {
-  return role === 'ADMIN';
+  return role === ROLES.ADMIN;
 }
 
 /**
  * ============================================================================
- * User
+ * Check User Role
  * ============================================================================
  */
 
 export function isUser(role: UserRole | null | undefined): boolean {
-  return Boolean(role);
+  return role === ROLES.USER;
 }
 
 /**
  * ============================================================================
- * Authorization
+ * Permission Helper
+ * ============================================================================
+ */
+
+export function hasPermission(
+  role: UserRole | null | undefined,
+  allowedRoles: readonly UserRole[],
+): boolean {
+  return hasRole(role, allowedRoles);
+}
+
+/**
+ * ============================================================================
+ * Route / Component Authorization
  * ============================================================================
  */
 
@@ -94,5 +112,5 @@ export function canAccess(
   role: UserRole | null | undefined,
   allowedRoles: readonly UserRole[],
 ): boolean {
-  return hasRole(role, allowedRoles);
+  return hasPermission(role, allowedRoles);
 }

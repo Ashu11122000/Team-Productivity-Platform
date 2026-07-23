@@ -57,6 +57,8 @@ export const QUERY_KEYS = {
 
   task: (id: string) => ['tasks', id] as const,
 
+  taskList: (params?: unknown) => ['tasks', 'list', params] as const,
+
   /**
    * ==========================================================================
    * Categories (NestJS)
@@ -87,7 +89,7 @@ export const QUERY_KEYS = {
 
   reminder: (id: string) => ['reminders', id] as const,
 
-  reminderStatistics: ['reminder-statistics'] as const,
+  reminderStatistics: ['reminders', 'statistics'] as const,
 
   /**
    * ==========================================================================
@@ -99,9 +101,9 @@ export const QUERY_KEYS = {
 
   notification: (id: string) => ['notifications', id] as const,
 
-  notificationSummary: ['notification-summary'] as const,
+  notificationSummary: ['notifications', 'summary'] as const,
 
-  notificationStats: ['notification-stats'] as const,
+  notificationStats: ['notifications', 'stats'] as const,
 
   /**
    * ==========================================================================
@@ -119,13 +121,13 @@ export const QUERY_KEYS = {
 
   analytics: ['analytics'] as const,
 
-  taskAnalytics: ['task-analytics'] as const,
+  taskAnalytics: ['analytics', 'tasks'] as const,
 
-  taskStatusAnalytics: ['task-status-analytics'] as const,
+  taskStatusAnalytics: ['analytics', 'tasks', 'status'] as const,
 
-  taskPriorityAnalytics: ['task-priority-analytics'] as const,
+  taskPriorityAnalytics: ['analytics', 'tasks', 'priority'] as const,
 
-  productivityAnalytics: ['productivity-analytics'] as const,
+  productivityAnalytics: ['analytics', 'productivity'] as const,
 
   /**
    * ==========================================================================
@@ -145,9 +147,9 @@ export const QUERY_KEYS = {
 
   calendar: ['calendar'] as const,
 
-  calendarEvents: ['calendar-events'] as const,
+  calendarEvents: ['calendar', 'events'] as const,
 
-  holidays: ['holidays'] as const,
+  holidays: ['calendar', 'holidays'] as const,
 
   /**
    * ==========================================================================
