@@ -7,35 +7,15 @@
  *
  * Responsibilities
  * ----------------------------------------------------------------------------
- * - Define external holiday provider contracts.
- * - Describe request and response structures.
+ * - Define OpenHolidays API contracts.
  * - Provide type safety for integration layer.
- *
- * Does NOT:
- * ----------------------------------------------------------------------------
- * - Contain business rules.
- * - Perform validation.
- * - Map calendar DTOs.
- *
- *
- * Architecture:
- *
- * Holiday Provider API
- *          |
- *          ↓
- * HolidayApiClient
- *          |
- *          ↓
- * Interfaces
- *          |
- *          ↓
- * HolidayApiService
- *
+ * - Define internal Calendar holiday model.
  *
  * Compatible:
  * ----------------------------------------------------------------------------
  * - NestJS 11
  * - TypeScript 5+
+ * - OpenHolidays API
  *
  * ============================================================================
  */
@@ -46,10 +26,9 @@
 
 export interface HolidayApiRequest {
   /**
-   * ISO country code.
+   * ISO Country Code
    *
    * Example:
-   *
    * IN
    * US
    */
@@ -62,103 +41,88 @@ export interface HolidayApiRequest {
 }
 
 // ============================================================================
-// Holiday Item Response
+// OpenHolidays Localized Text
+// ============================================================================
+
+export interface HolidayTranslation {
+  language: string;
+
+  text: string;
+}
+
+// ============================================================================
+// OpenHolidays Holiday
 // ============================================================================
 
 export interface HolidayApiHoliday {
   /**
-   * Holiday name.
-   */
-  name: string;
-
-  /**
-   * Holiday date.
-   *
-   * Format depends on provider.
-   */
-  date: string;
-
-  /**
-   * Country code.
-   */
-  country?: string;
-
-  /**
-   * Holiday type.
-   *
-   * Example:
-   *
-   * Public
-   * National
-   */
-  type?: string;
-
-  /**
-   * Optional description.
-   */
-  description?: string;
-
-  /**
    * Provider identifier.
    */
-  id?: string;
+  id: string;
+
+  /**
+   * Holiday start date.
+   *
+   * Example:
+   * 2026-01-26
+   */
+  startDate: string;
+
+  /**
+   * Holiday end date.
+   */
+  endDate: string;
+
+  /**
+   * Localized holiday names.
+   */
+  name: HolidayTranslation[];
+
+  /**
+   * Regional applicability.
+   */
+  nationwide?: boolean;
+
+  /**
+   * Holiday subdivisions.
+   */
+  subdivisions?: string[];
 }
 
 // ============================================================================
-// Holiday API Response
+// OpenHolidays Response
+// ============================================================================
+//
+// OpenHolidays returns an array directly.
+//
+// [
+//   {
+//      ...
+//   }
+// ]
+//
 // ============================================================================
 
-export interface HolidayApiResponse {
-  /**
-   * Provider status.
-   */
-  success?: boolean;
-
-  /**
-   * Returned holidays.
-   */
-  holidays: HolidayApiHoliday[];
-
-  /**
-   * Optional provider message.
-   */
-  message?: string;
-}
+export type HolidayApiResponse = HolidayApiHoliday[];
 
 // ============================================================================
-// Holiday Provider Metadata
+// Provider Metadata
 // ============================================================================
 
 export interface HolidayProviderInfo {
-  /**
-   * Provider name.
-   */
   provider: string;
 
-  /**
-   * API version.
-   */
   version?: string;
 
-  /**
-   * Last synchronization time.
-   */
   fetchedAt?: Date;
 }
 
 // ============================================================================
-// Calendar Holiday Domain Contract
-// ============================================================================
-//
-// Used after provider transformation.
-// Calendar module can consume this format without
-// knowing external API structure.
-//
-
+// Internal Calendar Holiday
 // ============================================================================
 
 export interface CalendarHoliday {
-  id?: string;
+  id: string;
 
   title: string;
 

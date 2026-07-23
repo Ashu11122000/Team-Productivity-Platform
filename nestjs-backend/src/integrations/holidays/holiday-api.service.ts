@@ -7,99 +7,91 @@
  *
  * Responsibilities
  * ----------------------------------------------------------------------------
- * - Provide application-level access to holiday provider.
+ * - Provide application-level access to OpenHolidays API.
  * - Coordinate holiday API requests.
  * - Transform external responses into internal contracts.
  * - Hide provider implementation details.
- *
- * Does NOT:
- * ----------------------------------------------------------------------------
- * - Manage calendar rules.
- * - Store holidays.
- * - Access repositories.
- *
- *
- * Architecture:
- *
- * CalendarService
- *        |
- *        ↓
- * HolidayApiService
- *        |
- *        ↓
- * HolidayApiClient
- *        |
- *        ↓
- * External Holiday API
- *
  *
  * Compatible:
  * ----------------------------------------------------------------------------
  * - NestJS 11
  * - TypeScript 5+
+ * - OpenHolidays API
  *
  * ============================================================================
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { HolidayApiClient } from './holiday-api.client';
 
-import { CalendarHoliday, HolidayApiResponse } from './holiday-api.interface';
+import {
+  CalendarHoliday,
+  HolidayApiHoliday,
+  HolidayApiResponse,
+} from './holiday-api.interface';
 
 import { IntegrationException } from '../../common/exceptions';
 
 @Injectable()
 export class HolidayApiService {
+  private readonly logger = new Logger(HolidayApiService.name);
+
   constructor(private readonly client: HolidayApiClient) {}
 
   /**
    * ==========================================================================
    * Get Holidays
    * ==========================================================================
-   *
-   * Fetch holidays from external provider.
-   *
-   * Converts:
-   *
-   * HolidayApiHoliday
-   *
-   * into:
-   *
-   * CalendarHoliday
-   *
-   * ==========================================================================
    */
 
   async getHolidays(country: string, year: number): Promise<CalendarHoliday[]> {
-    try {
-      const response = await this.client.getHolidays<HolidayApiResponse>(
-        country,
+    country = country || process.env.HOLIDAY_COUNTRY || 'IN';
+    year = year || new Date().getFullYear();
 
+    this.logger.log(`Fetching holidays for country=${country}, year=${year}`);
+
+    try {
+      const holidays = await this.client.getHolidays<HolidayApiResponse>(
+        country,
         year,
       );
 
-      if (!response || !response.holidays) {
+      if (!Array.isArray(holidays)) {
+        this.logger.error(`Expected array but received ${typeof holidays}`);
+
         throw new IntegrationException('Invalid holiday provider response');
       }
 
-      return response.holidays.map((holiday) => ({
+      return holidays.map((holiday: HolidayApiHoliday): CalendarHoliday => ({
         id: holiday.id,
 
-        title: holiday.name,
+        title:
+          holiday.name.find((item) => item.language === 'EN')?.text ??
+          holiday.name[0]?.text ??
+          'Unnamed Holiday',
 
-        date: new Date(holiday.date),
+        date: new Date(holiday.startDate),
 
-        country: holiday.country ?? country,
+        country,
 
-        description: holiday.description,
+        description: holiday.nationwide
+          ? 'Nationwide Public Holiday'
+          : 'Regional Public Holiday',
       }));
     } catch (error) {
+      this.logger.error(
+        'Holiday provider request failed',
+        error instanceof Error ? error.stack : String(error),
+      );
+
       if (error instanceof IntegrationException) {
         throw error;
       }
 
-      throw new IntegrationException('Unable to fetch holidays from provider');
+      throw new IntegrationException(
+        'Unable to fetch holidays from OpenHolidays API',
+      );
     }
   }
 
@@ -107,31 +99,19 @@ export class HolidayApiService {
    * ==========================================================================
    * Get Current Year Holidays
    * ==========================================================================
-   *
-   * Convenience wrapper.
-   *
-   * ==========================================================================
    */
 
   async getCurrentYearHolidays(country: string): Promise<CalendarHoliday[]> {
-    const year = new Date().getFullYear();
-
-    return this.getHolidays(country, year);
+    return this.getHolidays(country, new Date().getFullYear());
   }
 
   /**
    * ==========================================================================
    * Get Next Year Holidays
    * ==========================================================================
-   *
-   * Useful for calendar planning.
-   *
-   * ==========================================================================
    */
 
   async getNextYearHolidays(country: string): Promise<CalendarHoliday[]> {
-    const year = new Date().getFullYear() + 1;
-
-    return this.getHolidays(country, year);
+    return this.getHolidays(country, new Date().getFullYear() + 1);
   }
 }

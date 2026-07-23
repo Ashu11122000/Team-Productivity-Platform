@@ -45,6 +45,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -61,9 +62,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { ReminderPaginationResponseDto } from '../dto/reminder-pagination-response.dto';
 import { ReminderQueryDto } from '../dto/reminder-query.dto';
@@ -98,6 +100,7 @@ export class RemindersController {
   public async create(
     @CurrentUser()
     user: JwtPayload,
+
     @Body()
     dto: CreateReminderDto,
   ): Promise<ReminderResponseDto> {
@@ -146,10 +149,63 @@ export class RemindersController {
   public async findAll(
     @CurrentUser()
     user: JwtPayload,
+
     @Query()
     query: ReminderQueryDto,
   ): Promise<ReminderPaginationResponseDto> {
     return this.remindersService.findAll(Number(user.user_id), query);
+  }
+
+  /**
+   * ==========================================================================
+   * Returns reminder summary.
+   *
+   * NOTE:
+   * Static routes MUST appear before dynamic ":id" routes to prevent
+   * "/summary" from being interpreted as an ID.
+   * ==========================================================================
+   */
+  @Get('summary')
+  @ApiOperation({
+    summary: 'Reminder summary',
+    description:
+      'Returns aggregated reminder summary information for the authenticated user.',
+  })
+  @ApiOkResponse({
+    description: 'Reminder summary retrieved successfully.',
+    type: ReminderSummaryDto,
+  })
+  public async getSummary(
+    @CurrentUser()
+    user: JwtPayload,
+  ): Promise<ReminderSummaryDto> {
+    return this.remindersService.getSummary(Number(user.user_id));
+  }
+
+  /**
+   * ==========================================================================
+   * Returns reminder statistics.
+   *
+   * NOTE:
+   * Static routes MUST appear before dynamic ":id" routes to prevent
+   * "/stats" from being interpreted as an ID.
+   * ==========================================================================
+   */
+  @Get('stats')
+  @ApiOperation({
+    summary: 'Reminder statistics',
+    description:
+      'Returns reminder statistics and productivity metrics for the authenticated user.',
+  })
+  @ApiOkResponse({
+    description: 'Reminder statistics retrieved successfully.',
+    type: ReminderStatsDto,
+  })
+  public async getStats(
+    @CurrentUser()
+    user: JwtPayload,
+  ): Promise<ReminderStatsDto> {
+    return this.remindersService.getStats(Number(user.user_id));
   }
 
   /**
@@ -175,7 +231,13 @@ export class RemindersController {
   public async findOne(
     @CurrentUser()
     user: JwtPayload,
-    @Param('id')
+
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+      }),
+    )
     id: string,
   ): Promise<ReminderResponseDto> {
     return this.remindersService.findOne(Number(user.user_id), id);
@@ -205,40 +267,19 @@ export class RemindersController {
   public async update(
     @CurrentUser()
     user: JwtPayload,
-    @Param('id')
+
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+      }),
+    )
     id: string,
+
     @Body()
     dto: UpdateReminderDto,
   ): Promise<ReminderResponseDto> {
     return this.remindersService.update(Number(user.user_id), id, dto);
-  }
-
-  /**
-   * ==========================================================================
-   * Soft deletes a reminder.
-   * ==========================================================================
-   */
-  @Delete(':id')
-  @ApiOperation({
-    summary: 'Delete reminder',
-    description: 'Soft deletes a reminder owned by the authenticated user.',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Reminder identifier.',
-    type: String,
-    format: 'uuid',
-  })
-  @ApiOkResponse({
-    description: 'Reminder deleted successfully.',
-  })
-  public async delete(
-    @CurrentUser()
-    user: JwtPayload,
-    @Param('id')
-    id: string,
-  ): Promise<void> {
-    await this.remindersService.delete(Number(user.user_id), id);
   }
 
   /**
@@ -264,7 +305,13 @@ export class RemindersController {
   public async restore(
     @CurrentUser()
     user: JwtPayload,
-    @Param('id')
+
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+      }),
+    )
     id: string,
   ): Promise<void> {
     await this.remindersService.restore(Number(user.user_id), id);
@@ -272,45 +319,35 @@ export class RemindersController {
 
   /**
    * ==========================================================================
-   * Returns reminder summary.
+   * Soft deletes a reminder.
    * ==========================================================================
    */
-  @Get('summary')
+  @Delete(':id')
   @ApiOperation({
-    summary: 'Reminder summary',
-    description:
-      'Returns aggregated reminder summary information for the authenticated user.',
+    summary: 'Delete reminder',
+    description: 'Soft deletes a reminder owned by the authenticated user.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Reminder identifier.',
+    type: String,
+    format: 'uuid',
   })
   @ApiOkResponse({
-    description: 'Reminder summary retrieved successfully.',
-    type: ReminderSummaryDto,
+    description: 'Reminder deleted successfully.',
   })
-  public async getSummary(
+  public async delete(
     @CurrentUser()
     user: JwtPayload,
-  ): Promise<ReminderSummaryDto> {
-    return this.remindersService.getSummary(Number(user.user_id));
-  }
 
-  /**
-   * ==========================================================================
-   * Returns reminder statistics.
-   * ==========================================================================
-   */
-  @Get('stats')
-  @ApiOperation({
-    summary: 'Reminder statistics',
-    description:
-      'Returns reminder statistics and productivity metrics for the authenticated user.',
-  })
-  @ApiOkResponse({
-    description: 'Reminder statistics retrieved successfully.',
-    type: ReminderStatsDto,
-  })
-  public async getStats(
-    @CurrentUser()
-    user: JwtPayload,
-  ): Promise<ReminderStatsDto> {
-    return this.remindersService.getStats(Number(user.user_id));
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+      }),
+    )
+    id: string,
+  ): Promise<void> {
+    await this.remindersService.delete(Number(user.user_id), id);
   }
 }

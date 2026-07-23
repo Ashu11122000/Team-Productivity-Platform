@@ -372,66 +372,66 @@ export class AnalyticsRepository {
     this.applyFilters(queryBuilder, filter);
 
     const result = await queryBuilder
-      .select([
-        `
-          COUNT(task.id)
-          `,
-        'total',
+      .select('COUNT(task.id)', 'total')
 
+      .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.status = :completed
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.status = :completed
+          THEN 1
+        END
+      )
+      `,
         'completed',
+      )
 
+      .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.status = :pending
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.status = :pending
+          THEN 1
+        END
+      )
+      `,
         'pending',
+      )
 
+      .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.status = :inProgress
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.status = :inProgress
+          THEN 1
+        END
+      )
+      `,
         'inProgress',
+      )
 
+      .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.dueDate < NOW()
-              AND task.status != :completed
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.dueDate < NOW()
+          AND task.status != :completed
+          THEN 1
+        END
+      )
+      `,
         'overdue',
-      ])
+      )
 
       .setParameters({
         completed: TaskStatus.COMPLETED,
-
         pending: TaskStatus.TODO,
-
         inProgress: TaskStatus.IN_PROGRESS,
       })
 
       .getRawOne();
 
     const total = Number(result.total ?? 0);
-
     const completed = Number(result.completed ?? 0);
 
     return {
@@ -476,68 +476,66 @@ export class AnalyticsRepository {
     this.applyFilters(queryBuilder, filter);
 
     const result = await queryBuilder
+      .select('COUNT(task.id)', 'total')
 
-      .select([
+      .addSelect(
         `
-          COUNT(task.id)
-          `,
-        'total',
-
-        `
-          COUNT(
-            CASE
-              WHEN task.status = :completed
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.status = :completed
+          THEN 1
+        END
+      )
+      `,
         'completed',
+      )
 
+      .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.status = :pending
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.status = :pending
+          THEN 1
+        END
+      )
+      `,
         'pending',
+      )
 
+      .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.status = :inProgress
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.status = :inProgress
+          THEN 1
+        END
+      )
+      `,
         'inProgress',
+      )
 
+      .addSelect(
         `
-          COUNT(
-            CASE
-              WHEN task.priority = :high
-              THEN 1
-            END
-          )
-          `,
+      COUNT(
+        CASE
+          WHEN task.priority = :high
+          THEN 1
+        END
+      )
+      `,
         'highPriority',
-      ])
+      )
 
       .setParameters({
         completed: TaskStatus.COMPLETED,
-
         pending: TaskStatus.TODO,
-
         inProgress: TaskStatus.IN_PROGRESS,
-
         high: TaskPriority.HIGH,
       })
 
       .getRawOne();
 
     const total = Number(result.total ?? 0);
-
     const completed = Number(result.completed ?? 0);
 
     return {
@@ -596,58 +594,63 @@ export class AnalyticsRepository {
     this.applyFilters(queryBuilder, filter);
 
     const result = await queryBuilder
-      .select([
-        `
-        COUNT(task.id)
-      `,
-        'total',
+      .select('COUNT(task.id)', 'total')
 
+      .addSelect(
         `
-        COUNT(
-          CASE
-            WHEN task.status = :completed
-            THEN 1
-          END
-        )
+      COUNT(
+        CASE
+          WHEN task.status = :completed
+          THEN 1
+        END
+      )
       `,
         'completed',
+      )
 
+      .addSelect(
         `
-        COUNT(
-          CASE
-            WHEN task.status = :pending
-            THEN 1
-          END
-        )
+      COUNT(
+        CASE
+          WHEN task.status = :pending
+          THEN 1
+        END
+      )
       `,
         'pending',
+      )
 
+      .addSelect(
         `
-        COUNT(
-          CASE
-            WHEN task.status = :inProgress
-            THEN 1
-          END
-        )
+      COUNT(
+        CASE
+          WHEN task.status = :inProgress
+          THEN 1
+        END
+      )
       `,
         'inProgress',
+      )
 
+      .addSelect(
         `
-        COUNT(
-          CASE
-            WHEN task.dueDate < NOW()
-            AND task.status != :completed
-            THEN 1
-          END
-        )
+      COUNT(
+        CASE
+          WHEN task.dueDate < NOW()
+          AND task.status != :completed
+          THEN 1
+        END
+      )
       `,
         'overdue',
-      ])
+      )
+
       .setParameters({
         completed: TaskStatus.COMPLETED,
         pending: TaskStatus.TODO,
         inProgress: TaskStatus.IN_PROGRESS,
       })
+
       .getRawOne();
 
     const totalTasks = Number(result.total ?? 0);

@@ -30,92 +30,92 @@
  * Holiday API Client
  *        |
  *        ↓
- * External API
+ * OpenHolidays API
  *
  *
  * Compatible:
  * ----------------------------------------------------------------------------
  * - NestJS 11
  * - Axios
+ * - OpenHolidays API
  *
  * ============================================================================
  */
 
-import { Injectable } from '@nestjs/common';
-
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 
-import { AxiosRequestConfig } from 'axios';
-
+import { AxiosError, AxiosRequestConfig } from 'axios';
 import { firstValueFrom } from 'rxjs';
 
 import { IntegrationException } from '../../common/exceptions';
 
 @Injectable()
 export class HolidayApiClient {
-  private readonly baseUrl = process.env.HOLIDAY_API_URL;
+  private readonly logger = new Logger(HolidayApiClient.name);
+
+  private readonly baseUrl =
+    process.env.HOLIDAY_API_URL ?? 'https://openholidaysapi.org';
+
+  private readonly language = process.env.HOLIDAY_LANGUAGE ?? 'EN';
 
   constructor(private readonly httpService: HttpService) {}
 
   /**
    * ==========================================================================
-   * GET Request
-   * ==========================================================================
-   *
-   * Generic GET wrapper for holiday providers.
-   *
+   * Generic GET Request
    * ==========================================================================
    */
 
   async get<T>(endpoint: string, config?: AxiosRequestConfig): Promise<T> {
     try {
+      const url = `${this.baseUrl}${endpoint}`;
+
+      this.logger.log(`Calling Holiday API: ${url}`);
+
       const response = await firstValueFrom(
-        this.httpService.get<T>(
-          `${this.baseUrl}${endpoint}`,
-
-          {
-            timeout: 5000,
-
-            ...config,
-          },
-        ),
+        this.httpService.get<T>(url, {
+          timeout: 10000,
+          ...config,
+        }),
       );
 
+      this.logger.log(`Status: ${response.status}`);
+
       return response.data;
-    } catch {
-      throw new IntegrationException('Holiday API request failed');
+    } catch (error) {
+      const axiosError = error as AxiosError;
+
+      this.logger.error(axiosError.response?.data ?? axiosError.message);
+
+      throw new IntegrationException(
+        axiosError.response?.statusText ??
+          axiosError.message ??
+          'Holiday API request failed',
+      );
     }
   }
 
   /**
    * ==========================================================================
-   * GET Holidays By Country
+   * Get Public Holidays
    * ==========================================================================
    *
-   * Common operation used by Calendar module.
+   * OpenHolidays API
    *
-   * Example:
-   *
-   * GET /holidays?country=IN&year=2026
+   * GET /PublicHolidays
    *
    * ==========================================================================
    */
 
-  async getHolidays<T>(
-    country: string,
-
-    year: number,
-  ): Promise<T> {
-    return this.get<T>(
-      '/holidays',
-
-      {
-        params: {
-          country,
-
-          year,
-        },
+  async getHolidays<T>(country: string, year: number): Promise<T> {
+    return this.get<T>('/PublicHolidays', {
+      params: {
+        countryIsoCode: country,
+        languageIsoCode: this.language,
+        validFrom: `${year}-01-01`,
+        validTo: `${year}-12-31`,
       },
-    );
+    });
   }
 }

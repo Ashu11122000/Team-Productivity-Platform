@@ -36,8 +36,7 @@
  * HolidayApiClient
  *        |
  *        ↓
- * External Holiday API
- *
+ * External Holiday API (Nager.Date)
  *
  * ============================================================================
  */
@@ -63,23 +62,18 @@ export class HolidayProvider {
    * ==========================================================================
    * Returns holidays based on calendar filters.
    * ==========================================================================
-   *
-   * Responsibilities:
-   * --------------------------------------------------------------------------
-   * - Call external holiday integration.
-   * - Convert integration models into Calendar models.
-   *
-   * @param filter Calendar filter.
-   * @returns Holiday collection.
-   * ==========================================================================
    */
 
   public async getHolidays(filter: CalendarFilter): Promise<Holiday[]> {
+    const country = filter.country ?? process.env.HOLIDAY_COUNTRY ?? 'IN';
+
+    const year = filter.year ?? new Date().getFullYear();
+
     const holidays: CalendarHoliday[] =
-      await this.holidayApiService.getHolidays(filter.country, filter.year);
+      await this.holidayApiService.getHolidays(country, year);
 
     return holidays.map((holiday) => ({
-      id: holiday.id ?? `${filter.country}-${filter.year}-${holiday.title}`,
+      id: holiday.id ?? `${country}-${year}-${holiday.title}`,
 
       name: holiday.title,
 
@@ -94,7 +88,7 @@ export class HolidayProvider {
       description: holiday.description,
 
       metadata: {
-        provider: 'holiday-api',
+        provider: 'nager-date',
       },
     }));
   }
@@ -103,17 +97,13 @@ export class HolidayProvider {
    * ==========================================================================
    * Converts HolidayQueryDto into CalendarFilter.
    * ==========================================================================
-   *
-   * This keeps HTTP DTOs isolated from providers.
-   *
-   * ==========================================================================
    */
 
   public createFilter(query: HolidayQueryDto): CalendarFilter {
     return {
-      country: query.country,
+      country: query.country ?? process.env.HOLIDAY_COUNTRY ?? 'IN',
 
-      year: query.year,
+      year: query.year ?? new Date().getFullYear(),
 
       month: query.month,
 
