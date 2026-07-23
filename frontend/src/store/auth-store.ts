@@ -1,30 +1,80 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { env } from '@/config/env';
 import type { User } from '@/features/auth/types/user.types';
 
-const AUTH_STORAGE_KEY = 'tpp-auth';
+/**
+ * ============================================================================
+ * Constants
+ * ============================================================================
+ */
+
+const AUTH_STORAGE_KEY = env.auth.accessTokenKey;
+
+/**
+ * ============================================================================
+ * State
+ * ============================================================================
+ */
 
 interface AuthState {
+  /**
+   * JWT Access Token
+   */
   accessToken: string | null;
+
+  /**
+   * Authenticated user.
+   * Loaded from /auth/me after hydration.
+   */
   user: User | null;
+
+  /**
+   * Persist hydration completed.
+   */
   hydrated: boolean;
+
+  /**
+   * Authentication flag.
+   */
   isAuthenticated: boolean;
 
-  login: (token: string, user: User) => void;
+  /**
+   * Login.
+   */
+  login: (accessToken: string, user: User | null) => void;
 
-  setAccessToken: (token: string | null) => void;
+  /**
+   * Logout.
+   */
+  logout: () => void;
 
+  /**
+   * Update access token.
+   */
+  setAccessToken: (accessToken: string | null) => void;
+
+  /**
+   * Update authenticated user.
+   */
   setUser: (user: User | null) => void;
 
-  setHydrated: (value: boolean) => void;
-
-  logout: () => void;
+  /**
+   * Hydration flag.
+   */
+  setHydrated: (hydrated: boolean) => void;
 }
+
+/**
+ * ============================================================================
+ * Store
+ * ============================================================================
+ */
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       accessToken: null,
 
       user: null,
@@ -33,28 +83,15 @@ export const useAuthStore = create<AuthState>()(
 
       isAuthenticated: false,
 
-      login: (token, user) =>
+      login: (accessToken, user) => {
+        const token = accessToken.trim();
+
         set({
           accessToken: token,
           user,
           isAuthenticated: true,
-        }),
-
-      setAccessToken: (token) =>
-        set({
-          accessToken: token,
-          isAuthenticated: token !== null,
-        }),
-
-      setUser: (user) =>
-        set({
-          user,
-        }),
-
-      setHydrated: (value) =>
-        set({
-          hydrated: value,
-        }),
+        });
+      },
 
       logout: () =>
         set({
@@ -62,12 +99,37 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           isAuthenticated: false,
         }),
+
+      setAccessToken: (accessToken) => {
+        const token = accessToken?.trim() || null;
+
+        set({
+          accessToken: token,
+          isAuthenticated: token !== null,
+        });
+      },
+
+      setUser: (user) =>
+        set({
+          user,
+        }),
+
+      setHydrated: (hydrated) =>
+        set({
+          hydrated,
+        }),
     }),
+
     {
       name: AUTH_STORAGE_KEY,
 
       storage: createJSONStorage(() => localStorage),
 
+      /**
+       * Persist only the access token.
+       * User data should always come from
+       * FastAPI /auth/me.
+       */
       partialize: (state) => ({
         accessToken: state.accessToken,
       }),
@@ -77,13 +139,13 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
-        const hasAccessToken = state.accessToken !== null && state.accessToken.trim().length > 0;
-
-        state.setHydrated(true);
-
-        if (state.isAuthenticated !== hasAccessToken) {
-          state.setAccessToken(hasAccessToken ? state.accessToken : null);
+        if (state.accessToken?.trim().length === 0) {
+          state.accessToken = null;
         }
+
+        state.isAuthenticated = !!state.accessToken;
+
+        state.hydrated = true;
       },
     },
   ),

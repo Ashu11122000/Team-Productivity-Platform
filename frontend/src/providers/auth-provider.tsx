@@ -1,8 +1,12 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
+import { FASTAPI_ROUTES } from '@/lib/constants/api-routes';
+import { fastapiClient } from '@/services/fastapi/client';
 import { useAuthStore } from '@/store/auth-store';
+
+import type { AuthMeResponse } from '@/features/auth/types/auth.types';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -11,10 +15,60 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const hydrated = useAuthStore((state) => state.hydrated);
 
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  const setUser = useAuthStore((state) => state.setUser);
+
+  const logout = useAuthStore((state) => state.logout);
+
   /**
-   * Prevent the application from rendering until
-   * the persisted authentication state has been
-   * restored from storage.
+   * Prevent duplicate authentication requests.
+   */
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    if (!accessToken) {
+      return;
+    }
+
+    if (initialized.current) {
+      return;
+    }
+
+    initialized.current = true;
+
+    const initializeUser = async () => {
+      try {
+        const response = await fastapiClient.get<AuthMeResponse>(FASTAPI_ROUTES.AUTH.ME);
+
+        /**
+         * If your backend later returns more user
+         * fields, this mapping can be removed.
+         */
+        setUser({
+          id: Number(response.data.id),
+          email: response.data.email,
+          role: response.data.role as never,
+          is_active: true,
+        });
+      } catch {
+        /**
+         * Invalid or expired JWT.
+         */
+        logout();
+      }
+    };
+
+    void initializeUser();
+  }, [hydrated, accessToken, logout, setUser]);
+
+  /**
+   * Wait until Zustand has restored the persisted
+   * authentication state.
    */
   if (!hydrated) {
     return (
@@ -32,5 +86,5 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
   }
 
-  return children;
+  return <>{children}</>;
 }
