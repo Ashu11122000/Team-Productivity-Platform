@@ -1,128 +1,212 @@
 import { create } from 'zustand';
 
+/**
+ * ============================================================================
+ * Notification Types
+ * ============================================================================
+ */
+
 export interface NotificationItem {
   id: string;
+
   title: string;
+
   message: string;
+
+  type: string;
+
   isRead: boolean;
+
   createdAt: string;
 }
 
+/**
+ * ============================================================================
+ * Notification State
+ * ============================================================================
+ */
+
 interface NotificationState {
+  /**
+   * Notifications
+   */
   notifications: NotificationItem[];
+
+  /**
+   * Number of unread notifications.
+   */
   unreadCount: number;
 
-  setNotifications: (
-    notifications: NotificationItem[],
-  ) => void;
+  /**
+   * Loading state.
+   */
+  loading: boolean;
 
-  addNotification: (
-    notification: NotificationItem,
-  ) => void;
+  /**
+   * Replace notification list.
+   */
+  setNotifications: (notifications: NotificationItem[]) => void;
 
-  markAsRead: (
-    id: string,
-  ) => void;
+  /**
+   * Add notification.
+   */
+  addNotification: (notification: NotificationItem) => void;
 
+  /**
+   * Mark notification as read.
+   */
+  markAsRead: (id: string) => void;
+
+  /**
+   * Mark every notification as read.
+   */
   markAllAsRead: () => void;
 
-  removeNotification: (
-    id: string,
-  ) => void;
+  /**
+   * Remove notification.
+   */
+  removeNotification: (id: string) => void;
 
+  /**
+   * Clear all notifications.
+   */
   clearNotifications: () => void;
+
+  /**
+   * Update loading state.
+   */
+  setLoading: (loading: boolean) => void;
 }
 
-export const useNotificationStore =
-  create<NotificationState>((set) => ({
-    notifications: [],
-    unreadCount: 0,
+/**
+ * ============================================================================
+ * Helpers
+ * ============================================================================
+ */
 
-    setNotifications: (
+function calculateUnreadCount(notifications: NotificationItem[]): number {
+  return notifications.filter((notification) => !notification.isRead).length;
+}
+
+/**
+ * ============================================================================
+ * Store
+ * ============================================================================
+ */
+
+export const useNotificationStore = create<NotificationState>((set) => ({
+  notifications: [],
+
+  unreadCount: 0,
+
+  loading: false,
+
+  /**
+   * ------------------------------------------------------------------------
+   * Replace Notifications
+   * ------------------------------------------------------------------------
+   */
+
+  setNotifications: (notifications) =>
+    set({
       notifications,
-    ) =>
-      set({
+      unreadCount: calculateUnreadCount(notifications),
+    }),
+
+  /**
+   * ------------------------------------------------------------------------
+   * Add Notification
+   * ------------------------------------------------------------------------
+   */
+
+  addNotification: (notification) =>
+    set((state) => {
+      const notifications = [notification, ...state.notifications];
+
+      return {
         notifications,
-        unreadCount:
-          notifications.filter(
-            (notification) =>
-              !notification.isRead,
-          ).length,
-      }),
+        unreadCount: calculateUnreadCount(notifications),
+      };
+    }),
 
-    addNotification: (
-      notification,
-    ) =>
-      set((state) => ({
-        notifications: [
-          notification,
-          ...state.notifications,
-        ],
-        unreadCount:
-          state.unreadCount +
-          (notification.isRead
-            ? 0
-            : 1),
-      })),
+  /**
+   * ------------------------------------------------------------------------
+   * Mark As Read
+   * ------------------------------------------------------------------------
+   */
 
-    markAsRead: (id) =>
-      set((state) => {
-        const notifications =
-          state.notifications.map(
-            (notification) =>
-              notification.id === id
-                ? {
-                    ...notification,
-                    isRead: true,
-                  }
-                : notification,
-          );
-
-        return {
-          notifications,
-          unreadCount:
-            notifications.filter(
-              (notification) =>
-                !notification.isRead,
-            ).length,
-        };
-      }),
-
-    markAllAsRead: () =>
-      set((state) => ({
-        notifications:
-          state.notifications.map(
-            (notification) => ({
+  markAsRead: (id) =>
+    set((state) => {
+      const notifications = state.notifications.map((notification) =>
+        notification.id === id
+          ? {
               ...notification,
               isRead: true,
-            }),
-          ),
+            }
+          : notification,
+      );
+
+      return {
+        notifications,
+        unreadCount: calculateUnreadCount(notifications),
+      };
+    }),
+
+  /**
+   * ------------------------------------------------------------------------
+   * Mark All As Read
+   * ------------------------------------------------------------------------
+   */
+
+  markAllAsRead: () =>
+    set((state) => {
+      const notifications = state.notifications.map((notification) => ({
+        ...notification,
+        isRead: true,
+      }));
+
+      return {
+        notifications,
         unreadCount: 0,
-      })),
+      };
+    }),
 
-    removeNotification: (
-      id,
-    ) =>
-      set((state) => {
-        const notifications =
-          state.notifications.filter(
-            (notification) =>
-              notification.id !== id,
-          );
+  /**
+   * ------------------------------------------------------------------------
+   * Remove Notification
+   * ------------------------------------------------------------------------
+   */
 
-        return {
-          notifications,
-          unreadCount:
-            notifications.filter(
-              (notification) =>
-                !notification.isRead,
-            ).length,
-        };
-      }),
+  removeNotification: (id) =>
+    set((state) => {
+      const notifications = state.notifications.filter((notification) => notification.id !== id);
 
-    clearNotifications: () =>
-      set({
-        notifications: [],
-        unreadCount: 0,
-      }),
-  }));
+      return {
+        notifications,
+        unreadCount: calculateUnreadCount(notifications),
+      };
+    }),
+
+  /**
+   * ------------------------------------------------------------------------
+   * Clear Notifications
+   * ------------------------------------------------------------------------
+   */
+
+  clearNotifications: () =>
+    set({
+      notifications: [],
+      unreadCount: 0,
+    }),
+
+  /**
+   * ------------------------------------------------------------------------
+   * Loading
+   * ------------------------------------------------------------------------
+   */
+
+  setLoading: (loading) =>
+    set({
+      loading,
+    }),
+}));
