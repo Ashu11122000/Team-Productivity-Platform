@@ -1,58 +1,96 @@
+import { GoogleAnalytics } from '@next/third-parties/google';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { GoogleAnalytics } from '@next/third-parties/google';
-import { Toaster } from 'sonner';
 
 import './globals.css';
 
-import { QueryProvider } from '@/providers/query-provider';
-import { AuthInitializer } from '@/features/auth/components/auth-initializer';
+import { env } from '@/config/env';
+import { AppProviders } from '@/providers/app-providers';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'Team Productivity Platform',
+  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
+
+  title: {
+    default: 'Team Productivity Platform',
+    template: '%s | Team Productivity Platform',
+  },
+
   description:
-    'A modern productivity platform built with Next.js, FastAPI, and NestJS.',
+    'A modern enterprise productivity platform built with Next.js, FastAPI, NestJS, and PostgreSQL.',
+
+  applicationName: 'Team Productivity Platform',
+
+  keywords: [
+    'Productivity',
+    'Task Management',
+    'Notes',
+    'Analytics',
+    'Dashboard',
+    'Next.js',
+    'FastAPI',
+    'NestJS',
+    'PostgreSQL',
+    'Enterprise',
+  ],
+
+  authors: [
+    {
+      name: 'Ashish Sharma',
+    },
+  ],
+
+  creator: 'Ashish Sharma',
+
+  robots: {
+    index: true,
+    follow: true,
+  },
+
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    title: 'Team Productivity Platform',
+    description:
+      'Enterprise productivity platform built with Next.js, FastAPI, NestJS, and PostgreSQL.',
+    siteName: 'Team Productivity Platform',
+    url: env.NEXT_PUBLIC_APP_URL,
+  },
+
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Team Productivity Platform',
+    description:
+      'Enterprise productivity platform built with Next.js, FastAPI, NestJS, and PostgreSQL.',
+  },
 };
 
-export default function RootLayout({
-  children,
-}: {
+interface RootLayoutProps {
   children: React.ReactNode;
-}) {
-  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+}
 
+export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
   return (
     <html
-      lang="en"
+      lang='en'
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-screen bg-background font-sans antialiased">
-        <QueryProvider>
-          <AuthInitializer />
+      <body className='bg-background min-h-screen font-sans antialiased'>
+        <AppProviders>{children}</AppProviders>
 
-          {children}
-
-          <Toaster
-            richColors
-            position="top-right"
-            closeButton
-          />
-        </QueryProvider>
-
-        {gaId ? (
-          <GoogleAnalytics gaId={gaId} />
-        ) : null}
+        {env.NEXT_PUBLIC_GA_ID ? <GoogleAnalytics gaId={env.NEXT_PUBLIC_GA_ID} /> : null}
       </body>
     </html>
   );

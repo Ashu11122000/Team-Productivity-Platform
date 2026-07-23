@@ -1,16 +1,45 @@
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypeScript from "eslint-config-next/typescript";
+import tanstackQueryPlugin from "@tanstack/eslint-plugin-query";
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
+  ...nextCoreWebVitals,
+
+  ...nextTypeScript,
+
+  ...tanstackQueryPlugin.configs["flat/recommended"],
+
+  {
+    rules: {
+      "react/jsx-key": "error",
+
+      "no-console": [
+        "warn",
+        {
+          allow: ["warn", "error"],
+        },
+      ],
+    },
+  },
+
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
+
     "out/**",
+
     "build/**",
+
+    "coverage/**",
+
+    "dist/**",
+
+    ".turbo/**",
+
+    "playwright-report/**",
+
+    "test-results/**",
+
     "next-env.d.ts",
   ]),
 ]);

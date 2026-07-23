@@ -2,10 +2,23 @@
 
 import type { ReactNode } from 'react';
 
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
+
 interface ThemeProviderProps {
   children: ReactNode;
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  return <>{children}</>;
+  return (
+    <NextThemesProvider
+      attribute='class'
+      defaultTheme='system'
+      enableSystem
+      disableTransitionOnChange
+      enableColorScheme
+      storageKey='tpp-theme'
+    >
+      {children}
+    </NextThemesProvider>
+  );
 }

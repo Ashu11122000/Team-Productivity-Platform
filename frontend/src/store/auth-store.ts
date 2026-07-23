@@ -3,6 +3,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { User } from '@/features/auth/types/user.types';
 
+const AUTH_STORAGE_KEY = 'tpp-auth';
+
 interface AuthState {
   accessToken: string | null;
   user: User | null;
@@ -22,10 +24,13 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       accessToken: null,
+
       user: null,
+
       hydrated: false,
+
       isAuthenticated: false,
 
       login: (token, user) =>
@@ -38,7 +43,7 @@ export const useAuthStore = create<AuthState>()(
       setAccessToken: (token) =>
         set({
           accessToken: token,
-          isAuthenticated: Boolean(token),
+          isAuthenticated: token !== null,
         }),
 
       setUser: (user) =>
@@ -59,13 +64,12 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: process.env.NEXT_PUBLIC_AUTH_STORAGE_KEY ?? 'tpp_access_token',
+      name: AUTH_STORAGE_KEY,
 
       storage: createJSONStorage(() => localStorage),
 
       partialize: (state) => ({
         accessToken: state.accessToken,
-        user: state.user,
       }),
 
       onRehydrateStorage: () => (state) => {
@@ -73,10 +77,12 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
 
+        const hasAccessToken = state.accessToken !== null && state.accessToken.trim().length > 0;
+
         state.setHydrated(true);
 
-        if (state.accessToken) {
-          state.setAccessToken(state.accessToken);
+        if (state.isAuthenticated !== hasAccessToken) {
+          state.setAccessToken(hasAccessToken ? state.accessToken : null);
         }
       },
     },

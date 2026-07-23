@@ -1,28 +1,46 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2022",
+
     "lib": ["dom", "dom.iterable", "esnext"],
 
-    "allowJs": true,
-    "skipLibCheck": true,
-
-    "strict": true,
-    "noEmit": true,
-
-    "esModuleInterop": true,
-
     "module": "esnext",
-    "moduleResolution": "bundler",
 
-    "resolveJsonModule": true,
-    "isolatedModules": true,
+    "moduleResolution": "bundler",
 
     "jsx": "react-jsx",
 
+    "allowJs": false,
+
+    "checkJs": false,
+
+    "strict": true,
+
+    "noEmit": true,
+
     "incremental": true,
 
-    "baseUrl": ".",
-    "ignoreDeprecations":"5.0",
+    "isolatedModules": true,
+
+    "esModuleInterop": true,
+
+    "allowSyntheticDefaultImports": true,
+
+    "resolveJsonModule": true,
+
+    "skipLibCheck": true,
+
+    "exactOptionalPropertyTypes": true,
+
+    "noUncheckedIndexedAccess": true,
+
+    "noImplicitOverride": true,
+
+    "noFallthroughCasesInSwitch": true,
+
+    "forceConsistentCasingInFileNames": true,
+
+    "verbatimModuleSyntax": true,
 
     "paths": {
       "@/*": ["./src/*"]
@@ -39,10 +57,9 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
     "**/*.mts",
-    "src/features/categories/components/category-form.tsx"
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
 
   "exclude": ["node_modules"]
