@@ -1595,7 +1595,7 @@ Docker can be used for:
 |---------|----------|
 | GET | `/api/v1/calendar` |
 | GET | `/api/v1/calendar/holidays` |
-| GET | `/api/v1/calendar/events` |
+
 
 ---
 
@@ -1666,7 +1666,6 @@ Docker can be used for:
 
 - ✅ Calendar Events
 - ✅ Public Holidays
-- ✅ Calendar Events Endpoint
 
 ---
 
