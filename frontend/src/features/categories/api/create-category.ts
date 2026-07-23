@@ -1,21 +1,28 @@
+/**
+ * ============================================================================
+ * File: features/categories/api/create-category.ts
+ * ============================================================================
+ *
+ * Create Category API
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Create a new category.
+ * - Communicate with NestJS backend.
+ * - Return typed category response.
+ * ============================================================================
+ */
+
 import { nestjsClient } from '@/services/nestjs/client';
 
-import { API_ROUTES } from '@/lib/constants/api-routes';
+import { NESTJS_ROUTES } from '@/lib/constants/api-routes';
 
-import type {
-  Category,
-  CreateCategoryRequest,
-  CategoryResponse,
-} from '../types/category.types';
+import type { CategoryResponse } from '../types/category.types';
 
-export async function createCategory(
-  payload: CreateCategoryRequest,
-): Promise<Category> {
-  const response =
-    await nestjsClient.post<CategoryResponse>(
-      API_ROUTES.CATEGORIES.BASE,
-      payload,
-    );
+import type { CreateCategoryRequest } from '../types/create-category.types';
 
-  return response.data.data;
+export async function createCategory(payload: CreateCategoryRequest): Promise<CategoryResponse> {
+  const response = await nestjsClient.post<CategoryResponse>(NESTJS_ROUTES.CATEGORIES.BASE, payload);
+
+  return response.data;
 }
