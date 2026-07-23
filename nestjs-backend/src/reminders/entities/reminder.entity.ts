@@ -69,13 +69,16 @@ export class ReminderEntity {
   /**
    * Owner of the reminder.
    *
-   * Authentication is handled by FastAPI.
-   * NestJS validates the JWT and uses the authenticated user's ID.
+   * FastAPI is the authentication provider and issues
+   * integer-based user identifiers.
+   *
+   * NestJS stores the same integer identifier to maintain
+   * compatibility with the authentication service.
    */
   @Column({
-    type: 'uuid',
+    type: 'integer',
   })
-  userId!: string;
+  userId!: number;
 
   /**
    * Reminder title.

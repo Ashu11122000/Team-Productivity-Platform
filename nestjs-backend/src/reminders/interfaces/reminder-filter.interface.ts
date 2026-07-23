@@ -37,7 +37,7 @@ export interface ReminderFilter {
   /**
    * Authenticated user identifier.
    */
-  userId: string;
+  userId: number;
 
   /**
    * Free-text search against reminder title and description.

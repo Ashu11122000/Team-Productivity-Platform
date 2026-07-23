@@ -79,7 +79,7 @@ export class RemindersService {
    * @returns Created reminder.
    */
   public async create(
-    userId: string,
+    userId: number,
     dto: CreateReminderDto,
   ): Promise<ReminderResponseDto> {
     const reminder = new ReminderEntity();
@@ -132,7 +132,7 @@ export class RemindersService {
    * @returns Paginated reminder response.
    */
   public async findAll(
-    userId: string,
+    userId: number,
     query: ReminderQueryDto,
   ): Promise<ReminderPaginationResponseDto> {
     const filter = this.createFilter(userId, query);
@@ -161,7 +161,7 @@ export class RemindersService {
    * When the reminder cannot be found.
    */
   public async findOne(
-    userId: string,
+    userId: number,
     id: string,
   ): Promise<ReminderResponseDto> {
     const reminder = await this.findEntityOrThrow(userId, id);
@@ -190,7 +190,7 @@ export class RemindersService {
    * When the reminder cannot be found.
    */
   public async update(
-    userId: string,
+    userId: number,
     id: string,
     dto: UpdateReminderDto,
   ): Promise<ReminderResponseDto> {
@@ -261,7 +261,7 @@ export class RemindersService {
    * @throws NotFoundException
    * When the reminder cannot be found.
    */
-  public async delete(userId: string, id: string): Promise<void> {
+  public async delete(userId: number, id: string): Promise<void> {
     await this.findEntityOrThrow(userId, id);
 
     await this.remindersRepository.softDelete(id, userId);
@@ -283,7 +283,7 @@ export class RemindersService {
    * @throws NotFoundException
    * When the reminder cannot be found.
    */
-  public async restore(userId: string, id: string): Promise<void> {
+  public async restore(userId: number, id: string): Promise<void> {
     await this.findEntityOrThrow(userId, id, true);
 
     await this.remindersRepository.restore(id, userId);
@@ -304,7 +304,7 @@ export class RemindersService {
    * @param userId Authenticated user identifier.
    * @returns Reminder summary DTO.
    */
-  public async getSummary(userId: string): Promise<ReminderSummaryDto> {
+  public async getSummary(userId: number): Promise<ReminderSummaryDto> {
     const summary = await this.remindersRepository.getSummary(userId);
 
     return this.reminderMapper.toSummaryDto(summary);
@@ -324,7 +324,7 @@ export class RemindersService {
    * @param userId Authenticated user identifier.
    * @returns Reminder statistics DTO.
    */
-  public async getStats(userId: string): Promise<ReminderStatsDto> {
+  public async getStats(userId: number): Promise<ReminderStatsDto> {
     const stats = await this.remindersRepository.getStats(userId);
 
     return this.reminderMapper.toStatsDto(stats);
@@ -346,7 +346,7 @@ export class RemindersService {
    * @returns Repository filter.
    */
   private createFilter(
-    userId: string,
+    userId: number,
     query: ReminderQueryDto,
   ): ReminderFilter {
     return {
@@ -403,7 +403,7 @@ export class RemindersService {
    * When the reminder cannot be found.
    */
   private async findEntityOrThrow(
-    userId: string,
+    userId: number,
     id: string,
     includeDeleted = false,
   ): Promise<ReminderEntity> {

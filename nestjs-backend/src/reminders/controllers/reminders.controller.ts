@@ -63,7 +63,7 @@ import {
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 import { CreateReminderDto } from '../dto/create-reminder.dto';
 import { ReminderPaginationResponseDto } from '../dto/reminder-pagination-response.dto';
 import { ReminderQueryDto } from '../dto/reminder-query.dto';
@@ -96,12 +96,12 @@ export class RemindersController {
     type: ReminderResponseDto,
   })
   public async create(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
     @Body()
     dto: CreateReminderDto,
   ): Promise<ReminderResponseDto> {
-    return this.remindersService.create(userId, dto);
+    return this.remindersService.create(Number(user.user_id), dto);
   }
 
   /**
@@ -144,12 +144,12 @@ export class RemindersController {
     required: false,
   })
   public async findAll(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
     @Query()
     query: ReminderQueryDto,
   ): Promise<ReminderPaginationResponseDto> {
-    return this.remindersService.findAll(userId, query);
+    return this.remindersService.findAll(Number(user.user_id), query);
   }
 
   /**
@@ -173,12 +173,12 @@ export class RemindersController {
     type: ReminderResponseDto,
   })
   public async findOne(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
     @Param('id')
     id: string,
   ): Promise<ReminderResponseDto> {
-    return this.remindersService.findOne(userId, id);
+    return this.remindersService.findOne(Number(user.user_id), id);
   }
 
   /**
@@ -203,14 +203,14 @@ export class RemindersController {
     type: ReminderResponseDto,
   })
   public async update(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
     @Param('id')
     id: string,
     @Body()
     dto: UpdateReminderDto,
   ): Promise<ReminderResponseDto> {
-    return this.remindersService.update(userId, id, dto);
+    return this.remindersService.update(Number(user.user_id), id, dto);
   }
 
   /**
@@ -233,12 +233,12 @@ export class RemindersController {
     description: 'Reminder deleted successfully.',
   })
   public async delete(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
     @Param('id')
     id: string,
   ): Promise<void> {
-    await this.remindersService.delete(userId, id);
+    await this.remindersService.delete(Number(user.user_id), id);
   }
 
   /**
@@ -262,12 +262,12 @@ export class RemindersController {
     description: 'Reminder restored successfully.',
   })
   public async restore(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
     @Param('id')
     id: string,
   ): Promise<void> {
-    await this.remindersService.restore(userId, id);
+    await this.remindersService.restore(Number(user.user_id), id);
   }
 
   /**
@@ -286,10 +286,10 @@ export class RemindersController {
     type: ReminderSummaryDto,
   })
   public async getSummary(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
   ): Promise<ReminderSummaryDto> {
-    return this.remindersService.getSummary(userId);
+    return this.remindersService.getSummary(Number(user.user_id));
   }
 
   /**
@@ -308,9 +308,9 @@ export class RemindersController {
     type: ReminderStatsDto,
   })
   public async getStats(
-    @CurrentUser('id')
-    userId: string,
+    @CurrentUser()
+    user: JwtPayload,
   ): Promise<ReminderStatsDto> {
-    return this.remindersService.getStats(userId);
+    return this.remindersService.getStats(Number(user.user_id));
   }
 }

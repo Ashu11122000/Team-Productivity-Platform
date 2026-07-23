@@ -77,6 +77,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * @returns Authenticated user payload.
    */
   override validate(payload: JwtPayload): JwtPayload {
+    console.log('===== JWT PAYLOAD =====');
+    console.log(payload);
+    console.log('=======================');
+
     return payload;
   }
 }

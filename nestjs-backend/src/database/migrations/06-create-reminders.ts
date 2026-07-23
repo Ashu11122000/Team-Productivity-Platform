@@ -34,14 +34,15 @@ export class CreateReminders1753170006000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "reminder_status_enum"
-      AS ENUM (
-        'PENDING',
-        'TRIGGERED',
-        'COMPLETED',
-        'CANCELLED'
-      )
-    `);
+  CREATE TYPE "reminder_status_enum"
+  AS ENUM (
+    'PENDING',
+    'TRIGGERED',
+    'COMPLETED',
+    'CANCELLED',
+    'OVERDUE'
+  )
+`);
 
     await queryRunner.query(`
       CREATE TYPE "reminder_repeat_enum"
@@ -73,7 +74,7 @@ export class CreateReminders1753170006000 implements MigrationInterface {
 
           {
             name: 'userId',
-            type: 'uuid',
+            type: 'integer',
           },
 
           {

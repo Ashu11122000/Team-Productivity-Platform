@@ -41,10 +41,11 @@ export class ReminderResponseDto {
   id!: string;
 
   @ApiProperty({
-    description: 'Owner of the reminder.',
-    example: 'b3ef7c7f-7d98-4b3d-8c87-83b1caa5c89f',
+    description:
+      'Owner of the reminder (FastAPI authenticated user identifier).',
+    example: 1,
   })
-  userId!: string;
+  userId!: number;
 
   @ApiProperty({
     description: 'Reminder title.',

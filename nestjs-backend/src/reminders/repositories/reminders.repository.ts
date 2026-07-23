@@ -91,7 +91,7 @@ export class RemindersRepository {
    * - Applies the authenticated user constraint.
    * - Serves as the starting point for every repository query.
    */
-  private createBaseQuery(userId: string): SelectQueryBuilder<ReminderEntity> {
+  private createBaseQuery(userId: number): SelectQueryBuilder<ReminderEntity> {
     return this.repository
       .createQueryBuilder('reminder')
       .where('reminder.userId = :userId', {
@@ -317,7 +317,7 @@ export class RemindersRepository {
    */
   public async findById(
     id: string,
-    userId: string,
+    userId: number,
     includeDeleted = false,
   ): Promise<ReminderEntity | null> {
     const query = this.createBaseQuery(userId);
@@ -362,7 +362,7 @@ export class RemindersRepository {
    * @param id Reminder identifier.
    * @param userId Authenticated user identifier.
    */
-  public async softDelete(id: string, userId: string): Promise<void> {
+  public async softDelete(id: string, userId: number): Promise<void> {
     await this.repository
       .createQueryBuilder()
       .softDelete()
@@ -389,7 +389,7 @@ export class RemindersRepository {
    * @param id Reminder identifier.
    * @param userId Authenticated user identifier.
    */
-  public async restore(id: string, userId: string): Promise<void> {
+  public async restore(id: string, userId: number): Promise<void> {
     await this.repository
       .createQueryBuilder()
       .restore()
@@ -430,7 +430,7 @@ export class RemindersRepository {
    * @param userId Authenticated user identifier.
    * @returns Reminder summary.
    */
-  public async getSummary(userId: string): Promise<ReminderSummary> {
+  public async getSummary(userId: number): Promise<ReminderSummary> {
     const query = this.repository
       .createQueryBuilder('reminder')
       .withDeleted()
@@ -564,7 +564,7 @@ export class RemindersRepository {
    * @param userId Authenticated user identifier.
    * @returns Reminder statistics.
    */
-  public async getStats(userId: string): Promise<ReminderStats> {
+  public async getStats(userId: number): Promise<ReminderStats> {
     const query = this.repository
       .createQueryBuilder('reminder')
       .withDeleted()
