@@ -7,59 +7,68 @@
  *
  * Responsibilities
  * ----------------------------------------------------------------------------
- * - Define authentication-related contracts.
- * - Match the FastAPI authentication responses.
- * - Provide shared authentication state for the frontend.
+ * - Define authentication-related API contracts.
+ * - Mirror FastAPI authentication responses.
+ * - Provide shared authentication state.
+ * - Keep authentication strongly typed across the application.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - Authentication is fully owned by the FastAPI backend.
+ * - NestJS only validates JWTs and never performs authentication.
+ * - This file contains only shared frontend authentication contracts.
  * ============================================================================
  */
+
+import type { UserRole } from '@/lib/constants/roles';
 
 import type { User } from './user.types';
 
 /**
  * ============================================================================
- * Current Authenticated User
+ * Authenticated User (/auth/me)
  * ============================================================================
  */
 
-export interface AuthMeResponse {
-  id: string;
+export interface AuthMeResponse extends User {
+  readonly role: UserRole;
+}
 
-  email: string;
+/**
+ * ============================================================================
+ * Authentication Tokens
+ * ============================================================================
+ */
 
-  role: string;
+export interface AuthTokens {
+  readonly access_token: string;
+
+  readonly token_type: 'bearer';
+
+  readonly refresh_token?: string;
 }
 
 /**
  * ============================================================================
  * Login Response
  * ============================================================================
- *
- * FastAPI returns an access token after successful authentication.
- * If your backend later adds a refresh token, simply make
- * refresh_token required instead of optional.
  */
 
-export interface LoginResponse {
-  access_token: string;
-
-  token_type: 'bearer';
-
-  user: User;
-
-  refresh_token?: string;
+export interface LoginResponse extends AuthTokens {
+  readonly user: User;
 }
 
 /**
  * ============================================================================
  * Refresh Token Response
  * ============================================================================
+ *
+ * The current FastAPI implementation returns the same token payload as
+ * AuthTokens. Using a type alias avoids duplicating the contract while
+ * satisfying the ESLint `no-empty-object-type` rule.
  */
 
-export interface RefreshTokenResponse {
-  access_token: string;
-
-  token_type: 'bearer';
-}
+export type RefreshTokenResponse = AuthTokens;
 
 /**
  * ============================================================================
@@ -68,9 +77,9 @@ export interface RefreshTokenResponse {
  */
 
 export interface AuthState {
-  accessToken: string | null;
+  readonly accessToken: string | null;
 
-  user: User | null;
+  readonly user: User | null;
 
-  isAuthenticated: boolean;
+  readonly isAuthenticated: boolean;
 }

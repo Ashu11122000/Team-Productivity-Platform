@@ -1,20 +1,64 @@
-import type {
-  TaskPriority,
-  TaskStatus,
-} from './task.types';
+/**
+ * ============================================================================
+ * File: features/tasks/types/update-task.types.ts
+ * ============================================================================
+ *
+ * Update Task Types
+ *
+ * Responsibilities
+ * ----------------------------------------------------------------------------
+ * - Define request contracts for updating existing tasks.
+ * - Mirror the NestJS UpdateTaskDto.
+ * - Provide strong typing for partial task updates.
+ *
+ * Notes
+ * ----------------------------------------------------------------------------
+ * - All properties are optional because updates are partial.
+ * - Task management is handled by the NestJS backend.
+ * ============================================================================
+ */
+
+import type { TaskPriority, TaskStatus } from './task.types';
+
+/**
+ * ============================================================================
+ * Update Task Request
+ * ============================================================================
+ */
 
 export interface UpdateTaskRequest {
-  title?: string;
+  /**
+   * Updated task title.
+   */
+  readonly title?: string;
 
-  description?: string;
+  /**
+   * Updated task description.
+   */
+  readonly description?: string;
 
-  status?: TaskStatus;
+  /**
+   * Updated task status.
+   */
+  readonly status?: TaskStatus;
 
-  priority?: TaskPriority;
+  /**
+   * Updated task priority.
+   */
+  readonly priority?: TaskPriority;
 
-  dueDate?: string | null;
+  /**
+   * Updated due date (ISO 8601).
+   */
+  readonly dueDate?: string | null;
 
-  categoryId?: string | null;
+  /**
+   * Updated category identifier.
+   */
+  readonly categoryId?: string | null;
 
-  tagIds?: string[];
+  /**
+   * Updated tag identifiers.
+   */
+  readonly tagIds?: readonly string[];
 }
