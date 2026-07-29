@@ -3,26 +3,39 @@
 Note Schemas
 ==========================================================
 
-Pydantic schemas for Notes.
-
 Responsibilities
 ----------------
+Provides reusable Pydantic schemas for note management
+within the Team Productivity Platform.
+
+Features
+--------
 ✓ Note creation
 ✓ Note update
 ✓ Note response
+✓ Public note representation
 ✓ Note summary
 ✓ Paginated notes
-✓ Note → Task conversion
+✓ Note-to-task conversion
 
 Compatible With
 ---------------
 - FastAPI
 - Pydantic v2
 - SQLAlchemy 2.x
-==========================================================
+
+Python Version
+--------------
+3.12+
+
+----------------------------------------------------------
+Imports
+----------------------------------------------------------
 """
 
 from __future__ import annotations
+
+from datetime import datetime
 
 from pydantic import Field
 
@@ -31,8 +44,10 @@ from app.core.constants import (
     NOTE_TITLE_MAX_LENGTH,
 )
 from app.schemas.base import BaseSchema, EntitySchema
-from app.schemas.common import PaginationMeta
-
+from app.schemas.common import (
+    MessageResponse,
+    PaginatedResponse,
+)
 
 # ==========================================================
 # Base Note Schema
@@ -57,7 +72,10 @@ class NoteBase(BaseSchema):
         max_length=NOTE_CONTENT_MAX_LENGTH,
         description="Detailed note content.",
         examples=[
-            "Dependency Injection, SQLAlchemy 2.x and JWT Authentication."
+            (
+                "Dependency Injection, SQLAlchemy 2.x "
+                "and JWT Authentication."
+            )
         ],
     )
 
@@ -69,7 +87,7 @@ class NoteBase(BaseSchema):
 
 class NoteCreate(NoteBase):
     """
-    Schema for creating a note.
+    Schema used for creating a new note.
     """
 
     pass
@@ -82,18 +100,22 @@ class NoteCreate(NoteBase):
 
 class NoteUpdate(BaseSchema):
     """
-    Schema for updating a note.
+    Schema used for updating an existing note.
+
+    All fields are optional.
     """
 
     title: str | None = Field(
         default=None,
         min_length=1,
         max_length=NOTE_TITLE_MAX_LENGTH,
+        description="Updated note title.",
     )
 
     content: str | None = Field(
         default=None,
         max_length=NOTE_CONTENT_MAX_LENGTH,
+        description="Updated note content.",
     )
 
 
@@ -107,15 +129,30 @@ class NoteResponse(EntitySchema):
     Complete note response.
     """
 
-    title: str
+    title: str = Field(
+        ...,
+        description="Note title.",
+    )
 
-    content: str | None
+    content: str | None = Field(
+        default=None,
+        description="Note content.",
+    )
 
-    owner_id: int
+    owner_id: int = Field(
+        ...,
+        description="Owner user identifier.",
+    )
 
-    book_reference_id: str | None
+    book_reference_id: str | None = Field(
+        default=None,
+        description="Open Library reference identifier.",
+    )
 
-    is_converted_to_task: bool
+    is_converted_to_task: bool = Field(
+        ...,
+        description="Whether the note has been converted into a task.",
+    )
 
 
 # ==========================================================
@@ -125,14 +162,23 @@ class NoteResponse(EntitySchema):
 
 class NotePublic(BaseSchema):
     """
-    Lightweight note representation.
+    Public note representation.
     """
 
-    id: int
+    id: int = Field(
+        ...,
+        description="Note identifier.",
+    )
 
-    title: str
+    title: str = Field(
+        ...,
+        description="Note title.",
+    )
 
-    created_at: str
+    created_at: datetime = Field(
+        ...,
+        description="UTC creation timestamp.",
+    )
 
 
 # ==========================================================
@@ -142,46 +188,73 @@ class NotePublic(BaseSchema):
 
 class NoteSummary(BaseSchema):
     """
-    Lightweight note used in lists.
+    Lightweight note summary.
     """
 
-    id: int
+    id: int = Field(
+        ...,
+        description="Note identifier.",
+    )
 
-    title: str
+    title: str = Field(
+        ...,
+        description="Note title.",
+    )
 
-    is_converted_to_task: bool
+    is_converted_to_task: bool = Field(
+        ...,
+        description="Task conversion status.",
+    )
 
 
 # ==========================================================
-# Paginated Notes
+# Paginated Notes Response
 # ==========================================================
 
 
-class PaginatedNotesResponse(BaseSchema):
+class PaginatedNotesResponse(
+    PaginatedResponse[NoteResponse],
+):
     """
-    Paginated note response.
+    Paginated response containing notes.
     """
 
-    success: bool = True
-
-    data: list[NoteResponse]
-
-    pagination: PaginationMeta
+    pass
 
 
 # ==========================================================
-# Note → Task Response
+# Note-to-Task Response
 # ==========================================================
 
 
-class NoteToTaskResponse(BaseSchema):
+class NoteToTaskResponse(MessageResponse):
     """
     Response returned after converting
-    a note into a NestJS task.
+    a note into a task.
     """
 
-    note_id: int
+    note_id: int = Field(
+        ...,
+        description="Source note identifier.",
+    )
 
-    task_created: bool
+    task_created: bool = Field(
+        ...,
+        description="Whether the task was successfully created.",
+    )
 
-    message: str
+
+# ==========================================================
+# Public Exports
+# ==========================================================
+
+__all__ = [
+    "NoteBase",
+    "NoteCreate",
+    "NoteUpdate",
+    "NoteResponse",
+    "NotePublic",
+    "NoteSummary",
+    "PaginatedNotesResponse",
+    "NoteToTaskResponse",
+]

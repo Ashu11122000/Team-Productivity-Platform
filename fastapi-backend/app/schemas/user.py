@@ -3,28 +3,39 @@
 User Schemas
 ==========================================================
 
-Pydantic schemas for user management.
-
 Responsibilities
 ----------------
-✓ User creation
+Provides reusable Pydantic schemas for user
+authentication, registration, management and API
+responses.
+
+Features
+--------
+✓ User registration
 ✓ User update
 ✓ User response
 ✓ Public user information
 ✓ User summary
-✓ Internal user information
+✓ Internal user representation
+✓ Password validation
+✓ SQLAlchemy ORM compatibility
 
 Compatible With
 ---------------
 - FastAPI
 - Pydantic v2
 - SQLAlchemy 2.x
-==========================================================
+
+Python Version
+--------------
+3.12+
+
+----------------------------------------------------------
+Imports
+----------------------------------------------------------
 """
 
 from __future__ import annotations
-
-from datetime import datetime
 
 from pydantic import ConfigDict, EmailStr, Field, field_validator
 
@@ -34,7 +45,7 @@ from app.core.constants import (
     UserRole,
 )
 from app.schemas.base import BaseSchema, EntitySchema
-
+from app.utils.validators import validate_password
 
 # ==========================================================
 # Base User Schema
@@ -43,7 +54,7 @@ from app.schemas.base import BaseSchema, EntitySchema
 
 class UserBase(BaseSchema):
     """
-    Shared user fields.
+    Base schema containing shared user fields.
     """
 
     email: EmailStr = Field(
@@ -59,38 +70,34 @@ class UserBase(BaseSchema):
 
 class UserCreate(UserBase):
     """
-    Schema for creating a new user.
+    Schema used for user registration.
     """
 
     password: str = Field(
         ...,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="Plain-text password.",
     )
 
     @field_validator("password")
     @classmethod
-    def validate_password(cls, value: str) -> str:
+    def validate_user_password(cls, value: str) -> str:
         """
         Validate password strength.
+
+        Parameters
+        ----------
+        value : str
+            User supplied password.
+
+        Returns
+        -------
+        str
+            Validated password.
         """
 
-        if not any(char.isupper() for char in value):
-            raise ValueError(
-                "Password must contain at least one uppercase letter."
-            )
-
-        if not any(char.islower() for char in value):
-            raise ValueError(
-                "Password must contain at least one lowercase letter."
-            )
-
-        if not any(char.isdigit() for char in value):
-            raise ValueError(
-                "Password must contain at least one digit."
-            )
-
-        return value
+        return validate_password(value)
 
 
 # ==========================================================
@@ -100,20 +107,52 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseSchema):
     """
-    Schema for updating a user.
+    Schema used for updating an existing user.
+
+    All fields are optional.
     """
 
-    email: EmailStr | None = None
+    email: EmailStr | None = Field(
+        default=None,
+        description="Updated email address.",
+    )
 
     password: str | None = Field(
         default=None,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="Updated password.",
     )
 
-    role: UserRole | None = None
+    role: UserRole | None = Field(
+        default=None,
+        description="Updated user role.",
+    )
 
-    is_active: bool | None = None
+    is_active: bool | None = Field(
+        default=None,
+        description="Whether the account is active.",
+    )
+
+    @field_validator("password")
+    @classmethod
+    def validate_user_password(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        """
+        Validate updated password.
+
+        Returns
+        -------
+        str | None
+            Validated password.
+        """
+
+        if value is None:
+            return value
+
+        return validate_password(value)
 
 
 # ==========================================================
@@ -126,11 +165,20 @@ class UserResponse(EntitySchema):
     Complete user response.
     """
 
-    email: EmailStr
+    email: EmailStr = Field(
+        ...,
+        description="User email address.",
+    )
 
-    role: UserRole
+    role: UserRole = Field(
+        ...,
+        description="Assigned user role.",
+    )
 
-    is_active: bool
+    is_active: bool = Field(
+        ...,
+        description="Whether the account is active.",
+    )
 
 
 # ==========================================================
@@ -143,11 +191,20 @@ class UserPublic(BaseSchema):
     Public user information.
     """
 
-    id: int
+    id: int = Field(
+        ...,
+        description="User identifier.",
+    )
 
-    email: EmailStr
+    email: EmailStr = Field(
+        ...,
+        description="User email address.",
+    )
 
-    role: UserRole
+    role: UserRole = Field(
+        ...,
+        description="Assigned user role.",
+    )
 
 
 # ==========================================================
@@ -160,9 +217,15 @@ class UserSummary(BaseSchema):
     Lightweight user representation.
     """
 
-    id: int
+    id: int = Field(
+        ...,
+        description="User identifier.",
+    )
 
-    email: EmailStr
+    email: EmailStr = Field(
+        ...,
+        description="User email address.",
+    )
 
 
 # ==========================================================
@@ -172,13 +235,33 @@ class UserSummary(BaseSchema):
 
 class UserInternal(UserResponse):
     """
-    Internal schema including password hash.
+    Internal schema including the password hash.
 
-    Used only inside backend services.
+    This schema must never be returned to API clients.
+    It is intended only for internal service and
+    repository operations.
     """
 
-    hashed_password: str
+    hashed_password: str = Field(
+        ...,
+        description="Stored password hash.",
+    )
 
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+
+# ==========================================================
+# Public Exports
+# ==========================================================
+
+__all__ = [
+    "UserBase",
+    "UserCreate",
+    "UserUpdate",
+    "UserResponse",
+    "UserPublic",
+    "UserSummary",
+    "UserInternal",
+]

@@ -3,22 +3,34 @@
 Common Pydantic Schemas
 ==========================================================
 
-Reusable schemas shared across the Team Productivity
-Platform.
-
 Responsibilities
 ----------------
+Provides reusable response schemas shared across the Team
+Productivity Platform.
+
+Features
+--------
 ✓ Standard API responses
 ✓ Success responses
 ✓ Error responses
 ✓ Message responses
 ✓ Pagination metadata
+✓ Generic response models
+✓ Health endpoint schemas
 
 Compatible With
 ---------------
 - FastAPI
 - Pydantic v2
-==========================================================
+- SQLAlchemy 2.x
+
+Python Version
+--------------
+3.12+
+
+----------------------------------------------------------
+Imports
+----------------------------------------------------------
 """
 
 from __future__ import annotations
@@ -26,11 +38,40 @@ from __future__ import annotations
 from typing import Any, Generic, TypeVar
 
 from pydantic import Field
-from pydantic.generics import GenericModel
 
 from app.schemas.base import BaseSchema
 
 T = TypeVar("T")
+
+# ==========================================================
+# Base Response
+# ==========================================================
+
+
+class BaseResponse(BaseSchema):
+    """
+    Base response schema shared by all API responses.
+    """
+
+    success: bool = Field(
+        ...,
+        description="Whether the request succeeded.",
+    )
+
+    message: str = Field(
+        ...,
+        description="Human-readable response message.",
+    )
+
+    timestamp: str = Field(
+        ...,
+        description="UTC timestamp in ISO 8601 format.",
+    )
+
+    request_id: str | None = Field(
+        default=None,
+        description="Unique request identifier.",
+    )
 
 
 # ==========================================================
@@ -38,15 +79,12 @@ T = TypeVar("T")
 # ==========================================================
 
 
-class MessageResponse(BaseSchema):
+class MessageResponse(BaseResponse):
     """
-    Standard message response.
+    Simple message response.
     """
 
-    message: str = Field(
-        ...,
-        description="Human-readable response message.",
-    )
+    success: bool = True
 
 
 # ==========================================================
@@ -54,17 +92,20 @@ class MessageResponse(BaseSchema):
 # ==========================================================
 
 
-class SuccessResponse(BaseSchema, GenericModel, Generic[T]):
+class SuccessResponse(
+    BaseResponse,
+    Generic[T],
+):
     """
     Standard successful API response.
     """
 
-    success: bool = Field(
-        default=True,
-        description="Whether the request succeeded.",
-    )
+    success: bool = True
 
-    data: T
+    data: T = Field(
+        ...,
+        description="Response payload.",
+    )
 
 
 # ==========================================================
@@ -72,22 +113,32 @@ class SuccessResponse(BaseSchema, GenericModel, Generic[T]):
 # ==========================================================
 
 
-class ErrorResponse(BaseSchema):
+class ErrorResponse(BaseResponse):
     """
     Standard error response.
     """
 
-    success: bool = Field(
-        default=False,
+    success: bool = False
+
+    error: str = Field(
+        ...,
+        description="Short error name.",
     )
 
-    error: str
+    error_code: str = Field(
+        ...,
+        description="Application error code.",
+    )
 
-    message: str
+    details: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional error details.",
+    )
 
-    path: str
-
-    timestamp: str
+    path: str = Field(
+        ...,
+        description="Request path.",
+    )
 
 
 # ==========================================================
@@ -100,29 +151,55 @@ class PaginationMeta(BaseSchema):
     Pagination metadata.
     """
 
-    page: int = Field(
+    offset: int = Field(
         ...,
-        ge=1,
+        ge=0,
+        description="Current pagination offset.",
     )
 
-    page_size: int = Field(
+    limit: int = Field(
         ...,
         ge=1,
+        description="Maximum records returned.",
     )
 
     total_items: int = Field(
         ...,
         ge=0,
+        description="Total available records.",
     )
 
     total_pages: int = Field(
         ...,
         ge=0,
+        description="Total available pages.",
     )
 
-    has_next: bool
+    current_page: int = Field(
+        ...,
+        ge=1,
+        description="Current page number.",
+    )
 
-    has_previous: bool
+    next_page: int | None = Field(
+        default=None,
+        description="Next page number.",
+    )
+
+    previous_page: int | None = Field(
+        default=None,
+        description="Previous page number.",
+    )
+
+    has_next: bool = Field(
+        ...,
+        description="Whether another page exists.",
+    )
+
+    has_previous: bool = Field(
+        ...,
+        description="Whether a previous page exists.",
+    )
 
 
 # ==========================================================
@@ -131,8 +208,7 @@ class PaginationMeta(BaseSchema):
 
 
 class PaginatedResponse(
-    BaseSchema,
-    GenericModel,
+    BaseResponse,
     Generic[T],
 ):
     """
@@ -163,6 +239,8 @@ class HealthResponse(BaseSchema):
     version: str
 
     environment: str
+
+    timestamp: str
 
 
 # ==========================================================
@@ -195,13 +273,30 @@ class RootResponse(BaseSchema):
 # ==========================================================
 
 
-class EmptyResponse(BaseSchema):
+class EmptyResponse(
+    SuccessResponse[dict[str, Any]],
+):
     """
     Empty successful response.
     """
 
-    success: bool = True
-
     data: dict[str, Any] = Field(
         default_factory=dict,
     )
+
+
+# ==========================================================
+# Public Exports
+# ==========================================================
+
+__all__ = [
+    "BaseResponse",
+    "MessageResponse",
+    "SuccessResponse",
+    "ErrorResponse",
+    "PaginationMeta",
+    "PaginatedResponse",
+    "HealthResponse",
+    "RootResponse",
+    "EmptyResponse",
+]

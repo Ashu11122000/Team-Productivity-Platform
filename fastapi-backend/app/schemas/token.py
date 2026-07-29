@@ -3,21 +3,34 @@
 Token Schemas
 ==========================================================
 
-Pydantic schemas related to JWT authentication.
-
 Responsibilities
 ----------------
+Provides reusable Pydantic schemas for JWT authentication
+and authorization across the Team Productivity Platform.
+
+Features
+--------
 ✓ Access token response
-✓ Token payload
-✓ JWT claims
-✓ Authentication response
+✓ Refresh token response
+✓ JWT payload validation
+✓ Authenticated user information
+✓ Token verification response
+✓ Future token revocation support
 
 Compatible With
 ---------------
 - FastAPI
 - Pydantic v2
 - python-jose
-==========================================================
+- SQLAlchemy 2.x
+
+Python Version
+--------------
+3.12+
+
+----------------------------------------------------------
+Imports
+----------------------------------------------------------
 """
 
 from __future__ import annotations
@@ -29,20 +42,19 @@ from pydantic import ConfigDict, EmailStr, Field
 from app.core.constants import ACCESS_TOKEN_TYPE
 from app.schemas.base import BaseSchema
 
-
 # ==========================================================
-# Access Token Response
+# Access Token
 # ==========================================================
 
 
 class Token(BaseSchema):
     """
-    Standard JWT access token response.
+    JWT access token.
     """
 
     access_token: str = Field(
         ...,
-        description="JWT access token.",
+        description="Signed JWT access token.",
     )
 
     token_type: str = Field(
@@ -52,13 +64,14 @@ class Token(BaseSchema):
 
 
 # ==========================================================
-# Authentication Response
+# Token Response
 # ==========================================================
 
 
 class TokenResponse(Token):
     """
-    Authentication response returned after login.
+    Authentication response returned after a
+    successful login.
     """
 
     expires_in: int = Field(
@@ -96,17 +109,37 @@ class TokenPayload(BaseSchema):
 
     type: str = Field(
         ...,
-        description="Token type.",
+        description="JWT token type.",
+    )
+
+    iss: str = Field(
+        ...,
+        description="JWT issuer.",
+    )
+
+    aud: str = Field(
+        ...,
+        description="JWT audience.",
     )
 
     iat: int = Field(
         ...,
-        description="Issued-at timestamp (Unix epoch).",
+        description="Issued-at timestamp.",
     )
 
     exp: int = Field(
         ...,
-        description="Expiration timestamp (Unix epoch).",
+        description="Expiration timestamp.",
+    )
+
+    jti: str | None = Field(
+        default=None,
+        description="JWT identifier.",
+    )
+
+    nbf: int | None = Field(
+        default=None,
+        description="Not-before timestamp.",
     )
 
 
@@ -154,26 +187,33 @@ class CurrentUser(BaseSchema):
 
 class TokenVerificationResponse(BaseSchema):
     """
-    Response returned after verifying
-    a JWT access token.
+    Response returned after validating a JWT.
     """
 
-    valid: bool = True
+    valid: bool = Field(
+        default=True,
+        description="Whether the supplied token is valid.",
+    )
 
     user: CurrentUser
 
 
 # ==========================================================
-# Refresh Token (Future Support)
+# Refresh Token
 # ==========================================================
 
 
 class RefreshToken(BaseSchema):
     """
-    Reserved for future refresh token support.
+    Refresh token schema.
+
+    Reserved for future refresh-token rotation.
     """
 
-    refresh_token: str
+    refresh_token: str = Field(
+        ...,
+        description="JWT refresh token.",
+    )
 
 
 # ==========================================================
@@ -183,29 +223,55 @@ class RefreshToken(BaseSchema):
 
 class RefreshTokenResponse(TokenResponse):
     """
-    Authentication response containing
-    both access and refresh tokens.
+    Authentication response containing both
+    access and refresh tokens.
     """
 
-    refresh_token: str
+    refresh_token: str = Field(
+        ...,
+        description="JWT refresh token.",
+    )
 
 
 # ==========================================================
-# Token Blacklist Entry (Future Support)
+# Token Blacklist Entry
 # ==========================================================
 
 
 class TokenBlacklistEntry(BaseSchema):
     """
-    Schema representing a revoked token.
+    Represents a revoked JWT.
 
     Reserved for future token revocation support.
     """
 
-    jti: str
+    jti: str = Field(
+        ...,
+        description="JWT unique identifier.",
+    )
 
-    expires_at: datetime
+    expires_at: datetime = Field(
+        ...,
+        description="UTC expiration timestamp.",
+    )
 
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+
+# ==========================================================
+# Public Exports
+# ==========================================================
+
+__all__ = [
+    "Token",
+    "TokenResponse",
+    "TokenPayload",
+    "JWTClaims",
+    "CurrentUser",
+    "TokenVerificationResponse",
+    "RefreshToken",
+    "RefreshTokenResponse",
+    "TokenBlacklistEntry",
+]

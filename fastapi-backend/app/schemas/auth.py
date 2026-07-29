@@ -3,23 +3,35 @@
 Authentication Schemas
 ==========================================================
 
-Pydantic schemas for authentication.
-
 Responsibilities
 ----------------
-✓ User registration
+Provides reusable authentication-related schemas for the
+Team Productivity Platform.
+
+Features
+--------
 ✓ User login
+✓ User registration
 ✓ Authentication response
 ✓ Password change
 ✓ Password reset
-✓ Email verification (future)
+✓ Refresh token support
+✓ Email verification
+✓ Logout response
 
 Compatible With
 ---------------
 - FastAPI
 - Pydantic v2
 - JWT Authentication
-==========================================================
+
+Python Version
+--------------
+3.12+
+
+----------------------------------------------------------
+Imports
+----------------------------------------------------------
 """
 
 from __future__ import annotations
@@ -31,8 +43,10 @@ from app.core.constants import (
     PASSWORD_MIN_LENGTH,
 )
 from app.schemas.base import BaseSchema
+from app.schemas.common import MessageResponse
 from app.schemas.token import TokenResponse
 from app.schemas.user import UserCreate, UserResponse
+from app.utils.validators import validate_password
 
 
 # ==========================================================
@@ -47,7 +61,7 @@ class LoginRequest(BaseSchema):
 
     email: EmailStr = Field(
         ...,
-        description="Registered email address.",
+        description="Registered user email address.",
     )
 
     password: str = Field(
@@ -67,7 +81,7 @@ class RegisterRequest(UserCreate):
     """
     User registration request.
 
-    Reuses the UserCreate schema.
+    Reuses UserCreate.
     """
 
     pass
@@ -80,11 +94,13 @@ class RegisterRequest(UserCreate):
 
 class AuthResponse(TokenResponse):
     """
-    Authentication response returned after
-    successful login or registration.
+    Response returned after successful authentication.
     """
 
-    user: UserResponse
+    user: UserResponse = Field(
+        ...,
+        description="Authenticated user.",
+    )
 
 
 # ==========================================================
@@ -94,47 +110,31 @@ class AuthResponse(TokenResponse):
 
 class ChangePasswordRequest(BaseSchema):
     """
-    Change password request.
+    Request to change the current password.
     """
 
     current_password: str = Field(
         ...,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="Current password.",
     )
 
     new_password: str = Field(
         ...,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="New password.",
     )
 
     @field_validator("new_password")
     @classmethod
-    def validate_password_strength(
-        cls,
-        value: str,
-    ) -> str:
+    def validate_new_password(cls, value: str) -> str:
         """
-        Validate password complexity.
+        Validate password strength.
         """
 
-        if not any(char.isupper() for char in value):
-            raise ValueError(
-                "Password must contain at least one uppercase letter."
-            )
-
-        if not any(char.islower() for char in value):
-            raise ValueError(
-                "Password must contain at least one lowercase letter."
-            )
-
-        if not any(char.isdigit() for char in value):
-            raise ValueError(
-                "Password must contain at least one digit."
-            )
-
-        return value
+        return validate_password(value)
 
 
 # ==========================================================
@@ -147,7 +147,10 @@ class ForgotPasswordRequest(BaseSchema):
     Forgot password request.
     """
 
-    email: EmailStr
+    email: EmailStr = Field(
+        ...,
+        description="Registered email address.",
+    )
 
 
 # ==========================================================
@@ -157,7 +160,7 @@ class ForgotPasswordRequest(BaseSchema):
 
 class ResetPasswordRequest(BaseSchema):
     """
-    Reset password request.
+    Password reset request.
     """
 
     token: str = Field(
@@ -169,34 +172,17 @@ class ResetPasswordRequest(BaseSchema):
         ...,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="New password.",
     )
 
     @field_validator("new_password")
     @classmethod
-    def validate_password_strength(
-        cls,
-        value: str,
-    ) -> str:
+    def validate_new_password(cls, value: str) -> str:
         """
-        Validate password complexity.
+        Validate password strength.
         """
 
-        if not any(char.isupper() for char in value):
-            raise ValueError(
-                "Password must contain at least one uppercase letter."
-            )
-
-        if not any(char.islower() for char in value):
-            raise ValueError(
-                "Password must contain at least one lowercase letter."
-            )
-
-        if not any(char.isdigit() for char in value):
-            raise ValueError(
-                "Password must contain at least one digit."
-            )
-
-        return value
+        return validate_password(value)
 
 
 # ==========================================================
@@ -208,10 +194,13 @@ class RefreshTokenRequest(BaseSchema):
     """
     Refresh access token request.
 
-    Reserved for future refresh token support.
+    Reserved for future refresh-token support.
     """
 
-    refresh_token: str
+    refresh_token: str = Field(
+        ...,
+        description="Refresh token.",
+    )
 
 
 # ==========================================================
@@ -226,7 +215,10 @@ class VerifyEmailRequest(BaseSchema):
     Reserved for future email verification.
     """
 
-    token: str
+    token: str = Field(
+        ...,
+        description="Email verification token.",
+    )
 
 
 # ==========================================================
@@ -234,9 +226,29 @@ class VerifyEmailRequest(BaseSchema):
 # ==========================================================
 
 
-class LogoutResponse(BaseSchema):
+class LogoutResponse(MessageResponse):
     """
     Logout response.
     """
 
-    message: str = "Logged out successfully."
+    message: str = Field(
+        default="Logged out successfully.",
+        description="Logout status message.",
+    )
+
+
+# ==========================================================
+# Public Exports
+# ==========================================================
+
+__all__ = [
+    "LoginRequest",
+    "RegisterRequest",
+    "AuthResponse",
+    "ChangePasswordRequest",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
+    "RefreshTokenRequest",
+    "VerifyEmailRequest",
+    "LogoutResponse",
+]

@@ -3,23 +3,34 @@
 Base Pydantic Schemas
 ==========================================================
 
+Responsibilities
+----------------
 Provides reusable base schemas for the Team Productivity
 Platform.
 
-Responsibilities
-----------------
+Features
+--------
 ✓ Shared Pydantic configuration
-✓ Timestamp schemas
-✓ ID schemas
-✓ Base ORM schema
-✓ Common reusable mixins
+✓ SQLAlchemy ORM compatibility
+✓ ID mixins
+✓ Timestamp mixins
+✓ Database entity base schema
+✓ Assignment validation
+✓ Alias population support
 
 Compatible With
 ---------------
 - FastAPI
 - Pydantic v2
 - SQLAlchemy 2.x
-==========================================================
+
+Python Version
+--------------
+3.12+
+
+----------------------------------------------------------
+Imports
+----------------------------------------------------------
 """
 
 from __future__ import annotations
@@ -28,6 +39,19 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+# ==========================================================
+# Shared Model Configuration
+# ==========================================================
+
+#
+# Centralized Pydantic configuration used across all schemas.
+#
+MODEL_CONFIG = ConfigDict(
+    from_attributes=True,
+    extra="ignore",
+    validate_assignment=True,
+    populate_by_name=True,
+)
 
 # ==========================================================
 # Base Schema
@@ -36,53 +60,67 @@ from pydantic import BaseModel, ConfigDict
 
 class BaseSchema(BaseModel):
     """
-    Base schema for all Pydantic models.
+    Base class for all Pydantic schemas.
 
-    Features
-    --------
-    ✓ ORM compatibility
-    ✓ Ignore extra fields
-    ✓ Validate assignments
+    Responsibilities
+    ----------------
+    - Enable SQLAlchemy ORM serialization
+    - Ignore unexpected input fields
+    - Validate attribute assignments
+    - Support alias population
+
+    Notes
+    -----
+    All application schemas should inherit from this class
+    unless a specialized configuration is required.
     """
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        extra="ignore",
-        validate_assignment=True,
-        populate_by_name=True,
-    )
+    model_config = MODEL_CONFIG
 
 
 # ==========================================================
-# ID Mixin
+# ID Schema
 # ==========================================================
 
 
 class IDSchema(BaseSchema):
     """
-    Provides an integer primary key.
+    Reusable schema providing an integer primary key.
+
+    Attributes
+    ----------
+    id : int
+        Database primary key.
     """
 
     id: int
 
 
 # ==========================================================
-# Timestamp Mixin
+# Timestamp Schema
 # ==========================================================
 
 
 class TimestampSchema(BaseSchema):
     """
-    Provides audit timestamps.
+    Reusable schema providing audit timestamps.
+
+    Attributes
+    ----------
+    created_at : datetime
+        UTC timestamp indicating when the entity was created.
+
+    updated_at : datetime
+        UTC timestamp indicating when the entity was last
+        modified.
     """
 
     created_at: datetime
-
     updated_at: datetime
 
 
 # ==========================================================
-# Database Entity Base
+# Entity Schema
 # ==========================================================
 
 
@@ -91,12 +129,29 @@ class EntitySchema(
     TimestampSchema,
 ):
     """
-    Base schema for database entities.
+    Base schema for persisted database entities.
 
-    Includes:
+    Inherits
+    --------
     - id
     - created_at
     - updated_at
+
+    This schema should be used as the parent for response
+    models representing persisted database records.
     """
 
     pass
+
+
+# ==========================================================
+# Public Exports
+# ==========================================================
+
+__all__ = [
+    "MODEL_CONFIG",
+    "BaseSchema",
+    "IDSchema",
+    "TimestampSchema",
+    "EntitySchema",
+]
