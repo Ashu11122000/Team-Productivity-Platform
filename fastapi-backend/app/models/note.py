@@ -3,15 +3,19 @@
 Note Model
 ==========================================================
 
-Represents a user note within the Team Productivity
-Platform.
-
 Responsibilities
 ----------------
+Represents a user-owned note within the Team Productivity
+Platform.
+
+Features
+--------
 ✓ Store personal notes
 ✓ Associate notes with users
 ✓ Support Open Library integration
 ✓ Support conversion to NestJS tasks
+✓ Track audit timestamps
+✓ Optimized database indexes
 
 Compatible With
 ---------------
@@ -19,12 +23,18 @@ Compatible With
 - PostgreSQL
 - Alembic
 - FastAPI
-==========================================================
+
+Python Version
+--------------
+3.12+
+
+----------------------------------------------------------
+Imports
+----------------------------------------------------------
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -35,6 +45,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    false,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -47,6 +58,7 @@ from app.core.constants import (
     NOTE_TITLE_MAX_LENGTH,
 )
 from app.db.base import Base
+from app.utils.datetime import utc_now
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -54,15 +66,41 @@ if TYPE_CHECKING:
 
 class Note(Base):
     """
-    Note database model.
+    Database model representing a user note.
+
+    Each note belongs to exactly one user and may optionally
+    reference an Open Library book. Notes can also be marked
+    as converted into tasks for synchronization with the
+    NestJS Task service.
+
+    Relationships
+    -------------
+    owner
+        The user who owns this note.
     """
 
     __tablename__ = "notes"
+
+    # ------------------------------------------------------
+    # Database Indexes
+    #
+    # These indexes optimize the most common query patterns:
+    #
+    # - Fetch notes for a specific user
+    # - Sort notes by creation time
+    # - Search notes by title
+    # - Retrieve notes converted into tasks
+    # ------------------------------------------------------
 
     __table_args__ = (
         Index("idx_notes_owner_id", "owner_id"),
         Index("idx_notes_created_at", "created_at"),
         Index("idx_notes_title", "title"),
+        Index(
+            "idx_notes_owner_created_at",
+            "owner_id",
+            "created_at",
+        ),
         Index(
             "idx_notes_converted_to_task",
             "is_converted_to_task",
@@ -80,7 +118,7 @@ class Note(Base):
     )
 
     # ======================================================
-    # Note Data
+    # Note Information
     # ======================================================
 
     title: Mapped[str] = mapped_column(
@@ -123,25 +161,26 @@ class Note(Base):
 
     is_converted_to_task: Mapped[bool] = mapped_column(
         Boolean,
-        default=False,
         nullable=False,
+        default=False,
+        server_default=false(),
     )
 
     # ======================================================
     # Audit Fields
     # ======================================================
 
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
         nullable=False,
+        default=utc_now,
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
+    updated_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
         nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
     )
 
     # ======================================================
@@ -151,6 +190,7 @@ class Note(Base):
     owner: Mapped["User"] = relationship(
         "User",
         back_populates="notes",
+        lazy="selectin",
     )
 
     # ======================================================
@@ -159,14 +199,24 @@ class Note(Base):
 
     def __repr__(self) -> str:
         """
-        Return a developer-friendly representation.
+        Return a developer-friendly string representation.
+
+        Returns
+        -------
+        str
+            Readable representation of the Note instance.
         """
 
         return (
-            f"Note("
+            "Note("
             f"id={self.id}, "
-            f"title='{self.title}', "
+            f"title={self.title!r}, "
             f"owner_id={self.owner_id}, "
             f"is_converted_to_task={self.is_converted_to_task}"
-            f")"
+            ")"
         )
+
+
+__all__ = [
+    "Note",
+]
