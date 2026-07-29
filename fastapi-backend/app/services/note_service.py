@@ -1,102 +1,726 @@
 """
-==========================================================
-Note Service
-==========================================================
+===============================================================================
+Enterprise Team Productivity Platform
+FastAPI Backend
 
-Business logic for note management.
+Module: app.services.note_service
+Author: Enterprise Engineering Team
+Architecture: Clean Architecture | Service Layer
+Python: 3.12+
+Framework: FastAPI
+Database: PostgreSQL
+ORM: SQLAlchemy 2.x
+Validation: Pydantic v2
+
+===============================================================================
+
+Overview
+--------
+Enterprise service responsible for all business logic related to Note
+management.
+
+This service represents the business layer between the API routers and the
+repository layer. It coordinates validation, authorization, ownership checks,
+data transformation, business rules, logging, and future cross-service
+communication while delegating all persistence operations to the
+``NoteRepository``.
+
+The service intentionally contains **no SQLAlchemy query logic**. Database
+interaction is fully delegated to the repository layer in accordance with
+Clean Architecture and the Single Responsibility Principle (SRP).
 
 Responsibilities
 ----------------
 ✓ Create notes
+
 ✓ Retrieve notes
+
 ✓ Update notes
+
 ✓ Delete notes
+
 ✓ Search notes
+
 ✓ Pagination
+
 ✓ Ownership validation
-✓ Administrator access
+
+✓ Administrator authorization
+
+✓ Statistics
+
 ✓ Open Library integration support
+
 ✓ NestJS task conversion support
 
-This service contains business logic only.
+✓ DTO ↔ ORM transformation
 
-Database access is delegated to NoteRepository.
+✓ Structured logging
 
-Compatible With
----------------
-- FastAPI
-- SQLAlchemy 2.x
-- PostgreSQL
-- Pydantic v2
-- Docker
-- Alembic
-==========================================================
+✓ Business validation
+
+Architecture
+------------
+Client
+    │
+    ▼
+FastAPI Router
+    │
+    ▼
+NoteService
+    │
+    ▼
+NoteRepository
+    │
+    ▼
+PostgreSQL
+
+The service never performs direct SQL operations.
+
+Repository ownership
+--------------------
+This service delegates persistence to:
+
+    app.repositories.note_repository.NoteRepository
+
+The repository is responsible for:
+
+• CRUD operations
+• Search
+• Pagination
+• Counting
+• Filtering
+• Sorting
+• Transaction persistence
+
+The service is responsible for:
+
+• Authorization
+• Ownership validation
+• Business rules
+• Input normalization
+• Response mapping
+• Cross-module orchestration
+
+Microservice Responsibilities
+-----------------------------
+FastAPI owns:
+
+• Authentication
+• Users
+• Notes
+• Open Library Integration
+
+NestJS owns:
+
+• Tasks
+• Categories
+• Tags
+• Notifications
+• Dashboard
+• Analytics
+• Activity Logs
+
+This ownership boundary must never be violated.
+
+Design Principles
+-----------------
+• SOLID
+
+• Clean Architecture
+
+• Repository Pattern
+
+• Dependency Inversion
+
+• Single Responsibility Principle
+
+• Explicit typing
+
+• Stateless service methods
+
+• Structured logging
+
+• Centralized validation
+
+• Centralized exception handling
+
+• Production-ready implementation
+
+Thread Safety
+-------------
+This service is stateless.
+
+No mutable shared state is maintained between requests.
+
+Every request receives its own SQLAlchemy session through dependency
+injection.
+
+Future Extension Points
+-----------------------
+The architecture intentionally allows seamless integration of:
+
+• Distributed caching
+
+• Audit logging
+
+• Domain events
+
+• Message queues
+
+• Background workers
+
+• Metrics collection
+
+• OpenTelemetry tracing
+
+• Event sourcing
+
+without changing the public service API.
+
+Notes
+-----
+Business logic belongs here.
+
+Persistence belongs in repositories.
+
+HTTP transport concerns belong in routers.
+
+Copyright
+---------
+Enterprise Team Productivity Platform.
+All Rights Reserved.
+===============================================================================
 """
 
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+# =============================================================================
+# Standard Library Imports
+# =============================================================================
+
+from typing import Final, TypeAlias
+
+# =============================================================================
+# Third-Party Imports
+# =============================================================================
+
 from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+# =============================================================================
+# Application Core Imports
+# =============================================================================
 
 from app.core.constants import UserRole
 from app.core.logging import get_logger
 
+# =============================================================================
+# Domain Model Imports
+# =============================================================================
+
 from app.models.note import Note
 from app.models.user import User
 
+# =============================================================================
+# Repository Imports
+# =============================================================================
+
 from app.repositories.note_repository import NoteRepository
+
+# =============================================================================
+# Schema Imports
+# =============================================================================
 
 from app.schemas.note import (
     NoteCreate,
     NoteResponse,
-    NoteUpdate,
     NoteToTaskResponse,
+    NoteUpdate,
 )
 
+# =============================================================================
+# Public Module Exports
+# =============================================================================
+
+__all__ = [
+    "NoteService",
+]
+
+# =============================================================================
+# Module Constants
+# =============================================================================
+
+DEFAULT_PAGE: Final[int] = 1
+DEFAULT_PAGE_SIZE: Final[int] = 10
+DEFAULT_ADMIN_PAGE_SIZE: Final[int] = 20
+
+DEFAULT_SORT_ORDER: Final[str] = "newest"
+
+SORT_NEWEST: Final[str] = "newest"
+SORT_OLDEST: Final[str] = "oldest"
+SORT_TITLE: Final[str] = "title"
+
+SUPPORTED_SORT_OPTIONS: Final[frozenset[str]] = frozenset(
+    {
+        SORT_NEWEST,
+        SORT_OLDEST,
+        SORT_TITLE,
+    }
+)
+
+# =============================================================================
+# Type Aliases
+# =============================================================================
+
+PaginationResult: TypeAlias = tuple[int, list[NoteResponse]]
+
+StatisticsResult: TypeAlias = dict[str, int]
+
+# =============================================================================
+# Module Logger
+# =============================================================================
+
 logger = get_logger(__name__)
+
+# =============================================================================
+# Note Service
+# =============================================================================
 
 
 class NoteService:
     """
-    Enterprise Note Service.
+    Enterprise service responsible for all note-related business operations.
 
-    Contains business logic only.
+    This service represents the business layer between the FastAPI routing
+    layer and the persistence layer. It coordinates business rules,
+    authorization, validation, normalization, response transformation,
+    logging, and cross-service orchestration while delegating all database
+    operations to ``NoteRepository``.
 
-    Database operations are delegated to
-    NoteRepository.
+    The service is intentionally implemented as a stateless collection of
+    static methods. Every request receives its own SQLAlchemy session through
+    FastAPI dependency injection, ensuring thread safety and predictable
+    request lifecycles.
+
+    ------------------------------------------------------------------------
+    Architecture
+    ------------------------------------------------------------------------
+
+        HTTP Request
+              │
+              ▼
+        FastAPI Router
+              │
+              ▼
+        Authentication
+              │
+              ▼
+        Dependency Injection
+              │
+              ▼
+        NoteService
+              │
+              ▼
+        NoteRepository
+              │
+              ▼
+        SQLAlchemy ORM
+              │
+              ▼
+        PostgreSQL
+
+    Routers
+    -------
+    Responsible for:
+
+    • Request parsing
+    • Dependency injection
+    • Authentication dependencies
+    • Calling service methods
+    • Returning API responses
+
+    This service
+    ------------
+    Responsible for:
+
+    • Business logic
+    • Ownership validation
+    • Administrator authorization
+    • Input normalization
+    • Business rule enforcement
+    • DTO ↔ ORM mapping
+    • Pagination orchestration
+    • Search orchestration
+    • Statistics generation
+    • Structured logging
+    • Cross-module coordination
+
+    Repository
+    ----------
+    Responsible for:
+
+    • SQLAlchemy queries
+    • CRUD operations
+    • Search
+    • Pagination
+    • Filtering
+    • Sorting
+    • Aggregate queries
+    • Transaction persistence
+
+    ------------------------------------------------------------------------
+    Responsibilities
+    ------------------------------------------------------------------------
+
+    ✓ Create notes
+
+    ✓ Retrieve notes
+
+    ✓ Update notes
+
+    ✓ Delete notes
+
+    ✓ Search notes
+
+    ✓ Pagination
+
+    ✓ Sorting
+
+    ✓ Ownership validation
+
+    ✓ Administrator authorization
+
+    ✓ Statistics
+
+    ✓ Open Library integration support
+
+    ✓ NestJS task conversion support
+
+    ✓ Response mapping
+
+    ✓ Business validation
+
+    ✓ Audit-ready logging
+
+    ✓ Future event publishing support
+
+    ------------------------------------------------------------------------
+    Microservice Ownership
+    ------------------------------------------------------------------------
+
+    FastAPI owns:
+
+    • Authentication
+    • Users
+    • Notes
+    • Open Library Integration
+
+    NestJS owns:
+
+    • Tasks
+    • Categories
+    • Tags
+    • Notifications
+    • Dashboard
+    • Analytics
+    • Activity Logs
+
+    This service must never directly implement NestJS-owned business logic.
+    Interaction with those services should occur through API clients,
+    asynchronous messaging, or dedicated integration layers.
+
+    ------------------------------------------------------------------------
+    Design Principles
+    ------------------------------------------------------------------------
+
+    This implementation follows:
+
+    • SOLID principles
+
+    • Clean Architecture
+
+    • Repository Pattern
+
+    • Service Layer Pattern
+
+    • Dependency Inversion
+
+    • Separation of Concerns
+
+    • Stateless Design
+
+    • Explicit Type Hints
+
+    • Structured Logging
+
+    • Enterprise Documentation Standards
+
+    • Production-Ready Coding Standards
+
+    ------------------------------------------------------------------------
+    Thread Safety
+    ------------------------------------------------------------------------
+
+    The service contains no mutable shared state.
+
+    Every request operates on an independent SQLAlchemy session supplied by
+    FastAPI dependency injection.
+
+    This makes the service naturally thread-safe and suitable for highly
+    concurrent ASGI deployments.
+
+    ------------------------------------------------------------------------
+    Future Extension Points
+    ------------------------------------------------------------------------
+
+    The architecture intentionally supports future enterprise capabilities,
+    including:
+
+    • Distributed caching
+
+    • Audit logging
+
+    • Domain events
+
+    • Event sourcing
+
+    • Background jobs
+
+    • OpenTelemetry tracing
+
+    • Metrics collection
+
+    • Message queues
+
+    • Search indexing
+
+    • Full-text search
+
+    • AI-assisted note processing
+
+    • Open Library synchronization
+
+    • NestJS task synchronization
+
+    These capabilities can be introduced without changing the public API of
+    this service.
+
+    ------------------------------------------------------------------------
+    Class-Level Constants
+    ------------------------------------------------------------------------
     """
 
-    # =====================================================
-    # Repository Helper
-    # =====================================================
+    # =====================================================================
+    # Service Metadata
+    # =====================================================================
+
+    SERVICE_NAME: Final[str] = "NoteService"
+
+    SERVICE_VERSION: Final[str] = "1.0.0"
+
+    DOMAIN_NAME: Final[str] = "notes"
+
+    # =====================================================================
+    # Pagination Defaults
+    # =====================================================================
+
+    DEFAULT_PAGE: Final[int] = DEFAULT_PAGE
+
+    DEFAULT_PAGE_SIZE: Final[int] = DEFAULT_PAGE_SIZE
+
+    DEFAULT_ADMIN_PAGE_SIZE: Final[int] = DEFAULT_ADMIN_PAGE_SIZE
+
+    # =====================================================================
+    # Sorting Defaults
+    # =====================================================================
+
+    DEFAULT_SORT_ORDER: Final[str] = DEFAULT_SORT_ORDER
+
+    SUPPORTED_SORT_OPTIONS: Final[frozenset[str]] = (
+        SUPPORTED_SORT_OPTIONS
+    )
+
+    # =====================================================================
+    # Authorization Constants
+    # =====================================================================
+
+    ADMIN_ROLE: Final[str] = UserRole.ADMIN.value
+
+    # =====================================================================
+    # Logging Message Prefixes
+    # =====================================================================
+
+    LOG_CREATE: Final[str] = "Create Note"
+
+    LOG_READ: Final[str] = "Read Note"
+
+    LOG_UPDATE: Final[str] = "Update Note"
+
+    LOG_DELETE: Final[str] = "Delete Note"
+
+    LOG_SEARCH: Final[str] = "Search Notes"
+
+    LOG_STATISTICS: Final[str] = "Note Statistics"
+
+    LOG_CONVERT: Final[str] = "Convert Note"
+
+    # =====================================================================
+    # Private Helper Methods
+    # =====================================================================
+
+    # Repository helper methods
+
+    # Authorization helper methods
+
+    # Validation helper methods
+
+    # Response mapping helpers
+
+    # Pagination helpers
+
+    # Search helpers
+
+    # Statistics helpers
+
+    # Conversion helpers
+
+    # Internal utilities
+    
+        # =====================================================================
+    # Repository Helpers
+    # =====================================================================
 
     @staticmethod
     def _repository(
         db: Session,
     ) -> NoteRepository:
         """
-        Create a repository instance.
+        Create a NoteRepository instance.
+
+        This method centralizes repository construction so that all service
+        methods obtain a consistent repository implementation.
 
         Parameters
         ----------
         db:
-            Active SQLAlchemy session.
+            Active SQLAlchemy database session.
+
+        Returns
+        -------
+        NoteRepository
+            Repository instance bound to the supplied database session.
         """
         return NoteRepository(db)
 
-    # =====================================================
+    # =====================================================================
+    # Response Mapping Helpers
+    # =====================================================================
+
+    @staticmethod
+    def _response(
+        note: Note,
+    ) -> NoteResponse:
+        """
+        Convert a Note ORM model into a NoteResponse schema.
+
+        Parameters
+        ----------
+        note:
+            SQLAlchemy Note model.
+
+        Returns
+        -------
+        NoteResponse
+            Serialized response model.
+        """
+        return NoteResponse.model_validate(note)
+
+    @staticmethod
+    def _response_collection(
+        notes: list[Note],
+    ) -> list[NoteResponse]:
+        """
+        Convert a collection of ORM models into response schemas.
+
+        Parameters
+        ----------
+        notes:
+            Collection of SQLAlchemy Note models.
+
+        Returns
+        -------
+        list[NoteResponse]
+            Serialized response models.
+        """
+        return [
+            NoteService._response(note)
+            for note in notes
+        ]
+
+    # =====================================================================
     # Authorization Helpers
-    # =====================================================
+    # =====================================================================
 
     @staticmethod
     def _is_admin(
         user: User,
     ) -> bool:
         """
-        Determine whether the supplied user
-        has administrator privileges.
+        Determine whether the authenticated user has administrator
+        privileges.
+
+        Parameters
+        ----------
+        user:
+            Authenticated user.
+
+        Returns
+        -------
+        bool
+            True if the user is an administrator.
         """
-        return user.role == UserRole.ADMIN.value
+        return user.role == NoteService.ADMIN_ROLE
+
+    # =====================================================================
+    # Helper Regions
+    # =====================================================================
+
+    # _require_note()
+    # _validate_access()
+    # _owned_note()
+
+    # =====================================================================
+    # Validation Helpers
+    # =====================================================================
+
+    # _normalize_update_data()
+
+    # =====================================================================
+    # Pagination Helpers
+    # =====================================================================
+
+    # _calculate_offset()
+
+    # =====================================================================
+    # Statistics Helpers
+    # =====================================================================
+
+    # _build_statistics()
+
+    # =====================================================================
+    # Conversion Helpers
+    # =====================================================================
+
+    # _prepare_task_conversion()
+
+    # =====================================================================
+    # CRUD Operations
+    # =====================================================================
+    
+        # =====================================================================
+    # Authorization & Ownership Helpers
+    # =====================================================================
 
     @staticmethod
     def _require_note(
@@ -105,15 +729,42 @@ class NoteService:
         note_id: int,
     ) -> Note:
         """
-        Retrieve a note or raise HTTP 404.
+        Retrieve a note by its identifier.
+
+        This helper centralizes note retrieval and guarantees that a valid
+        ORM object is returned. If the requested note does not exist, a
+        404 error is raised.
+
+        Parameters
+        ----------
+        repository:
+            Active NoteRepository instance.
+
+        note_id:
+            Identifier of the requested note.
+
+        Returns
+        -------
+        Note
+            Existing Note ORM model.
+
+        Raises
+        ------
+        HTTPException
+            Raised when the note cannot be found.
         """
-        note = repository.get_by_id(
+        logger.info(
+            "%s | Retrieving note | note_id=%s",
+            NoteService.LOG_READ,
             note_id,
         )
 
+        note = repository.get_by_id(note_id)
+
         if note is None:
             logger.warning(
-                "Requested note does not exist | id=%s",
+                "%s | Note not found | note_id=%s",
+                NoteService.LOG_READ,
                 note_id,
             )
 
@@ -131,27 +782,43 @@ class NoteService:
         note: Note,
     ) -> None:
         """
-        Validate ownership.
+        Validate that the authenticated user may access the supplied note.
 
         Administrators may access every note.
+
+        Regular users may access only notes that they own.
+
+        Parameters
+        ----------
+        current_user:
+            Authenticated user.
+
+        note:
+            Note ORM model.
+
+        Raises
+        ------
+        HTTPException
+            Raised when access is denied.
         """
-        if NoteService._is_admin(
-            current_user,
-        ):
+        if NoteService._is_admin(current_user):
             return
 
-        if note.owner_id != current_user.id:
-            logger.warning(
-                "Unauthorized note access | "
-                "user=%s note=%s",
-                current_user.id,
-                note.id,
-            )
+        if note.owner_id == current_user.id:
+            return
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not authorized to access this note.",
-            )
+        logger.warning(
+            "%s | Access denied | user_id=%s owner_id=%s note_id=%s",
+            NoteService.LOG_READ,
+            current_user.id,
+            note.owner_id,
+            note.id,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this note.",
+        )
 
     @staticmethod
     def _owned_note(
@@ -161,7 +828,34 @@ class NoteService:
         note_id: int,
     ) -> Note:
         """
-        Retrieve a note and verify ownership.
+        Retrieve a note and validate ownership.
+
+        This helper combines retrieval and authorization into a single
+        reusable workflow used throughout the service.
+
+        Parameters
+        ----------
+        repository:
+            Active NoteRepository instance.
+
+        current_user:
+            Authenticated user.
+
+        note_id:
+            Requested note identifier.
+
+        Returns
+        -------
+        Note
+            Authorized Note ORM model.
+
+        Raises
+        ------
+        HTTPException
+            404 if the note does not exist.
+
+        HTTPException
+            403 if access is denied.
         """
         note = NoteService._require_note(
             repository=repository,
@@ -175,24 +869,174 @@ class NoteService:
 
         return note
 
-    # =====================================================
-    # Response Helpers
-    # =====================================================
+    # =====================================================================
+    # End Authorization Helpers
+    # =====================================================================
+        # =====================================================================
+    # Validation Helpers
+    # =====================================================================
 
     @staticmethod
-    def _response(
-        note: Note,
-    ) -> NoteResponse:
+    def _normalize_update_data(
+        note_data: NoteUpdate,
+    ) -> dict[str, object]:
         """
-        Convert ORM model into response schema.
+        Normalize update payload before persistence.
+
+        This helper performs the following operations:
+
+        • Removes unset fields
+        • Removes None values
+        • Prevents modification of protected fields
+        • Trims string values
+
+        Parameters
+        ----------
+        note_data:
+            Incoming update schema.
+
+        Returns
+        -------
+        dict[str, object]
+            Sanitized update payload.
         """
-        return NoteResponse.model_validate(
-            note,
+        update_data = note_data.model_dump(
+            exclude_unset=True,
+            exclude_none=True,
         )
-        
-            # =====================================================
-    # Create Note
-    # =====================================================
+
+        # Prevent modification of immutable fields.
+        protected_fields = {
+            "id",
+            "owner_id",
+            "created_at",
+            "updated_at",
+        }
+
+        for field in protected_fields:
+            update_data.pop(field, None)
+
+        # Normalize string values.
+        for field, value in update_data.items():
+            if isinstance(value, str):
+                update_data[field] = value.strip()
+
+        return update_data
+
+    @staticmethod
+    def _apply_updates(
+        *,
+        note: Note,
+        update_data: dict[str, object],
+    ) -> Note:
+        """
+        Apply normalized update data to a Note model.
+
+        Parameters
+        ----------
+        note:
+            Existing Note ORM model.
+
+        update_data:
+            Sanitized update payload.
+
+        Returns
+        -------
+        Note
+            Updated ORM model.
+        """
+        for field, value in update_data.items():
+            if hasattr(note, field):
+                setattr(note, field, value)
+
+        return note
+
+    # =====================================================================
+    # Pagination Helpers
+    # =====================================================================
+
+    @staticmethod
+    def _calculate_offset(
+        *,
+        page: int,
+        limit: int,
+    ) -> int:
+        """
+        Calculate SQL pagination offset.
+
+        Parameters
+        ----------
+        page:
+            One-based page number.
+
+        limit:
+            Records per page.
+
+        Returns
+        -------
+        int
+            SQL OFFSET value.
+        """
+        return max(page - 1, 0) * limit
+
+    # =====================================================================
+    # Search Helpers
+    # =====================================================================
+
+    @staticmethod
+    def _owner_scope(
+        current_user: User,
+    ) -> int | None:
+        """
+        Determine the owner scope for repository queries.
+
+        Administrators operate on all notes and therefore return ``None``.
+        Regular users are restricted to their own records.
+
+        Parameters
+        ----------
+        current_user:
+            Authenticated user.
+
+        Returns
+        -------
+        int | None
+            Owner identifier or ``None`` for administrator scope.
+        """
+        if NoteService._is_admin(current_user):
+            return None
+
+        return current_user.id
+
+    # =====================================================================
+    # Statistics Helpers
+    # =====================================================================
+
+    @staticmethod
+    def _statistics_scope(
+        current_user: User,
+    ) -> int | None:
+        """
+        Determine the owner scope used when generating statistics.
+
+        Parameters
+        ----------
+        current_user:
+            Authenticated user.
+
+        Returns
+        -------
+        int | None
+            Owner identifier or ``None`` for global statistics.
+        """
+        return NoteService._owner_scope(current_user)
+
+    # =====================================================================
+    # End Validation & Pagination Helpers
+    # =====================================================================
+        # =====================================================================
+    # Create Operations
+    # =====================================================================
 
     @staticmethod
     def create_note(
@@ -221,7 +1065,9 @@ class NoteService:
             Newly created note.
         """
         logger.info(
-            "Creating note | owner=%s",
+            "%s | user_id=%s email=%s",
+            NoteService.LOG_CREATE,
+            current_user.id,
             current_user.email,
         )
 
@@ -233,48 +1079,34 @@ class NoteService:
             owner_id=current_user.id,
         )
 
-        #
-        # Optional fields
-        # (only assigned if they exist on the schema/model)
-        #
-        if hasattr(note_data, "book_reference_id"):
-            note.book_reference_id = getattr(
-                note_data,
-                "book_reference_id",
-                None,
-            )
-
-        if hasattr(note_data, "book_title"):
-            note.book_title = getattr(
-                note_data,
-                "book_title",
-                None,
-            )
-
-        if hasattr(note_data, "book_author"):
-            note.book_author = getattr(
-                note_data,
-                "book_author",
-                None,
-            )
-
-        created_note = repository.create(
-            note,
+        optional_fields = (
+            "book_reference_id",
+            "book_title",
+            "book_author",
         )
 
+        for field in optional_fields:
+            if hasattr(note_data, field):
+                setattr(
+                    note,
+                    field,
+                    getattr(note_data, field),
+                )
+
+        created_note = repository.create(note)
+
         logger.info(
-            "Note created successfully | id=%s owner=%s",
+            "%s | note_id=%s owner_id=%s",
+            NoteService.LOG_CREATE,
             created_note.id,
             created_note.owner_id,
         )
 
-        return NoteService._response(
-            created_note,
-        )
-    
-        # =====================================================
-    # Get Note By ID
-    # =====================================================
+        return NoteService._response(created_note)
+
+    # =====================================================================
+    # Read Operations
+    # =====================================================================
 
     @staticmethod
     def get_note_by_id(
@@ -286,10 +1118,9 @@ class NoteService:
         """
         Retrieve a single note.
 
-        Ownership Rules
-        ---------------
-        • Administrators can access any note.
-        • Regular users can access only their own notes.
+        Administrators may retrieve any note.
+
+        Regular users may retrieve only notes they own.
 
         Parameters
         ----------
@@ -300,31 +1131,21 @@ class NoteService:
             Authenticated user.
 
         note_id:
-            Identifier of the requested note.
+            Requested note identifier.
 
         Returns
         -------
         NoteResponse
-            Requested note.
-
-        Raises
-        ------
-        HTTPException
-            404 if the note does not exist.
-
-        HTTPException
-            403 if the authenticated user does not own
-            the note and is not an administrator.
+            Serialized note.
         """
         logger.info(
-            "Retrieving note | id=%s user=%s",
+            "%s | note_id=%s user_id=%s",
+            NoteService.LOG_READ,
             note_id,
-            current_user.email,
+            current_user.id,
         )
 
-        repository = NoteService._repository(
-            db,
-        )
+        repository = NoteService._repository(db)
 
         note = NoteService._owned_note(
             repository=repository,
@@ -333,220 +1154,12 @@ class NoteService:
         )
 
         logger.info(
-            "Note retrieved successfully | id=%s",
+            "%s | Success | note_id=%s",
+            NoteService.LOG_READ,
             note.id,
         )
 
-        return NoteService._response(
-            note,
-        )
-
-    # =====================================================
-    # End of Part 1
-    # =====================================================
-    
-    
-        # =====================================================
-    # Update Note
-    # =====================================================
-
-    @staticmethod
-    def update_note(
-        *,
-        db: Session,
-        current_user: User,
-        note_id: int,
-        note_data: NoteUpdate,
-    ) -> NoteResponse:
-        """
-        Update an existing note.
-
-        Ownership Rules
-        ---------------
-        • Administrators may update any note.
-        • Regular users may update only their own notes.
-
-        Parameters
-        ----------
-        db:
-            Active SQLAlchemy session.
-
-        current_user:
-            Authenticated user.
-
-        note_id:
-            Note identifier.
-
-        note_data:
-            Updated note fields.
-
-        Returns
-        -------
-        NoteResponse
-            Updated note.
-
-        Raises
-        ------
-        HTTPException
-            404 if the note does not exist.
-
-        HTTPException
-            403 if the authenticated user is not
-            permitted to update the requested note.
-        """
-        logger.info(
-            "Updating note | id=%s user=%s",
-            note_id,
-            current_user.email,
-        )
-
-        repository = NoteService._repository(
-            db,
-        )
-
-        note = NoteService._owned_note(
-            repository=repository,
-            current_user=current_user,
-            note_id=note_id,
-        )
-
-        #
-        # Only update explicitly supplied fields.
-        #
-        update_data = note_data.model_dump(
-            exclude_unset=True,
-            exclude_none=True,
-        )
-
-        #
-        # Prevent ownership changes.
-        #
-        update_data.pop(
-            "owner_id",
-            None,
-        )
-
-        update_data.pop(
-            "id",
-            None,
-        )
-
-        #
-        # Normalize string values.
-        #
-        if "title" in update_data:
-            update_data["title"] = (
-                update_data["title"].strip()
-            )
-
-        if (
-            "content" in update_data
-            and update_data["content"] is not None
-        ):
-            update_data["content"] = (
-                update_data["content"].strip()
-            )
-
-        #
-        # Apply updates dynamically.
-        #
-        for field, value in update_data.items():
-            if hasattr(note, field):
-                setattr(
-                    note,
-                    field,
-                    value,
-                )
-
-        updated_note = repository.update(
-            note,
-        )
-
-        logger.info(
-            "Note updated successfully | "
-            "id=%s owner=%s",
-            updated_note.id,
-            updated_note.owner_id,
-        )
-
-        return NoteService._response(
-            updated_note,
-        )
-        
-            # =====================================================
-    # Delete Note
-    # =====================================================
-
-    @staticmethod
-    def delete_note(
-        *,
-        db: Session,
-        current_user: User,
-        note_id: int,
-    ) -> None:
-        """
-        Delete a note.
-
-        Ownership Rules
-        ---------------
-        • Administrators may delete any note.
-        • Regular users may delete only their own notes.
-
-        Parameters
-        ----------
-        db:
-            Active SQLAlchemy session.
-
-        current_user:
-            Authenticated user.
-
-        note_id:
-            Identifier of the note to delete.
-
-        Raises
-        ------
-        HTTPException
-            404 if the note does not exist.
-
-        HTTPException
-            403 if the authenticated user is not
-            authorized to delete the requested note.
-        """
-        logger.info(
-            "Deleting note | id=%s user=%s",
-            note_id,
-            current_user.email,
-        )
-
-        repository = NoteService._repository(
-            db,
-        )
-
-        #
-        # Retrieve the note and validate access.
-        #
-        note = NoteService._owned_note(
-            repository=repository,
-            current_user=current_user,
-            note_id=note_id,
-        )
-
-        repository.delete(
-            note,
-        )
-
-        logger.info(
-            "Note deleted successfully | "
-            "id=%s owner=%s",
-            note.id,
-            note.owner_id,
-        )
-
-        return None
-
-    # =====================================================
-    # Exists
-    # =====================================================
+        return NoteService._response(note)
 
     @staticmethod
     def note_exists(
@@ -568,40 +1181,176 @@ class NoteService:
         Returns
         -------
         bool
-            True if the note exists,
-            otherwise False.
+            True if the note exists, otherwise False.
         """
-        repository = NoteService._repository(
-            db,
+        repository = NoteService._repository(db)
+
+        return repository.exists(note_id)
+
+    # =====================================================================
+    # End Create & Read Operations
+    # =====================================================================
+        # =====================================================================
+    # Update Operations
+    # =====================================================================
+
+    @staticmethod
+    def update_note(
+        *,
+        db: Session,
+        current_user: User,
+        note_id: int,
+        note_data: NoteUpdate,
+    ) -> NoteResponse:
+        """
+        Update an existing note.
+
+        Authorization
+        -------------
+        • Administrators may update any note.
+        • Regular users may update only their own notes.
+
+        Parameters
+        ----------
+        db:
+            Active SQLAlchemy session.
+
+        current_user:
+            Authenticated user.
+
+        note_id:
+            Identifier of the note.
+
+        note_data:
+            Updated note payload.
+
+        Returns
+        -------
+        NoteResponse
+            Updated note.
+        """
+        logger.info(
+            "%s | note_id=%s user_id=%s",
+            NoteService.LOG_UPDATE,
+            note_id,
+            current_user.id,
         )
 
-        return repository.exists(
-            note_id,
+        repository = NoteService._repository(db)
+
+        note = NoteService._owned_note(
+            repository=repository,
+            current_user=current_user,
+            note_id=note_id,
         )
-        
-        # =====================================================
-    # Get Notes
-    # =====================================================
+
+        update_data = NoteService._normalize_update_data(
+            note_data,
+        )
+
+        note = NoteService._apply_updates(
+            note=note,
+            update_data=update_data,
+        )
+
+        updated_note = repository.update(note)
+
+        logger.info(
+            "%s | Success | note_id=%s owner_id=%s",
+            NoteService.LOG_UPDATE,
+            updated_note.id,
+            updated_note.owner_id,
+        )
+
+        return NoteService._response(updated_note)
+
+    # =====================================================================
+    # Delete Operations
+    # =====================================================================
+
+    @staticmethod
+    def delete_note(
+        *,
+        db: Session,
+        current_user: User,
+        note_id: int,
+    ) -> None:
+        """
+        Delete an existing note.
+
+        Authorization
+        -------------
+        • Administrators may delete any note.
+        • Regular users may delete only their own notes.
+
+        Parameters
+        ----------
+        db:
+            Active SQLAlchemy session.
+
+        current_user:
+            Authenticated user.
+
+        note_id:
+            Identifier of the note to delete.
+        """
+        logger.info(
+            "%s | note_id=%s user_id=%s",
+            NoteService.LOG_DELETE,
+            note_id,
+            current_user.id,
+        )
+
+        repository = NoteService._repository(db)
+
+        note = NoteService._owned_note(
+            repository=repository,
+            current_user=current_user,
+            note_id=note_id,
+        )
+
+        repository.delete(note)
+
+        logger.info(
+            "%s | Success | note_id=%s owner_id=%s",
+            NoteService.LOG_DELETE,
+            note.id,
+            note.owner_id,
+        )
+
+        return None
+
+    # =====================================================================
+    # End CRUD Operations
+    # =====================================================================
+        # =====================================================================
+    # List Operations
+    # =====================================================================
 
     @staticmethod
     def get_notes(
         *,
         db: Session,
         current_user: User,
-        page: int = 1,
-        limit: int = 10,
+        page: int = DEFAULT_PAGE,
+        limit: int = DEFAULT_PAGE_SIZE,
         search: str | None = None,
-        sort_by: str = "newest",
-    ) -> tuple[int, list[NoteResponse]]:
+        sort_by: str = DEFAULT_SORT_ORDER,
+    ) -> PaginationResult:
         """
-        Retrieve notes for the authenticated user.
+        Retrieve notes visible to the authenticated user.
 
-        Supports
-        --------
-        ✓ Pagination
-        ✓ Search
-        ✓ Sorting
-        ✓ Administrator access
+        Administrators receive all notes.
+
+        Regular users receive only their own notes.
+
+        Supports:
+
+        • Pagination
+
+        • Search
+
+        • Sorting
 
         Parameters
         ----------
@@ -612,7 +1361,7 @@ class NoteService:
             Authenticated user.
 
         page:
-            Page number (1-based).
+            One-based page number.
 
         limit:
             Records per page.
@@ -621,256 +1370,211 @@ class NoteService:
             Optional search keyword.
 
         sort_by:
-            newest | oldest | title
+            Sort option.
 
         Returns
         -------
-        tuple[int, list[NoteResponse]]
-
-        (total_records, notes)
+        PaginationResult
+            Tuple containing total record count and serialized notes.
         """
         logger.info(
-            "Retrieving notes | "
-            "user=%s page=%s limit=%s search=%s sort=%s",
-            current_user.email,
+            "%s | user_id=%s page=%s limit=%s search=%s sort=%s",
+            NoteService.LOG_SEARCH,
+            current_user.id,
             page,
             limit,
             search,
             sort_by,
         )
 
-        repository = NoteService._repository(
-            db,
+        repository = NoteService._repository(db)
+
+        owner_id = NoteService._owner_scope(
+            current_user,
         )
 
-        skip = (page - 1) * limit
+        offset = NoteService._calculate_offset(
+            page=page,
+            limit=limit,
+        )
 
-        #
-        # Administrator
-        #
-        if NoteService._is_admin(
-            current_user,
-        ):
-            if search:
-                notes = repository.search(
-                    owner_id=None,
-                    query=search,
-                    skip=skip,
-                    limit=limit,
-                    sort_by=sort_by,
-                )
+        if search:
+            notes = repository.search(
+                owner_id=owner_id,
+                query=search,
+                skip=offset,
+                limit=limit,
+                sort_by=sort_by,
+            )
 
-                total = repository.search_count(
-                    owner_id=None,
-                    query=search,
-                )
+            total = repository.search_count(
+                owner_id=owner_id,
+                query=search,
+            )
 
-            else:
+        else:
+            if owner_id is None:
                 notes = repository.list_all(
-                    skip=skip,
+                    skip=offset,
                     limit=limit,
                     sort_by=sort_by,
                 )
 
                 total = repository.count_all()
 
-        #
-        # Regular User
-        #
-        else:
-            if search:
-                notes = repository.search(
-                    owner_id=current_user.id,
-                    query=search,
-                    skip=skip,
-                    limit=limit,
-                    sort_by=sort_by,
-                )
-
-                total = repository.search_count(
-                    owner_id=current_user.id,
-                    query=search,
-                )
-
             else:
                 notes = repository.list_by_owner(
-                    current_user.id,
-                    skip=skip,
+                    owner_id,
+                    skip=offset,
                     limit=limit,
                     sort_by=sort_by,
                 )
 
                 total = repository.count_by_owner(
-                    current_user.id,
+                    owner_id,
                 )
 
         logger.info(
-            "Retrieved %s notes for user=%s",
+            "%s | returned=%s total=%s",
+            NoteService.LOG_SEARCH,
             len(notes),
-            current_user.email,
+            total,
         )
 
         return (
             total,
-            [
-                NoteService._response(
-                    note,
-                )
-                for note in notes
-            ],
+            NoteService._response_collection(notes),
         )
-        
-        # =====================================================
+
+    # =====================================================================
     # Recent Notes
-    # =====================================================
+    # =====================================================================
 
     @staticmethod
     def get_recent_notes(
         *,
         db: Session,
         current_user: User,
-        limit: int = 10,
+        limit: int = DEFAULT_PAGE_SIZE,
     ) -> list[NoteResponse]:
         """
         Retrieve the most recently created notes.
 
-        Authorization
-        -------------
-        • Administrators receive the most recent notes
-          across all users.
+        Administrators receive recent notes across the system.
 
-        • Regular users receive only their own recent
-          notes.
-
-        Parameters
-        ----------
-        db:
-            Active SQLAlchemy session.
-
-        current_user:
-            Authenticated user.
-
-        limit:
-            Maximum number of notes.
-
-        Returns
-        -------
-        list[NoteResponse]
+        Regular users receive only their own recent notes.
         """
         logger.info(
-            "Retrieving recent notes | user=%s limit=%s",
-            current_user.email,
+            "%s | recent limit=%s user_id=%s",
+            NoteService.LOG_SEARCH,
             limit,
+            current_user.id,
         )
 
-        repository = NoteService._repository(
-            db,
-        )
+        repository = NoteService._repository(db)
 
-        #
-        # Administrator
-        #
-        if NoteService._is_admin(
+        owner_id = NoteService._owner_scope(
             current_user,
-        ):
+        )
+
+        if owner_id is None:
             notes = repository.list_all(
                 skip=0,
                 limit=limit,
-                sort_by="newest",
+                sort_by=SORT_NEWEST,
             )
-
-        #
-        # Regular User
-        #
         else:
             notes = repository.list_recent_by_owner(
-                current_user.id,
+                owner_id,
                 limit=limit,
             )
 
         logger.info(
-            "Retrieved %s recent notes",
+            "%s | recent returned=%s",
+            NoteService.LOG_SEARCH,
             len(notes),
         )
 
-        return [
-            NoteService._response(
-                note,
-            )
-            for note in notes
-        ]
-        
-    
-        # =====================================================
+        return NoteService._response_collection(
+            notes,
+        )
+
+    # =====================================================================
+    # End List Operations
+    # =====================================================================
+        # =====================================================================
     # Administrator Operations
-    # =====================================================
+    # =====================================================================
+
+    @staticmethod
+    def ensure_admin(
+        current_user: User,
+    ) -> User:
+        """
+        Ensure the authenticated user has administrator privileges.
+
+        Parameters
+        ----------
+        current_user:
+            Authenticated user.
+
+        Returns
+        -------
+        User
+            Authenticated administrator.
+
+        Raises
+        ------
+        HTTPException
+            If the authenticated user is not an administrator.
+        """
+        if NoteService._is_admin(current_user):
+            return current_user
+
+        logger.warning(
+            "Administrator access denied | user_id=%s email=%s",
+            current_user.id,
+            current_user.email,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges are required.",
+        )
 
     @staticmethod
     def get_all_notes_admin(
         *,
         db: Session,
         current_user: User,
-        page: int = 1,
-        limit: int = 20,
-        sort_by: str = "newest",
-    ) -> tuple[int, list[NoteResponse]]:
+        page: int = DEFAULT_PAGE,
+        limit: int = DEFAULT_ADMIN_PAGE_SIZE,
+        sort_by: str = DEFAULT_SORT_ORDER,
+    ) -> PaginationResult:
         """
-        Retrieve all notes.
+        Retrieve every note in the system.
 
-        Administrator only.
-
-        Supports
-        --------
-        ✓ Pagination
-        ✓ Sorting
-
-        Parameters
-        ----------
-        db:
-            Active SQLAlchemy session.
-
-        current_user:
-            Authenticated administrator.
-
-        page:
-            Page number (1-based).
-
-        limit:
-            Number of records per page.
-
-        sort_by:
-            newest | oldest | title
-
-        Returns
-        -------
-        tuple[int, list[NoteResponse]]
+        Administrator access is required.
         """
+        NoteService.ensure_admin(current_user)
+
         logger.info(
-            "Administrator retrieving all notes | admin=%s",
-            current_user.email,
+            "%s | admin_id=%s page=%s limit=%s",
+            NoteService.LOG_SEARCH,
+            current_user.id,
+            page,
+            limit,
         )
 
-        if not NoteService._is_admin(
-            current_user,
-        ):
-            logger.warning(
-                "Administrator access denied | user=%s",
-                current_user.email,
-            )
+        repository = NoteService._repository(db)
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Administrator privileges are required.",
-            )
-
-        repository = NoteService._repository(
-            db,
+        offset = NoteService._calculate_offset(
+            page=page,
+            limit=limit,
         )
-
-        skip = (page - 1) * limit
 
         notes = repository.list_all(
-            skip=skip,
+            skip=offset,
             limit=limit,
             sort_by=sort_by,
         )
@@ -878,65 +1582,47 @@ class NoteService:
         total = repository.count_all()
 
         logger.info(
-            "Administrator retrieved %s notes",
+            "%s | admin returned=%s total=%s",
+            NoteService.LOG_SEARCH,
             len(notes),
+            total,
         )
 
         return (
             total,
-            [
-                NoteService._response(
-                    note,
-                )
-                for note in notes
-            ],
+            NoteService._response_collection(notes),
         )
-        
-        # =====================================================
+
+    # =====================================================================
     # Statistics
-    # =====================================================
+    # =====================================================================
 
     @staticmethod
     def get_statistics(
         *,
         db: Session,
         current_user: User,
-    ) -> dict[str, int]:
+    ) -> StatisticsResult:
         """
         Retrieve note statistics.
 
         Administrators receive global statistics.
 
-        Regular users receive statistics for
-        their own notes.
-
-        Parameters
-        ----------
-        db:
-            Active SQLAlchemy session.
-
-        current_user:
-            Authenticated user.
-
-        Returns
-        -------
-        dict[str, int]
+        Regular users receive statistics limited to their own notes.
         """
         logger.info(
-            "Retrieving note statistics | user=%s",
-            current_user.email,
+            "%s | user_id=%s",
+            NoteService.LOG_STATISTICS,
+            current_user.id,
         )
 
-        repository = NoteService._repository(
-            db,
-        )
+        repository = NoteService._repository(db)
 
-        #
-        # Administrator statistics
-        #
-        if NoteService._is_admin(
+        owner_id = NoteService._statistics_scope(
             current_user,
-        ):
+        )
+
+        if owner_id is None:
             statistics = {
                 "total_notes": repository.count_all(),
                 "converted_notes": repository.count_converted(
@@ -954,39 +1640,40 @@ class NoteService:
                 ),
             }
 
-        #
-        # User statistics
-        #
         else:
             statistics = {
                 "total_notes": repository.count_by_owner(
-                    current_user.id,
+                    owner_id,
                 ),
                 "converted_notes": repository.count_converted(
-                    owner_id=current_user.id,
+                    owner_id=owner_id,
                 ),
                 "pending_conversion": (
                     repository.count_convertible_to_task(
-                        owner_id=current_user.id,
+                        owner_id=owner_id,
                     )
                 ),
                 "book_reference_notes": (
                     repository.count_with_book_reference(
-                        owner_id=current_user.id,
+                        owner_id=owner_id,
                     )
                 ),
             }
 
         logger.info(
-            "Statistics retrieved successfully | user=%s",
-            current_user.email,
+            "%s | completed user_id=%s",
+            NoteService.LOG_STATISTICS,
+            current_user.id,
         )
 
         return statistics
-    
-        # =====================================================
-    # Convert Note To Task
-    # =====================================================
+
+    # =====================================================================
+    # End Administrator Operations
+    # =====================================================================
+        # =====================================================================
+    # Note Conversion Operations
+    # =====================================================================
 
     @staticmethod
     def convert_note_to_task(
@@ -998,13 +1685,9 @@ class NoteService:
         """
         Mark a note as converted to a NestJS task.
 
-        This prepares the note for synchronization with the
-        NestJS Task Service.
-
-        Authorization
-        -------------
-        • Administrators may convert any note.
-        • Regular users may convert only their own notes.
+        This operation prepares the note for synchronization with the
+        NestJS Task microservice. The actual task creation is performed
+        by the NestJS service.
 
         Parameters
         ----------
@@ -1015,37 +1698,32 @@ class NoteService:
             Authenticated user.
 
         note_id:
-            Note identifier.
+            Identifier of the note.
 
         Returns
         -------
         NoteToTaskResponse
+            Conversion status.
         """
         logger.info(
-            "Converting note to task | note=%s user=%s",
+            "%s | note_id=%s user_id=%s",
+            NoteService.LOG_CONVERT,
             note_id,
-            current_user.email,
+            current_user.id,
         )
 
-        repository = NoteService._repository(
-            db,
-        )
+        repository = NoteService._repository(db)
 
-        #
-        # Retrieve note and validate access.
-        #
         note = NoteService._owned_note(
             repository=repository,
             current_user=current_user,
             note_id=note_id,
         )
 
-        #
-        # Prevent duplicate conversions.
-        #
         if note.is_converted_to_task:
             logger.warning(
-                "Note already converted | id=%s",
+                "%s | already converted | note_id=%s",
+                NoteService.LOG_CONVERT,
                 note.id,
             )
 
@@ -1054,72 +1732,29 @@ class NoteService:
                 detail="Note has already been converted to a task.",
             )
 
-        #
-        # Mark as converted.
-        #
-        note = repository.mark_as_converted(
+        updated_note = repository.mark_as_converted(
             note,
         )
 
         logger.info(
-            "Note converted successfully | id=%s owner=%s",
-            note.id,
-            note.owner_id,
+            "%s | completed | note_id=%s owner_id=%s",
+            NoteService.LOG_CONVERT,
+            updated_note.id,
+            updated_note.owner_id,
         )
 
         return NoteToTaskResponse(
-            note_id=note.id,
+            note_id=updated_note.id,
             task_created=False,
             message=(
                 "Task conversion request prepared successfully. "
                 "NestJS synchronization is pending."
             ),
         )
-        
-        # =====================================================
-    # Administrator Helpers
-    # =====================================================
 
-    @staticmethod
-    def ensure_admin(
-        current_user: User,
-    ) -> User:
-        """
-        Ensure the authenticated user has
-        administrator privileges.
-
-        Parameters
-        ----------
-        current_user:
-            Authenticated user.
-
-        Returns
-        -------
-        User
-
-        Raises
-        ------
-        HTTPException
-            If the user is not an administrator.
-        """
-        if not NoteService._is_admin(
-            current_user,
-        ):
-            logger.warning(
-                "Administrator access denied | user=%s",
-                current_user.email,
-            )
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Administrator privileges are required.",
-            )
-
-        return current_user
-
-    # =====================================================
+    # =====================================================================
     # Internal Model Helpers
-    # =====================================================
+    # =====================================================================
 
     @staticmethod
     def get_note_model(
@@ -1131,9 +1766,8 @@ class NoteService:
         """
         Retrieve the underlying ORM model.
 
-        This helper is intended for internal
-        service usage where direct ORM access
-        is required.
+        This helper is intended for internal service-to-service usage where
+        direct ORM access is required instead of serialized DTOs.
 
         Parameters
         ----------
@@ -1144,15 +1778,14 @@ class NoteService:
             Authenticated user.
 
         note_id:
-            Note identifier.
+            Requested note identifier.
 
         Returns
         -------
         Note
+            Authorized SQLAlchemy ORM model.
         """
-        repository = NoteService._repository(
-            db,
-        )
+        repository = NoteService._repository(db)
 
         return NoteService._owned_note(
             repository=repository,
@@ -1160,36 +1793,36 @@ class NoteService:
             note_id=note_id,
         )
 
-    # =====================================================
+    # =====================================================================
     # Convertible Notes
-    # =====================================================
+    # =====================================================================
 
     @staticmethod
     def get_convertible_notes(
         *,
         db: Session,
         current_user: User,
-        page: int = 1,
-        limit: int = 10,
-        sort_by: str = "newest",
-    ) -> tuple[int, list[NoteResponse]]:
+        page: int = DEFAULT_PAGE,
+        limit: int = DEFAULT_PAGE_SIZE,
+        sort_by: str = DEFAULT_SORT_ORDER,
+    ) -> PaginationResult:
         """
-        Retrieve notes that have not yet been
-        converted into NestJS tasks.
+        Retrieve notes that have not yet been converted into tasks.
         """
         repository = NoteService._repository(db)
 
-        skip = (page - 1) * limit
+        owner_id = NoteService._owner_scope(
+            current_user,
+        )
 
-        owner_id = (
-            None
-            if NoteService._is_admin(current_user)
-            else current_user.id
+        offset = NoteService._calculate_offset(
+            page=page,
+            limit=limit,
         )
 
         notes = repository.list_convertible_to_task(
             owner_id=owner_id,
-            skip=skip,
+            skip=offset,
             limit=limit,
             sort_by=sort_by,
         )
@@ -1200,42 +1833,41 @@ class NoteService:
 
         return (
             total,
-            [
-                NoteService._response(note)
-                for note in notes
-            ],
+            NoteService._response_collection(
+                notes,
+            ),
         )
 
-    # =====================================================
+    # =====================================================================
     # Converted Notes
-    # =====================================================
+    # =====================================================================
 
     @staticmethod
     def get_converted_notes(
         *,
         db: Session,
         current_user: User,
-        page: int = 1,
-        limit: int = 10,
-        sort_by: str = "newest",
-    ) -> tuple[int, list[NoteResponse]]:
+        page: int = DEFAULT_PAGE,
+        limit: int = DEFAULT_PAGE_SIZE,
+        sort_by: str = DEFAULT_SORT_ORDER,
+    ) -> PaginationResult:
         """
-        Retrieve notes that have already been
-        converted into NestJS tasks.
+        Retrieve notes that have already been converted into tasks.
         """
         repository = NoteService._repository(db)
 
-        skip = (page - 1) * limit
+        owner_id = NoteService._owner_scope(
+            current_user,
+        )
 
-        owner_id = (
-            None
-            if NoteService._is_admin(current_user)
-            else current_user.id
+        offset = NoteService._calculate_offset(
+            page=page,
+            limit=limit,
         )
 
         notes = repository.list_converted_to_task(
             owner_id=owner_id,
-            skip=skip,
+            skip=offset,
             limit=limit,
             sort_by=sort_by,
         )
@@ -1246,10 +1878,7 @@ class NoteService:
 
         return (
             total,
-            [
-                NoteService._response(note)
-                for note in notes
-            ],
+            NoteService._response_collection(
+                notes,
+            ),
         )
-        
-    
