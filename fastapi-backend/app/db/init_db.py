@@ -9,10 +9,10 @@ Team Productivity Platform.
 Responsibilities
 ----------------
 ✓ Verify database connectivity
-✓ Initialize SQLAlchemy metadata (development)
+✓ Initialize SQLAlchemy metadata (development only)
 ✓ Support Alembic migrations (production)
-✓ Log initialization lifecycle
-✓ Raise startup errors immediately
+✓ Structured startup logging
+✓ Fail-fast initialization
 
 Compatible With
 ---------------
@@ -40,26 +40,32 @@ logger = get_logger(__name__)
 # Database Connectivity
 # ==========================================================
 
-
-def check_database_connection() -> None:
+def check_database_connection() -> bool:
     """
-    Verify database connectivity.
+    Verify PostgreSQL connectivity.
+
+    Returns
+    -------
+    bool
+        True if the database connection succeeds.
 
     Raises
     ------
     SQLAlchemyError
-        If PostgreSQL cannot be reached.
+        If the database cannot be reached.
     """
 
     try:
-        with engine.connect() as connection:
+        with engine.begin() as connection:
             connection.execute(text("SELECT 1"))
 
-        logger.info("Database connection verified.")
+        logger.info("Database connection verified successfully.")
+        return True
 
     except SQLAlchemyError as exc:
         logger.exception(
-            "Unable to connect to PostgreSQL."
+            "Failed to connect to PostgreSQL: %s",
+            exc,
         )
         raise
 
@@ -68,22 +74,20 @@ def check_database_connection() -> None:
 # Schema Initialization
 # ==========================================================
 
-
 def create_tables() -> None:
     """
     Create database tables.
 
-    This method is intended only for development.
+    Intended only for local development.
 
-    Production environments should use Alembic
-    migrations instead.
+    Production deployments should rely exclusively
+    on Alembic migrations.
     """
 
-    if settings.is_production:
+    if not settings.is_development:
         logger.info(
-            "Production environment detected. "
-            "Skipping SQLAlchemy create_all(). "
-            "Use Alembic migrations instead."
+            "Skipping Base.metadata.create_all(); "
+            "schema management is handled by Alembic."
         )
         return
 
@@ -91,12 +95,13 @@ def create_tables() -> None:
         Base.metadata.create_all(bind=engine)
 
         logger.info(
-            "Database tables created successfully."
+            "Development database schema initialized."
         )
 
-    except SQLAlchemyError:
+    except SQLAlchemyError as exc:
         logger.exception(
-            "Failed to create database tables."
+            "Failed to create database schema: %s",
+            exc,
         )
         raise
 
@@ -105,7 +110,6 @@ def create_tables() -> None:
 # Database Initialization
 # ==========================================================
 
-
 def initialize_database() -> None:
     """
     Initialize the database.
@@ -113,15 +117,22 @@ def initialize_database() -> None:
     Startup sequence
 
     1. Verify PostgreSQL connectivity.
-    2. Create tables (development only).
+    2. Create development schema when appropriate.
     """
 
     logger.info("=" * 80)
-    logger.info("Initializing database...")
+    logger.info("Starting database initialization.")
 
     check_database_connection()
 
     create_tables()
 
-    logger.info("Database initialization completed.")
+    logger.info("Database initialization completed successfully.")
     logger.info("=" * 80)
+
+
+__all__ = [
+    "check_database_connection",
+    "create_tables",
+    "initialize_database",
+]

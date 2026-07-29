@@ -13,6 +13,7 @@ Responsibilities
 ✓ Provide cached settings instance
 ✓ Configure PostgreSQL
 ✓ Configure JWT Authentication
+✓ Configure SQLAlchemy
 ✓ Configure CORS
 ✓ Configure Logging
 ✓ Configure External APIs
@@ -39,12 +40,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """
-    Application settings loaded from the .env file.
+    Centralized application configuration.
     """
 
-    # ======================================================
+    # =====================================================
     # Application
-    # ======================================================
+    # =====================================================
 
     APP_NAME: str = "Team Productivity Platform API"
 
@@ -59,22 +60,29 @@ class Settings(BaseSettings):
 
     DEBUG: bool = True
 
-    # ======================================================
-    # Server
-    # ======================================================
+    # =====================================================
+    # API
+    # =====================================================
+
+    API_V1_PREFIX: str = "/api/v1"
+
+    API_DOCS_URL: str = "/docs"
+
+    API_REDOC_URL: str = "/redoc"
+
+    API_OPENAPI_URL: str = "/openapi.json"
 
     HOST: str = "0.0.0.0"
 
     PORT: int = 8000
 
-    # ======================================================
-    # JWT Security
-    # ======================================================
+    # =====================================================
+    # JWT
+    # =====================================================
 
     SECRET_KEY: str = Field(
         ...,
         min_length=32,
-        description="JWT Secret Key",
     )
 
     ALGORITHM: Literal["HS256"] = "HS256"
@@ -84,19 +92,28 @@ class Settings(BaseSettings):
         gt=0,
     )
 
-    JWT_ISSUER: str = Field(
-        default="team-productivity-platform",
-        description="JWT issuer",
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(
+        default=7,
+        gt=0,
     )
 
-    JWT_AUDIENCE: str = Field(
-        default="team-productivity-api",
-        description="JWT audience",
-    )
+    JWT_ISSUER: str = "team-productivity-platform"
 
-    # ======================================================
+    JWT_AUDIENCE: str = "team-productivity-api"
+
+    COOKIE_SECURE: bool = False
+
+    COOKIE_HTTPONLY: bool = True
+
+    COOKIE_SAMESITE: Literal[
+        "lax",
+        "strict",
+        "none",
+    ] = "lax"
+
+    # =====================================================
     # PostgreSQL
-    # ======================================================
+    # =====================================================
 
     POSTGRES_HOST: str
 
@@ -110,17 +127,43 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
 
-    # ======================================================
+    # =====================================================
+    # SQLAlchemy Pool
+    # =====================================================
+
+    DATABASE_POOL_SIZE: int = Field(
+        default=10,
+        ge=1,
+    )
+
+    DATABASE_MAX_OVERFLOW: int = Field(
+        default=20,
+        ge=0,
+    )
+
+    DATABASE_POOL_TIMEOUT: int = Field(
+        default=30,
+        gt=0,
+    )
+
+    DATABASE_POOL_RECYCLE: int = Field(
+        default=1800,
+        gt=0,
+    )
+
+    DATABASE_POOL_PRE_PING: bool = True
+
+    # =====================================================
     # CORS
-    # ======================================================
+    # =====================================================
 
     BACKEND_CORS_ORIGINS: str = (
         "http://localhost:3000,http://127.0.0.1:3000"
     )
 
-    # ======================================================
+    # =====================================================
     # Logging
-    # ======================================================
+    # =====================================================
 
     LOG_LEVEL: Literal[
         "DEBUG",
@@ -130,9 +173,33 @@ class Settings(BaseSettings):
         "CRITICAL",
     ] = "INFO"
 
-    # ======================================================
-    # External Services
-    # ======================================================
+    # =====================================================
+    # Pagination
+    # =====================================================
+
+    DEFAULT_PAGE_SIZE: int = Field(
+        default=20,
+        gt=0,
+    )
+
+    MAX_PAGE_SIZE: int = Field(
+        default=100,
+        gt=0,
+    )
+
+    # =====================================================
+    # Rate Limiting
+    # =====================================================
+
+    RATE_LIMIT_ENABLED: bool = True
+
+    DEFAULT_RATE_LIMIT: str = "100/minute"
+
+    AUTH_RATE_LIMIT: str = "10/minute"
+
+    # =====================================================
+    # External APIs
+    # =====================================================
 
     NESTJS_API_URL: AnyHttpUrl = (
         "http://localhost:3001/api/v1"
@@ -146,9 +213,9 @@ class Settings(BaseSettings):
         "https://date.nager.at/api/v3"
     )
 
-    # ======================================================
-    # Pydantic Settings Configuration
-    # ======================================================
+    # =====================================================
+    # Pydantic Settings
+    # =====================================================
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -157,9 +224,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ======================================================
+    # =====================================================
     # Validators
-    # ======================================================
+    # =====================================================
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -175,15 +242,16 @@ class Settings(BaseSettings):
 
         if not value.startswith(supported_prefixes):
             raise ValueError(
-                "DATABASE_URL must start with "
-                "'postgresql+psycopg://' or 'postgresql://'."
+                "DATABASE_URL must begin with "
+                "'postgresql+psycopg://' or "
+                "'postgresql://'."
             )
 
         return value
 
-    # ======================================================
+    # =====================================================
     # Computed Properties
-    # ======================================================
+    # =====================================================
 
     @property
     def cors_origins(self) -> list[str]:
@@ -213,14 +281,28 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
 
+    @property
+    def sqlalchemy_echo(self) -> bool:
+        """
+        Enable SQL logging only during DEBUG.
+        """
+
+        return self.DEBUG and self.LOG_LEVEL == "DEBUG"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """
-    Return a cached Settings instance.
+    Return cached application settings.
     """
 
     return Settings()
 
 
 settings = get_settings()
+
+__all__ = [
+    "Settings",
+    "settings",
+    "get_settings",
+]
