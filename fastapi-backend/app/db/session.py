@@ -40,12 +40,13 @@ logger = get_logger(__name__)
 
 engine = create_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    pool_timeout=30,
-    pool_recycle=1800,
+    echo=settings.DEBUG and settings.LOG_LEVEL == "DEBUG",
+    future=True,
+    pool_pre_ping=settings.DATABASE_POOL_PRE_PING,
+    pool_size=settings.DATABASE_POOL_SIZE,
+    max_overflow=settings.DATABASE_MAX_OVERFLOW,
+    pool_timeout=settings.DATABASE_POOL_TIMEOUT,
+    pool_recycle=settings.DATABASE_POOL_RECYCLE,
 )
 
 logger.info("SQLAlchemy engine initialized.")
@@ -54,7 +55,7 @@ logger.info("SQLAlchemy engine initialized.")
 # Session Factory
 # ==========================================================
 
-SessionFactory: sessionmaker[Session] = sessionmaker(
+SessionLocal: sessionmaker[Session] = sessionmaker(
     bind=engine,
     autoflush=False,
     autocommit=False,
@@ -62,34 +63,38 @@ SessionFactory: sessionmaker[Session] = sessionmaker(
 )
 
 # ==========================================================
-# Database Dependency
+# FastAPI Dependency
 # ==========================================================
-
 
 def get_db() -> Generator[Session, None, None]:
     """
-    FastAPI dependency that provides a transactional
-    SQLAlchemy session.
+    Yield a SQLAlchemy session for the duration of a request.
 
-    The session lifecycle is:
-
-    1. Create session
-    2. Yield to request
-    3. Roll back if an exception occurs
-    4. Close the session
+    Lifecycle:
+        1. Create session
+        2. Yield to request
+        3. Roll back on unhandled exception
+        4. Close session
     """
 
-    session = SessionFactory()
+    session = SessionLocal()
 
     try:
         yield session
 
     except Exception:
-        session.rollback()
-        logger.exception(
-            "Database transaction rolled back."
-        )
+        if session.in_transaction():
+            session.rollback()
+
+        logger.exception("Database transaction rolled back.")
         raise
 
     finally:
         session.close()
+
+
+__all__ = [
+    "engine",
+    "SessionLocal",
+    "get_db",
+]
