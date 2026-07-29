@@ -8,10 +8,10 @@ Team Productivity Platform.
 
 Responsibilities
 ----------------
-- Define reusable domain exceptions
-- Decouple business logic from FastAPI
-- Provide structured exception metadata
-- Standardize error handling across services
+✓ Define reusable domain exceptions
+✓ Decouple business logic from FastAPI
+✓ Provide structured exception metadata
+✓ Standardize error handling across services
 
 Compatible With
 ---------------
@@ -28,6 +28,7 @@ Compatible With
 from __future__ import annotations
 
 from http import HTTPStatus
+from typing import Any
 
 
 class ApplicationError(Exception):
@@ -44,6 +45,12 @@ class ApplicationError(Exception):
 
     status_code:
         HTTP status associated with this exception.
+
+    details:
+        Optional structured metadata.
+
+    headers:
+        Optional HTTP response headers.
     """
 
     def __init__(
@@ -52,18 +59,37 @@ class ApplicationError(Exception):
         *,
         error_code: str,
         status_code: HTTPStatus,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(message)
+
         self.message = message
         self.error_code = error_code
         self.status_code = status_code
+        self.details = details or {}
+        self.headers = headers or {}
 
     def __str__(self) -> str:
         return self.message
 
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Serialize exception for API responses.
+        """
+
+        return {
+            "success": False,
+            "error": {
+                "code": self.error_code,
+                "message": self.message,
+                "details": self.details,
+            },
+        }
+
 
 # ==========================================================
-# Authentication & Authorization Exceptions
+# Authentication & Authorization
 # ==========================================================
 
 
@@ -78,6 +104,9 @@ class AuthenticationError(ApplicationError):
             message=message,
             error_code="AUTHENTICATION_ERROR",
             status_code=HTTPStatus.UNAUTHORIZED,
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
         )
 
 
@@ -86,7 +115,9 @@ class AuthorizationError(ApplicationError):
 
     def __init__(
         self,
-        message: str = "You do not have permission to perform this action.",
+        message: str = (
+            "You do not have permission to perform this action."
+        ),
     ) -> None:
         super().__init__(
             message=message,
@@ -129,11 +160,13 @@ class UserNotFoundError(ApplicationError):
 
 
 class EmailAlreadyExistsError(ApplicationError):
-    """Raised when attempting to register an email that already exists."""
+    """Raised when an email address already exists."""
 
     def __init__(
         self,
-        message: str = "Email address is already registered.",
+        message: str = (
+            "Email address is already registered."
+        ),
     ) -> None:
         super().__init__(
             message=message,
@@ -143,7 +176,7 @@ class EmailAlreadyExistsError(ApplicationError):
 
 
 # ==========================================================
-# Note Exceptions
+# Notes
 # ==========================================================
 
 
@@ -162,11 +195,13 @@ class NoteNotFoundError(ApplicationError):
 
 
 class NoteAlreadyConvertedError(ApplicationError):
-    """Raised when attempting to convert an already converted note."""
+    """Raised when a note has already been converted into a task."""
 
     def __init__(
         self,
-        message: str = "This note has already been converted into a task.",
+        message: str = (
+            "This note has already been converted into a task."
+        ),
     ) -> None:
         super().__init__(
             message=message,

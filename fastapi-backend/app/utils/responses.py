@@ -8,11 +8,11 @@ Platform.
 
 Responsibilities
 ----------------
-- Standardize API responses
-- Build success responses
-- Build error responses
-- Build paginated responses
-- Keep response formatting centralized
+✓ Standardize API responses
+✓ Build success responses
+✓ Build error responses
+✓ Build paginated responses
+✓ Keep response formatting centralized
 
 Compatible With
 ---------------
@@ -28,13 +28,16 @@ Compatible With
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import status
+from fastapi import Response, status
 from fastapi.responses import JSONResponse
 
-from app.utils.pagination import PaginatedResult
+from app.utils.datetime import to_iso, utc_now
+from app.utils.pagination import (
+    PaginatedResult,
+    pagination_dict,
+)
 
 
 def timestamp() -> str:
@@ -42,7 +45,7 @@ def timestamp() -> str:
     Return the current UTC timestamp in ISO-8601 format.
     """
 
-    return datetime.now(UTC).isoformat()
+    return to_iso(utc_now())
 
 
 # ==========================================================
@@ -55,19 +58,27 @@ def success_response(
     data: Any = None,
     message: str = "Request completed successfully.",
     status_code: int = status.HTTP_200_OK,
+    request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
     Build a standardized success response.
     """
 
+    content: dict[str, Any] = {
+        "success": True,
+        "message": message,
+        "data": data,
+        "timestamp": timestamp(),
+    }
+
+    if request_id is not None:
+        content["request_id"] = request_id
+
     return JSONResponse(
         status_code=status_code,
-        content={
-            "success": True,
-            "message": message,
-            "data": data,
-            "timestamp": timestamp(),
-        },
+        content=content,
+        headers=headers,
     )
 
 
@@ -75,6 +86,8 @@ def created_response(
     *,
     data: Any = None,
     message: str = "Resource created successfully.",
+    request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
     Build a standardized HTTP 201 response.
@@ -84,6 +97,8 @@ def created_response(
         data=data,
         message=message,
         status_code=status.HTTP_201_CREATED,
+        request_id=request_id,
+        headers=headers,
     )
 
 
@@ -91,6 +106,8 @@ def accepted_response(
     *,
     data: Any = None,
     message: str = "Request accepted.",
+    request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
     Build a standardized HTTP 202 response.
@@ -100,17 +117,18 @@ def accepted_response(
         data=data,
         message=message,
         status_code=status.HTTP_202_ACCEPTED,
+        request_id=request_id,
+        headers=headers,
     )
 
 
-def no_content_response() -> JSONResponse:
+def no_content_response() -> Response:
     """
-    Build a standardized HTTP 204 response.
+    Build a standards-compliant HTTP 204 response.
     """
 
-    return JSONResponse(
+    return Response(
         status_code=status.HTTP_204_NO_CONTENT,
-        content=None,
     )
 
 
@@ -125,7 +143,9 @@ def error_response(
     error: str,
     status_code: int,
     error_code: str | None = None,
-    details: Any | None = None,
+    details: Any = None,
+    request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
     Build a standardized error response.
@@ -144,9 +164,13 @@ def error_response(
     if details is not None:
         content["details"] = details
 
+    if request_id is not None:
+        content["request_id"] = request_id
+
     return JSONResponse(
         status_code=status_code,
         content=content,
+        headers=headers,
     )
 
 
@@ -160,27 +184,30 @@ def paginated_response(
     *,
     message: str = "Request completed successfully.",
     status_code: int = status.HTTP_200_OK,
+    request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
     Build a standardized paginated response.
     """
 
+    page = pagination_dict(result)
+
+    content: dict[str, Any] = {
+        "success": True,
+        "message": message,
+        "data": page["items"],
+        "pagination": page["pagination"],
+        "timestamp": timestamp(),
+    }
+
+    if request_id is not None:
+        content["request_id"] = request_id
+
     return JSONResponse(
         status_code=status_code,
-        content={
-            "success": True,
-            "message": message,
-            "data": list(result.items),
-            "pagination": {
-                "total": result.pagination.total,
-                "page": result.pagination.page,
-                "page_size": result.pagination.page_size,
-                "total_pages": result.pagination.total_pages,
-                "has_next": result.pagination.has_next,
-                "has_previous": result.pagination.has_previous,
-            },
-            "timestamp": timestamp(),
-        },
+        content=content,
+        headers=headers,
     )
 
 
