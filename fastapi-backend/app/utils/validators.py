@@ -8,12 +8,14 @@ Team Productivity Platform.
 
 Responsibilities
 ----------------
-- Normalize user input
-- Validate common formats
-- Validate pagination parameters
-- Validate password strength
-- Keep validation logic reusable
-- Remain framework independent
+✓ Normalize user input
+✓ Validate common formats
+✓ Validate pagination parameters
+✓ Validate password strength
+✓ Validate UUIDs
+✓ Normalize slugs
+✓ Keep validation logic reusable
+✓ Remain framework independent
 
 Compatible With
 ---------------
@@ -31,22 +33,23 @@ from __future__ import annotations
 
 import re
 from typing import Final
+from uuid import UUID
 
-# ==========================================================
-# Constants
-# ==========================================================
+from app.core.config import settings
+from app.core.constants import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+)
 
 EMAIL_REGEX: Final[re.Pattern[str]] = re.compile(
     r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
 )
 
-DEFAULT_PAGE = 1
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
-
-MIN_PASSWORD_LENGTH = 8
-
 _WHITESPACE_REGEX: Final[re.Pattern[str]] = re.compile(r"\s+")
+
+_SLUG_REGEX: Final[re.Pattern[str]] = re.compile(
+    r"[^a-z0-9]+"
+)
 
 
 # ==========================================================
@@ -56,26 +59,33 @@ _WHITESPACE_REGEX: Final[re.Pattern[str]] = re.compile(r"\s+")
 
 def normalize_string(value: str) -> str:
     """
-    Normalize a string by trimming leading/trailing whitespace
-    and collapsing consecutive whitespace into a single space.
-
-    Examples
-    --------
-    "  Hello   World  " -> "Hello World"
+    Trim whitespace and collapse multiple spaces.
     """
 
-    return _WHITESPACE_REGEX.sub(" ", value.strip())
+    return _WHITESPACE_REGEX.sub(
+        " ",
+        value.strip(),
+    )
 
 
 def normalize_email(email: str) -> str:
     """
     Normalize an email address.
-
-    The email is stripped of surrounding whitespace and
-    converted to lowercase.
     """
 
     return normalize_string(email).lower()
+
+
+def normalize_slug(value: str) -> str:
+    """
+    Convert a string into a URL-friendly slug.
+    """
+
+    value = normalize_string(value).lower()
+
+    slug = _SLUG_REGEX.sub("-", value)
+
+    return slug.strip("-")
 
 
 # ==========================================================
@@ -85,34 +95,29 @@ def normalize_email(email: str) -> str:
 
 def is_valid_email(email: str) -> bool:
     """
-    Return True if the email address has a valid format.
+    Return True if an email has a valid format.
     """
 
-    normalized = normalize_email(email)
-    return bool(EMAIL_REGEX.fullmatch(normalized))
+    return bool(
+        EMAIL_REGEX.fullmatch(
+            normalize_email(email)
+        )
+    )
 
 
 def validate_email(email: str) -> str:
     """
     Validate and normalize an email address.
-
-    Returns
-    -------
-    str
-        Normalized email.
-
-    Raises
-    ------
-    ValueError
-        If the email is invalid.
     """
 
-    normalized = normalize_email(email)
+    email = normalize_email(email)
 
-    if not is_valid_email(normalized):
-        raise ValueError("Invalid email address.")
+    if not is_valid_email(email):
+        raise ValueError(
+            "Invalid email address."
+        )
 
-    return normalized
+    return email
 
 
 # ==========================================================
@@ -122,62 +127,70 @@ def validate_email(email: str) -> str:
 
 def validate_password(password: str) -> str:
     """
-    Validate password strength.
-
-    Requirements
-    ------------
-    - Minimum 8 characters
-    - At least one uppercase letter
-    - At least one lowercase letter
-    - At least one digit
+    Validate password complexity.
     """
 
-    if len(password) < MIN_PASSWORD_LENGTH:
+    if len(password) < PASSWORD_MIN_LENGTH:
         raise ValueError(
-            f"Password must contain at least {MIN_PASSWORD_LENGTH} characters."
+            f"Password must contain at least {PASSWORD_MIN_LENGTH} characters."
         )
 
-    if not any(char.islower() for char in password):
+    if len(password) > PASSWORD_MAX_LENGTH:
         raise ValueError(
-            "Password must contain at least one lowercase letter."
+            f"Password cannot exceed {PASSWORD_MAX_LENGTH} characters."
         )
 
-    if not any(char.isupper() for char in password):
+    if not any(c.islower() for c in password):
         raise ValueError(
-            "Password must contain at least one uppercase letter."
+            "Password must contain a lowercase letter."
         )
 
-    if not any(char.isdigit() for char in password):
+    if not any(c.isupper() for c in password):
         raise ValueError(
-            "Password must contain at least one numeric digit."
+            "Password must contain an uppercase letter."
+        )
+
+    if not any(c.isdigit() for c in password):
+        raise ValueError(
+            "Password must contain a numeric digit."
+        )
+
+    if not any(not c.isalnum() for c in password):
+        raise ValueError(
+            "Password must contain a special character."
         )
 
     return password
 
 
 # ==========================================================
-# Pagination Validation
+# Pagination
 # ==========================================================
 
 
 def validate_pagination_params(
     *,
-    page: int = DEFAULT_PAGE,
-    page_size: int = DEFAULT_PAGE_SIZE,
-    max_page_size: int = MAX_PAGE_SIZE,
+    page: int = 1,
+    page_size: int = settings.DEFAULT_PAGE_SIZE,
+    max_page_size: int = settings.MAX_PAGE_SIZE,
 ) -> tuple[int, int]:
     """
     Validate pagination parameters.
-
-    Returns
-    -------
-    tuple[int, int]
-        (page, page_size)
     """
+
+    if not isinstance(page, int):
+        raise TypeError(
+            "Page must be an integer."
+        )
+
+    if not isinstance(page_size, int):
+        raise TypeError(
+            "Page size must be an integer."
+        )
 
     if page < 1:
         raise ValueError(
-            "Page number must be greater than or equal to 1."
+            "Page must be greater than or equal to 1."
         )
 
     if page_size < 1:
@@ -185,15 +198,30 @@ def validate_pagination_params(
             "Page size must be greater than or equal to 1."
         )
 
-    if page_size > max_page_size:
-        page_size = max_page_size
+    page_size = min(
+        page_size,
+        max_page_size,
+    )
 
     return page, page_size
 
 
 # ==========================================================
-# Generic Helpers
+# Generic Validation
 # ==========================================================
+
+
+def validate_uuid(value: str) -> UUID:
+    """
+    Validate a UUID string.
+    """
+
+    try:
+        return UUID(value)
+    except ValueError as exc:
+        raise ValueError(
+            "Invalid UUID."
+        ) from exc
 
 
 def ensure_positive_int(
@@ -202,12 +230,7 @@ def ensure_positive_int(
     field_name: str = "value",
 ) -> int:
     """
-    Ensure an integer is positive.
-
-    Raises
-    ------
-    ValueError
-        If the value is less than or equal to zero.
+    Ensure a positive integer.
     """
 
     if value <= 0:
@@ -224,30 +247,28 @@ def ensure_non_empty(
     field_name: str = "value",
 ) -> str:
     """
-    Ensure a string is not empty after normalization.
+    Ensure a non-empty normalized string.
     """
 
-    normalized = normalize_string(value)
+    value = normalize_string(value)
 
-    if not normalized:
+    if not value:
         raise ValueError(
             f"{field_name} cannot be empty."
         )
 
-    return normalized
+    return value
 
 
 __all__ = [
-    "DEFAULT_PAGE",
-    "DEFAULT_PAGE_SIZE",
-    "MAX_PAGE_SIZE",
-    "MIN_PASSWORD_LENGTH",
     "normalize_string",
     "normalize_email",
+    "normalize_slug",
     "is_valid_email",
     "validate_email",
     "validate_password",
     "validate_pagination_params",
+    "validate_uuid",
     "ensure_positive_int",
     "ensure_non_empty",
 ]

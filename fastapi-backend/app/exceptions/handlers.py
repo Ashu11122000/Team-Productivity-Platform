@@ -8,13 +8,13 @@ Platform.
 
 Responsibilities
 ----------------
-- Handle custom application exceptions
-- Handle FastAPI HTTP exceptions
-- Handle request validation errors
-- Handle SQLAlchemy database errors
-- Handle unexpected exceptions
-- Log server-side errors
-- Return standardized API responses
+✓ Handle custom application exceptions
+✓ Handle FastAPI HTTP exceptions
+✓ Handle request validation errors
+✓ Handle SQLAlchemy database errors
+✓ Handle unexpected exceptions
+✓ Log server-side errors
+✓ Return standardized API responses
 
 Compatible With
 ---------------
@@ -46,9 +46,21 @@ logger = get_logger(__name__)
 
 def _timestamp() -> str:
     """
-    Return the current UTC timestamp in ISO 8601 format.
+    Return the current UTC timestamp.
     """
+
     return datetime.now(UTC).isoformat()
+
+
+def _request_id(request: Request) -> str | None:
+    """
+    Return the request ID if available.
+
+    This works with middleware that stores a request ID on
+    request.state.request_id.
+    """
+
+    return getattr(request.state, "request_id", None)
 
 
 def _error_response(
@@ -58,6 +70,9 @@ def _error_response(
     message: Any,
     path: str,
     error_code: str | None = None,
+    details: Any = None,
+    request_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
     Build a standardized API error response.
@@ -74,9 +89,16 @@ def _error_response(
     if error_code is not None:
         content["error_code"] = error_code
 
+    if details is not None:
+        content["details"] = details
+
+    if request_id is not None:
+        content["request_id"] = request_id
+
     return JSONResponse(
         status_code=status_code,
         content=content,
+        headers=headers,
     )
 
 
@@ -106,12 +128,15 @@ async def application_exception_handler(
         error=exc.error_code,
         error_code=exc.error_code,
         message=exc.message,
+        details=exc.details,
         path=request.url.path,
+        request_id=_request_id(request),
+        headers=exc.headers,
     )
 
 
 # ==========================================================
-# FastAPI Exceptions
+# FastAPI HTTP Exceptions
 # ==========================================================
 
 
@@ -135,6 +160,8 @@ async def http_exception_handler(
         error="HTTP_EXCEPTION",
         message=exc.detail,
         path=request.url.path,
+        request_id=_request_id(request),
+        headers=exc.headers,
     )
 
 
@@ -160,8 +187,10 @@ async def validation_exception_handler(
     return _error_response(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         error="VALIDATION_ERROR",
-        message=exc.errors(),
+        message="Request validation failed.",
+        details=exc.errors(),
         path=request.url.path,
+        request_id=_request_id(request),
     )
 
 
@@ -175,7 +204,7 @@ async def sqlalchemy_exception_handler(
     exc: SQLAlchemyError,
 ) -> JSONResponse:
     """
-    Handle SQLAlchemy database exceptions.
+    Handle SQLAlchemy exceptions.
     """
 
     logger.exception(
@@ -190,6 +219,7 @@ async def sqlalchemy_exception_handler(
         error="DATABASE_ERROR",
         message="A database error occurred.",
         path=request.url.path,
+        request_id=_request_id(request),
     )
 
 
@@ -218,6 +248,7 @@ async def unhandled_exception_handler(
         error="INTERNAL_SERVER_ERROR",
         message="An unexpected error occurred.",
         path=request.url.path,
+        request_id=_request_id(request),
     )
 
 
@@ -226,14 +257,11 @@ async def unhandled_exception_handler(
 # ==========================================================
 
 
-def register_exception_handlers(app: FastAPI) -> None:
+def register_exception_handlers(
+    app: FastAPI,
+) -> None:
     """
     Register all global exception handlers.
-
-    Parameters
-    ----------
-    app:
-        FastAPI application instance.
     """
 
     app.add_exception_handler(
@@ -261,4 +289,11 @@ def register_exception_handlers(app: FastAPI) -> None:
         unhandled_exception_handler,
     )
 
-    logger.info("Global exception handlers registered successfully.")
+    logger.info(
+        "Global exception handlers registered successfully."
+    )
+
+
+__all__ = [
+    "register_exception_handlers",
+]

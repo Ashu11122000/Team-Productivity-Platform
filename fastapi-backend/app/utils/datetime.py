@@ -8,12 +8,13 @@ Team Productivity Platform.
 
 Responsibilities
 ----------------
-- Provide timezone-aware UTC datetimes
-- Format datetimes consistently
-- Parse ISO 8601 strings
-- Convert timestamps
-- Check expiration times
-- Calculate time differences
+✓ Provide timezone-aware UTC datetimes
+✓ Format datetimes consistently
+✓ Parse ISO 8601 strings
+✓ Convert Unix timestamps
+✓ Check expiration times
+✓ Calculate time differences
+✓ Normalize datetimes to UTC
 
 Compatible With
 ---------------
@@ -29,7 +30,7 @@ Compatible With
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 
 def utc_now() -> datetime:
@@ -56,43 +57,68 @@ def utc_timestamp() -> int:
     return int(utc_now().timestamp())
 
 
-def to_iso(dt: datetime) -> str:
-    """
-    Convert a datetime into an ISO-8601 string.
-
-    Naive datetimes are assumed to be UTC.
-    """
-
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-
-    return dt.astimezone(UTC).isoformat()
-
-
-def from_iso(value: str) -> datetime:
-    """
-    Parse an ISO-8601 datetime string.
-
-    Naive values are assumed to be UTC.
-    """
-
-    dt = datetime.fromisoformat(value)
-
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-
-    return dt.astimezone(UTC)
-
-
 def ensure_utc(dt: datetime) -> datetime:
     """
-    Convert any datetime into a timezone-aware UTC datetime.
+    Return a timezone-aware UTC datetime.
+
+    Naive datetimes are assumed to already represent UTC.
     """
 
     if dt.tzinfo is None:
         return dt.replace(tzinfo=UTC)
 
     return dt.astimezone(UTC)
+
+
+def to_iso(dt: datetime) -> str:
+    """
+    Convert a datetime to an ISO-8601 UTC string.
+
+    Example
+    -------
+    2026-07-29T14:30:00Z
+    """
+
+    return (
+        ensure_utc(dt)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def from_iso(value: str) -> datetime:
+    """
+    Parse an ISO-8601 datetime string into UTC.
+
+    Supports both:
+    - 2026-07-29T10:00:00Z
+    - 2026-07-29T10:00:00+00:00
+    """
+
+    value = value.replace("Z", "+00:00")
+
+    dt = datetime.fromisoformat(value)
+
+    return ensure_utc(dt)
+
+
+def from_timestamp(timestamp: int | float) -> datetime:
+    """
+    Convert a Unix timestamp to a UTC datetime.
+    """
+
+    return datetime.fromtimestamp(timestamp, tz=UTC)
+
+
+def add_seconds(
+    dt: datetime,
+    seconds: int,
+) -> datetime:
+    """
+    Return a datetime with seconds added.
+    """
+
+    return ensure_utc(dt) + timedelta(seconds=seconds)
 
 
 def add_minutes(
@@ -133,7 +159,7 @@ def seconds_between(
     end: datetime,
 ) -> int:
     """
-    Return the difference between two datetimes in seconds.
+    Return the number of seconds between two datetimes.
     """
 
     return int(
@@ -141,11 +167,50 @@ def seconds_between(
     )
 
 
+def minutes_between(
+    start: datetime,
+    end: datetime,
+) -> int:
+    """
+    Return the number of whole minutes between two datetimes.
+    """
+
+    return seconds_between(start, end) // 60
+
+
+def start_of_day(dt: datetime) -> datetime:
+    """
+    Return 00:00:00 UTC for the given datetime.
+    """
+
+    dt = ensure_utc(dt)
+
+    return datetime.combine(
+        dt.date(),
+        time.min,
+        tzinfo=UTC,
+    )
+
+
+def end_of_day(dt: datetime) -> datetime:
+    """
+    Return 23:59:59.999999 UTC for the given datetime.
+    """
+
+    dt = ensure_utc(dt)
+
+    return datetime.combine(
+        dt.date(),
+        time.max,
+        tzinfo=UTC,
+    )
+
+
 def is_expired(
     expires_at: datetime,
 ) -> bool:
     """
-    Determine whether a datetime has passed.
+    Return True if the supplied datetime has expired.
     """
 
     return ensure_utc(expires_at) <= utc_now()
@@ -175,13 +240,18 @@ __all__ = [
     "utc_now",
     "utc_today",
     "utc_timestamp",
+    "ensure_utc",
     "to_iso",
     "from_iso",
-    "ensure_utc",
+    "from_timestamp",
+    "add_seconds",
     "add_minutes",
     "add_hours",
     "add_days",
     "seconds_between",
+    "minutes_between",
+    "start_of_day",
+    "end_of_day",
     "is_expired",
     "is_future",
     "is_past",
