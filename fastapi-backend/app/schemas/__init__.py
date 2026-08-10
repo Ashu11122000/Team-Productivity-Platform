@@ -1,25 +1,33 @@
 """
-==========================================================
+===============================================================================
 Authentication Schemas
-==========================================================
+===============================================================================
 
-Pydantic schemas for authentication.
+Pydantic schemas for authentication-related API operations.
 
 Responsibilities
 ----------------
-✓ User registration
-✓ User login
-✓ Authentication response
-✓ Password change
-✓ Password reset
-✓ Email verification (future)
+• User registration.
+• User login.
+• Authentication response.
+• Password change.
+• Password reset.
+• Email verification.
+• Refresh token support.
+• Logout response.
+
+Security
+--------
+Password-strength validation is centralized in ``app.utils.validators``.
+Authentication schemas validate request structure and input constraints;
+authentication logic remains in the security/service layers.
 
 Compatible With
 ---------------
-- FastAPI
-- Pydantic v2
-- JWT Authentication
-==========================================================
+• FastAPI
+• Pydantic v2
+• JWT Authentication
+• Python 3.12+
 """
 
 from __future__ import annotations
@@ -31,18 +39,23 @@ from app.core.constants import (
     PASSWORD_MIN_LENGTH,
 )
 from app.schemas.base import BaseSchema
+from app.schemas.common import MessageResponse
 from app.schemas.token import TokenResponse
 from app.schemas.user import UserCreate, UserResponse
+from app.utils.validators import validate_password
 
 
-# ==========================================================
+# =============================================================================
 # Login Request
-# ==========================================================
+# =============================================================================
 
 
 class LoginRequest(BaseSchema):
     """
     User login request.
+
+    Password-strength validation is intentionally not performed here because
+    login verifies an existing credential rather than creating a new one.
     """
 
     email: EmailStr = Field(
@@ -58,110 +71,113 @@ class LoginRequest(BaseSchema):
     )
 
 
-# ==========================================================
+# =============================================================================
 # Registration Request
-# ==========================================================
+# =============================================================================
 
 
 class RegisterRequest(UserCreate):
     """
     User registration request.
 
-    Reuses the UserCreate schema.
+    Reuses ``UserCreate`` so registration follows the same validation rules
+    as the user-management layer.
     """
 
     pass
 
 
-# ==========================================================
+# =============================================================================
 # Authentication Response
-# ==========================================================
+# =============================================================================
 
 
 class AuthResponse(TokenResponse):
     """
-    Authentication response returned after
-    successful login or registration.
+    Authentication response returned after successful login or registration.
     """
 
-    user: UserResponse
+    user: UserResponse = Field(
+        ...,
+        description="Authenticated user.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Change Password
-# ==========================================================
+# =============================================================================
 
 
 class ChangePasswordRequest(BaseSchema):
     """
-    Change password request.
+    Change-password request.
+
+    The current password is verified by the authentication/service layer.
+
+    Only the new password is subjected to password-strength validation.
     """
 
     current_password: str = Field(
         ...,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="Current password.",
     )
 
     new_password: str = Field(
         ...,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="New password.",
     )
 
     @field_validator("new_password")
     @classmethod
-    def validate_password_strength(
+    def validate_new_password(
         cls,
         value: str,
     ) -> str:
         """
-        Validate password complexity.
+        Validate the new password using the centralized password policy.
         """
 
-        if not any(char.isupper() for char in value):
-            raise ValueError(
-                "Password must contain at least one uppercase letter."
-            )
-
-        if not any(char.islower() for char in value):
-            raise ValueError(
-                "Password must contain at least one lowercase letter."
-            )
-
-        if not any(char.isdigit() for char in value):
-            raise ValueError(
-                "Password must contain at least one digit."
-            )
-
-        return value
+        return validate_password(value)
 
 
-# ==========================================================
+# =============================================================================
 # Forgot Password
-# ==========================================================
+# =============================================================================
 
 
 class ForgotPasswordRequest(BaseSchema):
     """
-    Forgot password request.
+    Forgot-password request.
+
+    The authentication/service layer handles reset-token generation and
+    delivery.
     """
 
-    email: EmailStr
+    email: EmailStr = Field(
+        ...,
+        description="Registered email address.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Reset Password
-# ==========================================================
+# =============================================================================
 
 
 class ResetPasswordRequest(BaseSchema):
     """
-    Reset password request.
+    Reset-password request.
+
+    The reset token is validated by the authentication/service layer.
     """
 
     token: str = Field(
         ...,
+        min_length=1,
         description="Password reset token.",
     )
 
@@ -169,74 +185,88 @@ class ResetPasswordRequest(BaseSchema):
         ...,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
+        description="New password.",
     )
 
     @field_validator("new_password")
     @classmethod
-    def validate_password_strength(
+    def validate_new_password(
         cls,
         value: str,
     ) -> str:
         """
-        Validate password complexity.
+        Validate the new password using the centralized password policy.
         """
 
-        if not any(char.isupper() for char in value):
-            raise ValueError(
-                "Password must contain at least one uppercase letter."
-            )
-
-        if not any(char.islower() for char in value):
-            raise ValueError(
-                "Password must contain at least one lowercase letter."
-            )
-
-        if not any(char.isdigit() for char in value):
-            raise ValueError(
-                "Password must contain at least one digit."
-            )
-
-        return value
+        return validate_password(value)
 
 
-# ==========================================================
+# =============================================================================
 # Refresh Token
-# ==========================================================
+# =============================================================================
 
 
 class RefreshTokenRequest(BaseSchema):
     """
-    Refresh access token request.
+    Refresh access-token request.
 
-    Reserved for future refresh token support.
+    Reserved for the platform's refresh-token authentication flow.
     """
 
-    refresh_token: str
+    refresh_token: str = Field(
+        ...,
+        min_length=1,
+        description="Refresh token.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Verify Email
-# ==========================================================
+# =============================================================================
 
 
 class VerifyEmailRequest(BaseSchema):
     """
-    Email verification request.
+    Email-verification request.
 
-    Reserved for future email verification.
+    Reserved for the platform's future email-verification flow.
     """
 
-    token: str
+    token: str = Field(
+        ...,
+        min_length=1,
+        description="Email verification token.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Logout Response
-# ==========================================================
+# =============================================================================
 
 
-class LogoutResponse(BaseSchema):
+class LogoutResponse(MessageResponse):
     """
-    Logout response.
+    Logout response using the standard API message-response contract.
     """
 
-    message: str = "Logged out successfully."
+    message: str = Field(
+        default="Logged out successfully.",
+        description="Logout status message.",
+    )
+
+
+# =============================================================================
+# Public Exports
+# =============================================================================
+
+__all__ = [
+    "LoginRequest",
+    "RegisterRequest",
+    "AuthResponse",
+    "ChangePasswordRequest",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
+    "RefreshTokenRequest",
+    "VerifyEmailRequest",
+    "LogoutResponse",
+]

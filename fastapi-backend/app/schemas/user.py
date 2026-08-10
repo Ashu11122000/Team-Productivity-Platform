@@ -1,38 +1,37 @@
 """
-==========================================================
+===============================================================================
 User Schemas
-==========================================================
+===============================================================================
+
+Pydantic schemas for user authentication, registration, management,
+authorization-related data, and API responses.
 
 Responsibilities
 ----------------
-Provides reusable Pydantic schemas for user
-authentication, registration, management and API
-responses.
+• Validate user registration data.
+• Validate user update data.
+• Represent authenticated users safely.
+• Represent public user information.
+• Represent lightweight user summaries.
+• Represent internal user data when explicitly required.
+• Validate password strength through centralized utilities.
+• Support SQLAlchemy ORM objects through Pydantic v2 attribute-based parsing.
 
-Features
+Security
 --------
-✓ User registration
-✓ User update
-✓ User response
-✓ Public user information
-✓ User summary
-✓ Internal user representation
-✓ Password validation
-✓ SQLAlchemy ORM compatibility
+Plain-text passwords may appear only in input schemas such as ``UserCreate``
+and ``UserUpdate``.
+
+Password hashes are restricted to ``UserInternal`` and must never be returned
+through public API responses.
 
 Compatible With
 ---------------
-- FastAPI
-- Pydantic v2
-- SQLAlchemy 2.x
-
-Python Version
---------------
-3.12+
-
-----------------------------------------------------------
-Imports
-----------------------------------------------------------
+• FastAPI
+• Pydantic v2
+• SQLAlchemy 2.x
+• PostgreSQL
+• Python 3.12+
 """
 
 from __future__ import annotations
@@ -47,14 +46,18 @@ from app.core.constants import (
 from app.schemas.base import BaseSchema, EntitySchema
 from app.utils.validators import validate_password
 
-# ==========================================================
+
+# =============================================================================
 # Base User Schema
-# ==========================================================
+# =============================================================================
 
 
 class UserBase(BaseSchema):
     """
-    Base schema containing shared user fields.
+    Base schema containing fields shared by user-related input schemas.
+
+    This schema intentionally contains only fields that are safe and
+    appropriate for user-facing input operations.
     """
 
     email: EmailStr = Field(
@@ -63,14 +66,17 @@ class UserBase(BaseSchema):
     )
 
 
-# ==========================================================
+# =============================================================================
 # User Registration
-# ==========================================================
+# =============================================================================
 
 
 class UserCreate(UserBase):
     """
-    Schema used for user registration.
+    Schema used when registering a new user.
+
+    The password is validated against the application's centralized
+    password policy before it reaches the service layer.
     """
 
     password: str = Field(
@@ -82,34 +88,50 @@ class UserCreate(UserBase):
 
     @field_validator("password")
     @classmethod
-    def validate_user_password(cls, value: str) -> str:
+    def validate_user_password(
+        cls,
+        value: str,
+    ) -> str:
         """
-        Validate password strength.
+        Validate the supplied password.
+
+        The password is validated but intentionally not normalized.
+        Changing password contents before hashing would change the user's
+        actual credential.
 
         Parameters
         ----------
-        value : str
-            User supplied password.
+        value:
+            User-supplied plain-text password.
 
         Returns
         -------
         str
-            Validated password.
+            The validated password.
+
+        Raises
+        ------
+        ValueError
+            If the password violates the application's password policy.
         """
 
         return validate_password(value)
 
 
-# ==========================================================
+# =============================================================================
 # User Update
-# ==========================================================
+# =============================================================================
 
 
 class UserUpdate(BaseSchema):
     """
-    Schema used for updating an existing user.
+    Schema used when updating an existing user.
 
     All fields are optional.
+
+    Authorization decisions such as whether a user is allowed to modify
+    ``role`` or ``is_active`` belong to the service/dependency layer rather
+    than this validation schema.
     """
 
     email: EmailStr | None = Field(
@@ -121,7 +143,7 @@ class UserUpdate(BaseSchema):
         default=None,
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
-        description="Updated password.",
+        description="Updated plain-text password.",
     )
 
     role: UserRole | None = Field(
@@ -141,28 +163,41 @@ class UserUpdate(BaseSchema):
         value: str | None,
     ) -> str | None:
         """
-        Validate updated password.
+        Validate an updated password when one is supplied.
+
+        ``None`` means that the password was not included in the update
+        request and therefore requires no validation.
+
+        Parameters
+        ----------
+        value:
+            Optional user-supplied password.
 
         Returns
         -------
         str | None
-            Validated password.
+            The validated password or ``None``.
         """
 
         if value is None:
-            return value
+            return None
 
         return validate_password(value)
 
 
-# ==========================================================
+# =============================================================================
 # User Response
-# ==========================================================
+# =============================================================================
 
 
 class UserResponse(EntitySchema):
     """
-    Complete user response.
+    Standard authenticated-user API response.
+
+    This schema intentionally excludes the password hash.
+
+    It is suitable for returning user account information to trusted API
+    consumers where the user's role and account state are required.
     """
 
     email: EmailStr = Field(
@@ -180,15 +215,22 @@ class UserResponse(EntitySchema):
         description="Whether the account is active.",
     )
 
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
-# ==========================================================
+
+# =============================================================================
 # Public User
-# ==========================================================
+# =============================================================================
 
 
 class UserPublic(BaseSchema):
     """
-    Public user information.
+    Public representation of a user.
+
+    This schema exposes only information appropriate for public-facing
+    user references.
     """
 
     id: int = Field(
@@ -206,15 +248,22 @@ class UserPublic(BaseSchema):
         description="Assigned user role.",
     )
 
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
-# ==========================================================
+
+# =============================================================================
 # User Summary
-# ==========================================================
+# =============================================================================
 
 
 class UserSummary(BaseSchema):
     """
     Lightweight user representation.
+
+    Intended for nested references, lists, dashboards, and other places
+    where the complete user representation is unnecessary.
     """
 
     id: int = Field(
@@ -227,19 +276,28 @@ class UserSummary(BaseSchema):
         description="User email address.",
     )
 
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
-# ==========================================================
+
+# =============================================================================
 # Internal User
-# ==========================================================
+# =============================================================================
 
 
 class UserInternal(UserResponse):
     """
-    Internal schema including the password hash.
+    Internal user representation containing the stored password hash.
 
-    This schema must never be returned to API clients.
-    It is intended only for internal service and
-    repository operations.
+    Security
+    --------
+    This schema is strictly for server-side application logic.
+
+    It MUST NOT be returned directly from an API endpoint.
+
+    The password hash must never be included in public response schemas,
+    logs, serialized API responses, or frontend payloads.
     """
 
     hashed_password: str = Field(
@@ -252,9 +310,9 @@ class UserInternal(UserResponse):
     )
 
 
-# ==========================================================
+# =============================================================================
 # Public Exports
-# ==========================================================
+# =============================================================================
 
 __all__ = [
     "UserBase",

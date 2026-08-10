@@ -1,36 +1,28 @@
 """
-==========================================================
+===============================================================================
 Common Pydantic Schemas
-==========================================================
+===============================================================================
+
+Reusable response schemas shared across the Team Productivity Platform.
 
 Responsibilities
 ----------------
-Provides reusable response schemas shared across the Team
-Productivity Platform.
-
-Features
---------
-✓ Standard API responses
-✓ Success responses
-✓ Error responses
-✓ Message responses
-✓ Pagination metadata
-✓ Generic response models
-✓ Health endpoint schemas
+• Define the standard API response contract.
+• Represent successful responses.
+• Represent error responses.
+• Represent message-only responses.
+• Represent pagination metadata.
+• Represent generic paginated responses.
+• Represent health endpoint responses.
+• Represent the root endpoint response.
+• Represent successful responses without a meaningful payload.
 
 Compatible With
 ---------------
-- FastAPI
-- Pydantic v2
-- SQLAlchemy 2.x
-
-Python Version
---------------
-3.12+
-
-----------------------------------------------------------
-Imports
-----------------------------------------------------------
+• FastAPI
+• Pydantic v2
+• SQLAlchemy 2.x
+• Python 3.12+
 """
 
 from __future__ import annotations
@@ -41,16 +33,36 @@ from pydantic import Field
 
 from app.schemas.base import BaseSchema
 
+
+# =============================================================================
+# Generic Type
+# =============================================================================
+
 T = TypeVar("T")
 
-# ==========================================================
+
+# =============================================================================
 # Base Response
-# ==========================================================
+# =============================================================================
 
 
 class BaseResponse(BaseSchema):
     """
-    Base response schema shared by all API responses.
+    Base response schema shared by API response models.
+
+    Attributes
+    ----------
+    success:
+        Indicates whether the operation succeeded.
+
+    message:
+        Human-readable description of the operation result.
+
+    timestamp:
+        UTC timestamp represented as an ISO-8601 string.
+
+    request_id:
+        Optional request correlation identifier.
     """
 
     success: bool = Field(
@@ -74,22 +86,24 @@ class BaseResponse(BaseSchema):
     )
 
 
-# ==========================================================
+# =============================================================================
 # Message Response
-# ==========================================================
+# =============================================================================
 
 
 class MessageResponse(BaseResponse):
     """
-    Simple message response.
+    Response containing a standard message without a data payload.
+
+    The response represents a successful operation by default.
     """
 
     success: bool = True
 
 
-# ==========================================================
+# =============================================================================
 # Success Response
-# ==========================================================
+# =============================================================================
 
 
 class SuccessResponse(
@@ -98,6 +112,11 @@ class SuccessResponse(
 ):
     """
     Standard successful API response.
+
+    Parameters
+    ----------
+    T:
+        Type of the response payload stored in ``data``.
     """
 
     success: bool = True
@@ -108,14 +127,36 @@ class SuccessResponse(
     )
 
 
-# ==========================================================
+# =============================================================================
 # Error Response
-# ==========================================================
+# =============================================================================
 
 
 class ErrorResponse(BaseResponse):
     """
-    Standard error response.
+    Standard API error response.
+
+    Attributes
+    ----------
+    error:
+        Short, human-readable error category.
+
+    error_code:
+        Stable application-level error code.
+
+    details:
+        Additional structured error information.
+
+    path:
+        HTTP request path associated with the error.
+
+    Security
+    --------
+    ``details`` must contain only safe client-facing information.
+
+    Internal database errors, stack traces, credentials, SQL statements,
+    tokens, and other implementation details must not be exposed through
+    this response.
     """
 
     success: bool = False
@@ -132,7 +173,7 @@ class ErrorResponse(BaseResponse):
 
     details: dict[str, Any] = Field(
         default_factory=dict,
-        description="Additional error details.",
+        description="Additional safe error details.",
     )
 
     path: str = Field(
@@ -141,14 +182,44 @@ class ErrorResponse(BaseResponse):
     )
 
 
-# ==========================================================
+# =============================================================================
 # Pagination Metadata
-# ==========================================================
+# =============================================================================
 
 
 class PaginationMeta(BaseSchema):
     """
-    Pagination metadata.
+    Metadata describing a paginated collection.
+
+    Attributes
+    ----------
+    offset:
+        Zero-based offset used to retrieve the current page.
+
+    limit:
+        Maximum number of records requested for the page.
+
+    total_items:
+        Total number of records available.
+
+    total_pages:
+        Total number of available pages.
+
+    current_page:
+        One-based current page number.
+
+    next_page:
+        One-based next page number, or ``None`` when there is no next page.
+
+    previous_page:
+        One-based previous page number, or ``None`` when there is no previous
+        page.
+
+    has_next:
+        Whether another page exists.
+
+    has_previous:
+        Whether a previous page exists.
     """
 
     offset: int = Field(
@@ -183,11 +254,13 @@ class PaginationMeta(BaseSchema):
 
     next_page: int | None = Field(
         default=None,
+        ge=1,
         description="Next page number.",
     )
 
     previous_page: int | None = Field(
         default=None,
+        ge=1,
         description="Previous page number.",
     )
 
@@ -202,9 +275,9 @@ class PaginationMeta(BaseSchema):
     )
 
 
-# ==========================================================
+# =============================================================================
 # Paginated Response
-# ==========================================================
+# =============================================================================
 
 
 class PaginatedResponse(
@@ -212,82 +285,152 @@ class PaginatedResponse(
     Generic[T],
 ):
     """
-    Standard paginated response.
+    Standard paginated API response.
+
+    Parameters
+    ----------
+    T:
+        Type of each item contained in the ``data`` collection.
     """
 
     success: bool = True
 
-    data: list[T]
+    data: list[T] = Field(
+        ...,
+        description="Paginated response items.",
+    )
 
-    pagination: PaginationMeta
+    pagination: PaginationMeta = Field(
+        ...,
+        description="Pagination metadata.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Health Response
-# ==========================================================
+# =============================================================================
 
 
 class HealthResponse(BaseSchema):
     """
-    Health endpoint response.
+    Response returned by the application health endpoint.
+
+    Attributes
+    ----------
+    status:
+        Current application health status.
+
+    service:
+        Service name.
+
+    version:
+        Application/service version.
+
+    environment:
+        Current runtime environment.
+
+    timestamp:
+        UTC timestamp represented as an ISO-8601 string.
     """
 
-    status: str
+    status: str = Field(
+        ...,
+        description="Current service health status.",
+    )
 
-    service: str
+    service: str = Field(
+        ...,
+        description="Service name.",
+    )
 
-    version: str
+    version: str = Field(
+        ...,
+        description="Application version.",
+    )
 
-    environment: str
+    environment: str = Field(
+        ...,
+        description="Runtime environment.",
+    )
 
-    timestamp: str
+    timestamp: str = Field(
+        ...,
+        description="UTC timestamp in ISO 8601 format.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Root Response
-# ==========================================================
+# =============================================================================
 
 
 class RootResponse(BaseSchema):
     """
-    Root endpoint response.
+    Response returned by the application root endpoint.
+
+    Provides basic service metadata and navigation links.
     """
 
-    name: str
+    name: str = Field(
+        ...,
+        description="Application or service name.",
+    )
 
-    version: str
+    version: str = Field(
+        ...,
+        description="Application version.",
+    )
 
-    environment: str
+    environment: str = Field(
+        ...,
+        description="Runtime environment.",
+    )
 
-    status: str
+    status: str = Field(
+        ...,
+        description="Current service status.",
+    )
 
-    docs: str
+    docs: str = Field(
+        ...,
+        description="URL path for the OpenAPI documentation.",
+    )
 
-    redoc: str
+    redoc: str = Field(
+        ...,
+        description="URL path for the ReDoc documentation.",
+    )
 
-    health: str
+    health: str = Field(
+        ...,
+        description="URL path for the health endpoint.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Empty Response
-# ==========================================================
+# =============================================================================
 
 
 class EmptyResponse(
     SuccessResponse[dict[str, Any]],
 ):
     """
-    Empty successful response.
+    Successful response with an empty dictionary payload.
+
+    Useful for operations that succeed but do not have meaningful
+    response data.
     """
 
     data: dict[str, Any] = Field(
         default_factory=dict,
+        description="Empty response payload.",
     )
 
 
-# ==========================================================
+# =============================================================================
 # Public Exports
-# ==========================================================
+# =============================================================================
 
 __all__ = [
     "BaseResponse",

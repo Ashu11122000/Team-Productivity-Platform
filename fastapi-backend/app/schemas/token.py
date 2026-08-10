@@ -1,77 +1,94 @@
 """
-==========================================================
+===============================================================================
 Token Schemas
-==========================================================
+===============================================================================
+
+Reusable Pydantic schemas for JWT authentication and authorization.
 
 Responsibilities
 ----------------
-Provides reusable Pydantic schemas for JWT authentication
-and authorization across the Team Productivity Platform.
+• Represent access tokens.
+• Represent refresh tokens.
+• Validate decoded JWT payloads.
+• Represent authenticated JWT claims.
+• Represent the current authenticated user.
+• Represent token verification responses.
+• Provide a future refresh-token contract.
+• Provide a future token-revocation contract.
 
-Features
---------
-✓ Access token response
-✓ Refresh token response
-✓ JWT payload validation
-✓ Authenticated user information
-✓ Token verification response
-✓ Future token revocation support
+JWT Contract
+------------
+FastAPI is the JWT authority for the platform.
+
+The JWT contract includes the authenticated user's:
+
+• user_id
+• email / subject
+• role
+
+Additional standard JWT claims such as issuer, audience, issued-at,
+expiration, token type, JTI, and NBF are supported.
 
 Compatible With
 ---------------
-- FastAPI
-- Pydantic v2
-- python-jose
-- SQLAlchemy 2.x
-
-Python Version
---------------
-3.12+
-
-----------------------------------------------------------
-Imports
-----------------------------------------------------------
+• FastAPI
+• Pydantic v2
+• python-jose
+• SQLAlchemy 2.x
+• Python 3.12+
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import ConfigDict, EmailStr, Field
+from pydantic import EmailStr, Field
 
 from app.core.constants import ACCESS_TOKEN_TYPE
 from app.schemas.base import BaseSchema
 
-# ==========================================================
+
+# =============================================================================
 # Access Token
-# ==========================================================
+# =============================================================================
 
 
 class Token(BaseSchema):
     """
-    JWT access token.
+    JWT access-token response.
+
+    Attributes
+    ----------
+    access_token:
+        Signed JWT access token.
+
+    token_type:
+        Authentication scheme used with the access token.
     """
 
     access_token: str = Field(
         ...,
+        min_length=1,
         description="Signed JWT access token.",
     )
 
     token_type: str = Field(
         default=ACCESS_TOKEN_TYPE.lower(),
+        min_length=1,
         description="Authentication scheme.",
     )
 
 
-# ==========================================================
+# =============================================================================
 # Token Response
-# ==========================================================
+# =============================================================================
 
 
 class TokenResponse(Token):
     """
-    Authentication response returned after a
-    successful login.
+    Authentication response returned after successful authentication.
+
+    Extends the basic token representation with the token lifetime.
     """
 
     expires_in: int = Field(
@@ -81,14 +98,20 @@ class TokenResponse(Token):
     )
 
 
-# ==========================================================
+# =============================================================================
 # JWT Payload
-# ==========================================================
+# =============================================================================
 
 
 class TokenPayload(BaseSchema):
     """
-    Decoded JWT payload.
+    Complete decoded JWT payload.
+
+    This schema represents claims after the JWT has been decoded and
+    cryptographically validated by the security layer.
+
+    ``sub`` intentionally represents the authenticated user's email,
+    matching the established JWT contract.
     """
 
     sub: EmailStr = Field(
@@ -104,90 +127,132 @@ class TokenPayload(BaseSchema):
 
     role: str = Field(
         ...,
+        min_length=1,
         description="Authenticated user's role.",
     )
 
     type: str = Field(
         ...,
+        min_length=1,
         description="JWT token type.",
     )
 
     iss: str = Field(
         ...,
+        min_length=1,
         description="JWT issuer.",
     )
 
     aud: str = Field(
         ...,
+        min_length=1,
         description="JWT audience.",
     )
 
     iat: int = Field(
         ...,
-        description="Issued-at timestamp.",
+        ge=0,
+        description="Issued-at timestamp as a Unix timestamp.",
     )
 
     exp: int = Field(
         ...,
-        description="Expiration timestamp.",
+        ge=0,
+        description="Expiration timestamp as a Unix timestamp.",
     )
 
     jti: str | None = Field(
         default=None,
+        min_length=1,
         description="JWT identifier.",
     )
 
     nbf: int | None = Field(
         default=None,
-        description="Not-before timestamp.",
+        ge=0,
+        description="Not-before timestamp as a Unix timestamp.",
     )
 
 
-# ==========================================================
+# =============================================================================
 # JWT Claims
-# ==========================================================
+# =============================================================================
 
 
 class JWTClaims(BaseSchema):
     """
-    Authenticated user information extracted
-    from a validated JWT.
+    Application-level authenticated identity extracted from a validated JWT.
+
+    This is a simplified representation of the complete ``TokenPayload`` and
+    contains only the identity and authorization information required by
+    application code.
     """
 
-    user_id: int
+    user_id: int = Field(
+        ...,
+        ge=1,
+        description="Authenticated user's ID.",
+    )
 
-    email: EmailStr
+    email: EmailStr = Field(
+        ...,
+        description="Authenticated user's email.",
+    )
 
-    role: str
+    role: str = Field(
+        ...,
+        min_length=1,
+        description="Authenticated user's role.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Current User
-# ==========================================================
+# =============================================================================
 
 
 class CurrentUser(BaseSchema):
     """
-    Current authenticated user.
+    Representation of the currently authenticated application user.
+
+    This schema combines JWT identity information with the user's current
+    account state.
     """
 
-    id: int
+    id: int = Field(
+        ...,
+        ge=1,
+        description="Authenticated user's ID.",
+    )
 
-    email: EmailStr
+    email: EmailStr = Field(
+        ...,
+        description="Authenticated user's email.",
+    )
 
-    role: str
+    role: str = Field(
+        ...,
+        min_length=1,
+        description="Authenticated user's role.",
+    )
 
-    is_active: bool
+    is_active: bool = Field(
+        ...,
+        description="Whether the authenticated account is active.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Token Verification Response
-# ==========================================================
+# =============================================================================
 
 
 class TokenVerificationResponse(BaseSchema):
     """
-    Response returned after validating a JWT.
+    Response returned after successfully validating a JWT.
+
+    ``valid`` defaults to ``True`` because this response represents a
+    successful token-validation operation.
     """
 
     valid: bool = Field(
@@ -195,58 +260,74 @@ class TokenVerificationResponse(BaseSchema):
         description="Whether the supplied token is valid.",
     )
 
-    user: CurrentUser
+    user: CurrentUser = Field(
+        ...,
+        description="Authenticated user associated with the token.",
+    )
 
 
-# ==========================================================
+# =============================================================================
 # Refresh Token
-# ==========================================================
+# =============================================================================
 
 
 class RefreshToken(BaseSchema):
     """
-    Refresh token schema.
+    Refresh-token representation.
 
-    Reserved for future refresh-token rotation.
+    Reserved for the platform's future refresh-token rotation and
+    lifecycle-management flow.
     """
 
     refresh_token: str = Field(
         ...,
+        min_length=1,
         description="JWT refresh token.",
     )
 
 
-# ==========================================================
+# =============================================================================
 # Refresh Token Response
-# ==========================================================
+# =============================================================================
 
 
 class RefreshTokenResponse(TokenResponse):
     """
-    Authentication response containing both
-    access and refresh tokens.
+    Authentication response containing both access and refresh tokens.
+
+    Reserved for the platform's refresh-token authentication flow.
     """
 
     refresh_token: str = Field(
         ...,
+        min_length=1,
         description="JWT refresh token.",
     )
 
 
-# ==========================================================
+# =============================================================================
 # Token Blacklist Entry
-# ==========================================================
+# =============================================================================
 
 
 class TokenBlacklistEntry(BaseSchema):
     """
     Represents a revoked JWT.
 
-    Reserved for future token revocation support.
+    Reserved for future token-revocation support.
+
+    Attributes
+    ----------
+    jti:
+        Unique JWT identifier.
+
+    expires_at:
+        UTC expiration timestamp of the revoked token.
     """
 
     jti: str = Field(
         ...,
+        min_length=1,
         description="JWT unique identifier.",
     )
 
@@ -255,14 +336,10 @@ class TokenBlacklistEntry(BaseSchema):
         description="UTC expiration timestamp.",
     )
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
 
-
-# ==========================================================
+# =============================================================================
 # Public Exports
-# ==========================================================
+# =============================================================================
 
 __all__ = [
     "Token",
