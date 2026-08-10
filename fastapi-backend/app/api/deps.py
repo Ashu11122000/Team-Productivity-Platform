@@ -5,72 +5,78 @@ API Dependency Injection Layer
 
 Enterprise dependency injection module for the Team Productivity Platform.
 
-This module centralizes every dependency used throughout the API layer,
-providing a single source of truth for repositories, services, authentication,
-authorization, database sessions, and dependency aliases.
+This module centralizes reusable FastAPI dependencies for:
 
-Responsibilities
-----------------
-• Database session management
-• OAuth2 authentication
+• Database sessions
+• OAuth2 bearer-token extraction
 • JWT authentication
-• Repository dependency providers
-• Service dependency providers
-• Authentication dependencies
-• Authorization dependencies
-• Role-based access control (RBAC)
-• Dependency aliases using ``typing.Annotated``
+• Repository construction
+• Service construction
+• Current-user resolution
+• Active-user validation
+• Administrator authorization
+• Role-based access control
+• Optional authentication
+• ``typing.Annotated`` dependency aliases
 
 Architecture
 ------------
+
 HTTP Request
       │
       ▼
- FastAPI Dependency Injection
+FastAPI Dependency Injection
+      │
+      ├── Authentication
+      ├── Authorization
+      ├── Database Session
+      ├── Repository Providers
+      └── Service Providers
       │
       ▼
- Authentication
- Repository Providers
- Service Providers
+Business Services
       │
       ▼
- Business Services
+Repositories
       │
       ▼
- Repositories
+SQLAlchemy
       │
       ▼
- SQLAlchemy
-      │
-      ▼
- PostgreSQL
+PostgreSQL
 
 Design Principles
 -----------------
+
 • Dependency Injection
-• Clean Architecture
-• Service Layer Pattern
-• Repository Pattern
 • Single Responsibility Principle
-• Enterprise Ready
-• OpenAPI Compatible
+• Repository Pattern
+• Service Layer Pattern
+• Clean Architecture
+• Explicit typing
+• Request-scoped dependencies
+• Centralized authentication
+• Centralized authorization
+• OpenAPI compatibility
+• No unnecessary infrastructure
 
 Compatible With
 ---------------
+
 • FastAPI
 • SQLAlchemy 2.x
 • PostgreSQL
-• Docker
 • Alembic
 • Pydantic v2
 • Python 3.12+
+• Docker
 ===============================================================================
 """
 
 from __future__ import annotations
 
-from collections.abc import Generator
-from typing import Annotated
+from collections.abc import Callable, Generator
+from typing import Annotated, TypeAlias
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -78,7 +84,7 @@ from sqlalchemy.orm import Session
 
 from app.core.constants import UserRole
 from app.core.logging import get_logger
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, get_user_id
 from app.db.session import get_db
 from app.exceptions import (
     AuthenticationError,
@@ -93,7 +99,6 @@ from app.services.auth_service import AuthService
 from app.services.note_service import NoteService
 from app.services.user_service import UserService
 
-__all__ = []
 
 # =============================================================================
 # Module Constants
@@ -107,45 +112,48 @@ OAUTH2_DESCRIPTION = "JWT Bearer Authentication"
 
 DEFAULT_LOGGER_NAME = __name__
 
+
 # =============================================================================
 # Logging Constants
 # =============================================================================
 
-LOG_DATABASE = "Database Dependency"
+LOG_DATABASE = "Database dependency"
 
-LOG_REPOSITORY = "Repository Dependency"
+LOG_REPOSITORY = "Repository dependency"
 
-LOG_SERVICE = "Service Dependency"
+LOG_SERVICE = "Service dependency"
 
-LOG_AUTHENTICATION = "Authentication Dependency"
+LOG_AUTHENTICATION = "Authentication dependency"
 
-LOG_AUTHORIZATION = "Authorization Dependency"
+LOG_AUTHORIZATION = "Authorization dependency"
 
-LOG_RBAC = "Role-Based Access Control"
+LOG_RBAC = "Role-based access control"
 
-LOG_INITIALIZATION = "Dependency Initialization"
+LOG_INITIALIZATION = "Dependency initialization"
+
 
 # =============================================================================
 # Type Aliases
 # =============================================================================
 
-DatabaseGenerator = Generator[
+DatabaseGenerator: TypeAlias = Generator[
     Session,
     None,
     None,
 ]
 
-RepositoryFactory = UserRepository
+RepositoryFactory: TypeAlias = UserRepository
 
-NoteRepositoryFactory = NoteRepository
+NoteRepositoryFactory: TypeAlias = NoteRepository
 
-AuthenticationService = AuthService
+AuthenticationService: TypeAlias = AuthService
 
-UserManagementService = UserService
+UserManagementService: TypeAlias = UserService
 
-NotesService = NoteService
+NotesService: TypeAlias = NoteService
 
-AuthenticatedUser = User
+AuthenticatedUser: TypeAlias = User
+
 
 # =============================================================================
 # Module Logger
@@ -155,9 +163,6 @@ logger = get_logger(
     DEFAULT_LOGGER_NAME,
 )
 
-# =============================================================================
-# End Module Foundation
-# =============================================================================
 
 # =============================================================================
 # OAuth2 Configuration
@@ -169,6 +174,14 @@ oauth2_scheme = OAuth2PasswordBearer(
     description=OAUTH2_DESCRIPTION,
 )
 
+optional_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=TOKEN_URL,
+    scheme_name=OAUTH2_SCHEME_NAME,
+    description=OAUTH2_DESCRIPTION,
+    auto_error=False,
+)
+
+
 # =============================================================================
 # Database Dependency
 # =============================================================================
@@ -176,14 +189,10 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 def get_db_session() -> DatabaseGenerator:
     """
-    Provide a SQLAlchemy database session.
+    Provide a request-scoped SQLAlchemy database session.
 
-    Responsibilities
-    ----------------
-    • Create a database session.
-    • Delegate session lifecycle to ``get_db``.
-    • Provide a consistent database dependency.
-    • Ensure proper cleanup after request completion.
+    The actual session lifecycle is delegated to ``app.db.session.get_db``.
+    This wrapper gives the API layer a stable dependency boundary.
 
     Yields
     ------
@@ -207,6 +216,9 @@ DBSession = Annotated[
     Depends(get_db_session),
 ]
 
+DatabaseDependency: TypeAlias = DBSession
+
+
 # =============================================================================
 # OAuth2 Token Dependency Aliases
 # =============================================================================
@@ -218,38 +230,28 @@ OAuth2Token = Annotated[
 
 OptionalOAuth2Token = Annotated[
     str | None,
-    Depends(oauth2_scheme),
+    Depends(optional_oauth2_scheme),
 ]
 
-# =============================================================================
-# Common Dependency Type Aliases
-# =============================================================================
+AccessToken: TypeAlias = OAuth2Token
 
-DatabaseDependency = DBSession
+OptionalAccessToken: TypeAlias = OptionalOAuth2Token
 
-AccessToken = OAuth2Token
+BearerToken: TypeAlias = OAuth2Token
 
-OptionalAccessToken = OptionalOAuth2Token
+OptionalBearerToken: TypeAlias = OptionalOAuth2Token
 
-# =============================================================================
-# End Core Dependencies
-# =============================================================================
+
 # =============================================================================
 # Repository Providers
 # =============================================================================
+
 
 def get_user_repository(
     db: DatabaseDependency,
 ) -> RepositoryFactory:
     """
-    Create a UserRepository instance.
-
-    Responsibilities
-    ----------------
-    • Receive an active database session.
-    • Create a repository instance.
-    • Provide the repository to the service layer.
-    • Maintain a single repository per request.
+    Provide a request-scoped UserRepository.
 
     Parameters
     ----------
@@ -258,11 +260,11 @@ def get_user_repository(
 
     Returns
     -------
-    RepositoryFactory
-        Configured UserRepository instance.
+    UserRepository
+        Repository bound to the current database session.
     """
     logger.debug(
-        "%s created: UserRepository",
+        "%s created: UserRepository.",
         LOG_REPOSITORY,
     )
 
@@ -275,14 +277,7 @@ def get_note_repository(
     db: DatabaseDependency,
 ) -> NoteRepositoryFactory:
     """
-    Create a NoteRepository instance.
-
-    Responsibilities
-    ----------------
-    • Receive an active database session.
-    • Create a repository instance.
-    • Provide the repository to the service layer.
-    • Maintain a single repository per request.
+    Provide a request-scoped NoteRepository.
 
     Parameters
     ----------
@@ -291,11 +286,11 @@ def get_note_repository(
 
     Returns
     -------
-    NoteRepositoryFactory
-        Configured NoteRepository instance.
+    NoteRepository
+        Repository bound to the current database session.
     """
     logger.debug(
-        "%s created: NoteRepository",
+        "%s created: NoteRepository.",
         LOG_REPOSITORY,
     )
 
@@ -319,24 +314,15 @@ NoteRepositoryDep = Annotated[
 ]
 
 # =============================================================================
-# End Repository Providers
-# =============================================================================
-# =============================================================================
 # Service Providers
 # =============================================================================
+
 
 def get_auth_service(
     repository: UserRepositoryDep,
 ) -> AuthenticationService:
     """
-    Create an AuthService instance.
-
-    Responsibilities
-    ----------------
-    • Receive repository dependencies.
-    • Construct the authentication service.
-    • Provide the service to API endpoints.
-    • Maintain one service instance per request.
+    Provide a request-scoped AuthService.
 
     Parameters
     ----------
@@ -345,11 +331,11 @@ def get_auth_service(
 
     Returns
     -------
-    AuthenticationService
-        Configured authentication service.
+    AuthService
+        Authentication service configured with the user repository.
     """
     logger.debug(
-        "%s created: AuthService",
+        "%s created: AuthService.",
         LOG_SERVICE,
     )
 
@@ -362,14 +348,7 @@ def get_user_service(
     repository: UserRepositoryDep,
 ) -> UserManagementService:
     """
-    Create a UserService instance.
-
-    Responsibilities
-    ----------------
-    • Receive repository dependencies.
-    • Construct the user service.
-    • Provide the service to API endpoints.
-    • Maintain one service instance per request.
+    Provide a request-scoped UserService.
 
     Parameters
     ----------
@@ -378,11 +357,11 @@ def get_user_service(
 
     Returns
     -------
-    UserManagementService
-        Configured user service.
+    UserService
+        User-management service configured with the user repository.
     """
     logger.debug(
-        "%s created: UserService",
+        "%s created: UserService.",
         LOG_SERVICE,
     )
 
@@ -395,14 +374,7 @@ def get_note_service(
     repository: NoteRepositoryDep,
 ) -> NotesService:
     """
-    Create a NoteService instance.
-
-    Responsibilities
-    ----------------
-    • Receive repository dependencies.
-    • Construct the note service.
-    • Provide the service to API endpoints.
-    • Maintain one service instance per request.
+    Provide a request-scoped NoteService.
 
     Parameters
     ----------
@@ -411,11 +383,11 @@ def get_note_service(
 
     Returns
     -------
-    NotesService
-        Configured note service.
+    NoteService
+        Note-management service configured with the note repository.
     """
     logger.debug(
-        "%s created: NoteService",
+        "%s created: NoteService.",
         LOG_SERVICE,
     )
 
@@ -443,49 +415,45 @@ NoteServiceDep = Annotated[
     Depends(get_note_service),
 ]
 
-# =============================================================================
-# End Service Providers
-# =============================================================================
+
 # =============================================================================
 # Authentication Dependency
 # =============================================================================
+
 
 def get_current_user(
     token: AccessToken,
     auth_service: AuthServiceDep,
 ) -> AuthenticatedUser:
     """
-    Retrieve the currently authenticated user.
+    Resolve the currently authenticated user.
 
-    Workflow
-    --------
+    Authentication workflow
+    -----------------------
+
     Authorization Header
             │
             ▼
-       Extract JWT Token
+       Extract JWT
             │
             ▼
-       Decode Access Token
+    Decode + Validate JWT
             │
             ▼
-      Validate Token Claims
+      Extract user_id
             │
             ▼
-      Load User From Database
+      Load User
             │
             ▼
-      Validate User Status
+      Validate User
             │
             ▼
-     Return Authenticated User
+    Return Active User
 
-    Responsibilities
-    ----------------
-    • Validate the JWT access token.
-    • Decode authentication claims.
-    • Load the authenticated user.
-    • Verify that the user account is active.
-    • Return the authenticated ORM user.
+    The JWT validation itself is delegated to ``app.core.security``.
+    This dependency is responsible for connecting the validated JWT identity
+    to the application's user/service layer.
 
     Parameters
     ----------
@@ -497,19 +465,20 @@ def get_current_user(
 
     Returns
     -------
-    AuthenticatedUser
+    User
         Authenticated active user.
 
     Raises
     ------
     AuthenticationError
-        Invalid, expired, malformed, or incomplete token.
+        If the JWT is invalid, malformed, incomplete, or contains an
+        invalid user identifier.
 
     UserNotFoundError
-        Referenced user does not exist.
+        If the referenced user does not exist.
 
     InactiveUserError
-        User account is inactive.
+        If the user account is inactive.
     """
     logger.debug(
         "%s started.",
@@ -518,37 +487,46 @@ def get_current_user(
 
     try:
         # ---------------------------------------------------------------------
-        # Decode JWT
+        # Resolve the user identifier through the centralized security layer.
+        #
+        # get_user_id() internally calls decode_access_token(), which performs
+        # the application's JWT validation contract.
         # ---------------------------------------------------------------------
-        payload = decode_access_token(
+
+        user_id = get_user_id(
             token,
         )
 
         # ---------------------------------------------------------------------
-        # Extract User Identifier
+        # Convert the JWT user identifier to the database identifier type.
+        #
+        # The existing service contract expects an integer user_id.
         # ---------------------------------------------------------------------
-        user_id = payload.get("user_id")
 
-        if user_id is None:
+        try:
+            numeric_user_id = int(user_id)
+        except (TypeError, ValueError) as exc:
             logger.warning(
-                "%s failed: Missing user_id claim.",
+                "%s failed: invalid user identifier.",
                 LOG_AUTHENTICATION,
             )
 
             raise AuthenticationError(
-                "Authentication token is missing the user identifier.",
-            )
+                "Authentication token contains an invalid user identifier.",
+            ) from exc
 
         # ---------------------------------------------------------------------
-        # Retrieve User
+        # Retrieve the authenticated user through the service layer.
         # ---------------------------------------------------------------------
+
         user = auth_service.get_user(
-            user_id=int(user_id),
+            user_id=numeric_user_id,
         )
 
         # ---------------------------------------------------------------------
-        # Validate User State
+        # Ensure the account is active.
         # ---------------------------------------------------------------------
+
         auth_service.ensure_active_user(
             user,
         )
@@ -556,6 +534,9 @@ def get_current_user(
         logger.debug(
             "%s completed successfully.",
             LOG_AUTHENTICATION,
+            extra={
+                "user_id": numeric_user_id,
+            },
         )
 
         return user
@@ -575,7 +556,6 @@ def get_current_user(
         logger.exception(
             "%s failed unexpectedly.",
             LOG_AUTHENTICATION,
-            exc_info=exc,
         )
 
         raise AuthenticationError(
@@ -584,67 +564,50 @@ def get_current_user(
 
 
 # =============================================================================
-# End Authentication Dependency
-# =============================================================================
-# =============================================================================
 # Optional Authentication Dependency
 # =============================================================================
+
 
 def get_optional_current_user(
     token: OptionalAccessToken,
     auth_service: AuthServiceDep,
 ) -> AuthenticatedUser | None:
     """
-    Retrieve the currently authenticated user if available.
+    Resolve the authenticated user when authentication is optional.
 
-    This dependency enables endpoints that support both anonymous and
-    authenticated access.
-
-    Workflow
+    Behavior
     --------
-    Authorization Header
-            │
-            ▼
-      Token Present?
-       │          │
-      No         Yes
-       │          │
-       ▼          ▼
-    Return None  Decode JWT
-                     │
-                     ▼
-              Validate Claims
-                     │
-                     ▼
-               Load User
-                     │
-                     ▼
-            Validate Active User
-                     │
-                     ▼
-             Return Authenticated User
+    No token:
+        Return ``None``.
 
-    Responsibilities
-    ----------------
-    • Accept optional authentication.
-    • Ignore missing bearer tokens.
-    • Validate JWT when provided.
-    • Return the authenticated user.
-    • Return None for anonymous requests.
+    Valid token:
+        Return the authenticated active user.
+
+    Invalid token:
+        Return ``None``.
+
+    Missing user:
+        Return ``None``.
+
+    Inactive user:
+        Return ``None``.
+
+    This dependency is intended for endpoints that support both anonymous
+    and authenticated access.
 
     Parameters
     ----------
     token:
-        Optional JWT bearer token.
+        Optional JWT bearer access token.
 
     auth_service:
         Authentication service.
 
     Returns
     -------
-    AuthenticatedUser | None
-        Authenticated user if validation succeeds;
-        otherwise None.
+    User | None
+        Authenticated active user when authentication succeeds;
+        otherwise ``None``.
     """
     logger.debug(
         "%s started.",
@@ -652,11 +615,12 @@ def get_optional_current_user(
     )
 
     # -------------------------------------------------------------------------
-    # Anonymous Request
+    # Anonymous request
     # -------------------------------------------------------------------------
+
     if token is None:
         logger.debug(
-            "%s skipped (anonymous request).",
+            "%s skipped: anonymous request.",
             LOG_AUTHENTICATION,
         )
 
@@ -664,35 +628,39 @@ def get_optional_current_user(
 
     try:
         # ---------------------------------------------------------------------
-        # Decode JWT
+        # Resolve user identifier through the centralized security layer.
         # ---------------------------------------------------------------------
-        payload = decode_access_token(
+
+        user_id = get_user_id(
             token,
         )
 
         # ---------------------------------------------------------------------
-        # Extract User Identifier
+        # Convert the JWT user identifier to the database identifier type.
         # ---------------------------------------------------------------------
-        user_id = payload.get("user_id")
 
-        if user_id is None:
+        try:
+            numeric_user_id = int(user_id)
+        except (TypeError, ValueError):
             logger.debug(
-                "%s skipped (missing user_id claim).",
+                "%s ignored: invalid user identifier.",
                 LOG_AUTHENTICATION,
             )
 
             return None
 
         # ---------------------------------------------------------------------
-        # Retrieve User
+        # Retrieve user.
         # ---------------------------------------------------------------------
+
         user = auth_service.get_user(
-            user_id=int(user_id),
+            user_id=numeric_user_id,
         )
 
         # ---------------------------------------------------------------------
-        # Validate User Status
+        # Validate user state.
         # ---------------------------------------------------------------------
+
         auth_service.ensure_active_user(
             user,
         )
@@ -700,11 +668,22 @@ def get_optional_current_user(
         logger.debug(
             "%s completed successfully.",
             LOG_AUTHENTICATION,
+            extra={
+                "user_id": numeric_user_id,
+            },
         )
 
         return user
 
-    except Exception:
+    except (
+        AuthenticationError,
+        UserNotFoundError,
+        InactiveUserError,
+        ValueError,
+        TypeError,
+    ):
+        # Optional authentication must not convert an anonymous/invalid
+        # optional credential into an authentication failure for the endpoint.
         logger.debug(
             "%s ignored invalid optional authentication.",
             LOG_AUTHENTICATION,
@@ -714,62 +693,53 @@ def get_optional_current_user(
 
 
 # =============================================================================
-# Optional Authentication Dependency Alias
+# Authentication Dependency Aliases
 # =============================================================================
+
+CurrentUser = Annotated[
+    AuthenticatedUser,
+    Depends(get_current_user),
+]
 
 OptionalCurrentUser = Annotated[
     AuthenticatedUser | None,
     Depends(get_optional_current_user),
 ]
 
-# =============================================================================
-# End Optional Authentication Dependency
-# =============================================================================
 
 # =============================================================================
 # Active User Dependency
 # =============================================================================
+
 
 def get_current_active_user(
     current_user: CurrentUser,
     auth_service: AuthServiceDep,
 ) -> AuthenticatedUser:
     """
-    Ensure the authenticated user account is active.
+    Ensure that the authenticated user's account is active.
 
-    Workflow
-    --------
-    Authenticated User
-            │
-            ▼
-      Validate User Status
-            │
-            ▼
-      Return Active User
-
-    Responsibilities
-    ----------------
-    • Receive the authenticated user.
-    • Verify that the account is active.
-    • Return the validated user.
+    Authentication has already been performed by ``get_current_user``.
+    This dependency performs the explicit active-account validation required
+    by endpoints that need an active user.
 
     Parameters
     ----------
     current_user:
-        Authenticated user.
+        Authenticated user resolved by ``get_current_user``.
 
     auth_service:
         Authentication service.
 
     Returns
     -------
-    AuthenticatedUser
+    User
         Active authenticated user.
 
     Raises
     ------
     InactiveUserError
-        If the account is inactive.
+        If the authenticated user's account is inactive.
     """
     logger.debug(
         "%s started.",
@@ -802,31 +772,16 @@ CurrentActiveUser = Annotated[
 # Administrator Dependency
 # =============================================================================
 
+
 def get_current_admin(
     current_user: CurrentActiveUser,
     auth_service: AuthServiceDep,
 ) -> AuthenticatedUser:
     """
-    Ensure the authenticated user has administrator privileges.
+    Ensure that the authenticated user has administrator privileges.
 
-    Workflow
-    --------
-    Authenticated User
-            │
-            ▼
-      Validate Active User
-            │
-            ▼
-      Validate Administrator
-            │
-            ▼
-      Return Administrator
-
-    Responsibilities
-    ----------------
-    • Receive the active authenticated user.
-    • Verify administrator privileges.
-    • Return the validated administrator.
+    The user must first satisfy the active-user dependency and must then pass
+    the authentication service's administrator authorization check.
 
     Parameters
     ----------
@@ -838,13 +793,13 @@ def get_current_admin(
 
     Returns
     -------
-    AuthenticatedUser
+    User
         Authenticated administrator.
 
     Raises
     ------
     AuthorizationError
-        If the user is not an administrator.
+        If the authenticated user does not have administrator privileges.
     """
     logger.debug(
         "%s started.",
@@ -872,63 +827,70 @@ CurrentAdmin = Annotated[
     Depends(get_current_admin),
 ]
 
-# =============================================================================
-# End Authorization Dependencies
-# =============================================================================
 
 # =============================================================================
-# Role-Based Access Control (RBAC)
+# Role Normalization
 # =============================================================================
+
+
+def _normalize_role(
+    role: UserRole | str,
+) -> str:
+    """
+    Normalize a user role to its string representation.
+
+    Parameters
+    ----------
+    role:
+        UserRole enum member or string representation.
+
+    Returns
+    -------
+    str
+        Normalized role string.
+    """
+    if isinstance(role, UserRole):
+        return role.value
+
+    return str(role).strip()
+
+
+# =============================================================================
+# Role-Based Access Control
+# =============================================================================
+
 
 def require_role(
     required_role: UserRole,
-):
+) -> Callable[..., AuthenticatedUser]:
     """
-    Create a dependency that restricts endpoint access to a single role.
+    Create a FastAPI dependency requiring a specific user role.
 
-    Workflow
-    --------
-    Current Active User
-            │
-            ▼
-      Resolve User Role
-            │
-            ▼
-     Compare Required Role
-            │
-            ▼
-      Authorized?
-       │          │
-      Yes         No
-       │          │
-       ▼          ▼
-    Return User   Raise AuthorizationError
-
-    Responsibilities
-    ----------------
-    • Validate the authenticated user's role.
-    • Restrict endpoint access to a single role.
-    • Return the authenticated user when authorized.
+    Example
+    -------
+    ``Depends(require_role(UserRole.ADMIN))``
 
     Parameters
     ----------
     required_role:
-        Role required to access the endpoint.
+        Role required to access the protected endpoint.
 
     Returns
     -------
     Callable
         FastAPI dependency callable.
-    """
 
-    required = (
-        required_role.value
-        if isinstance(required_role, UserRole)
-        else str(required_role)
+    Raises
+    ------
+    AuthorizationError
+        When the authenticated user's role does not match the required role.
+    """
+    required = _normalize_role(
+        required_role,
     )
 
     logger.debug(
-        "%s configured for role: %s",
+        "%s configured for role: %s.",
         LOG_RBAC,
         required,
     )
@@ -937,19 +899,15 @@ def require_role(
         current_user: CurrentActiveUser,
     ) -> AuthenticatedUser:
         """
-        Validate that the authenticated user possesses
-        the required role.
+        Validate that the current user has the required role.
         """
-
-        user_role = (
-            current_user.role.value
-            if isinstance(current_user.role, UserRole)
-            else str(current_user.role)
+        user_role = _normalize_role(
+            current_user.role,
         )
 
         if user_role != required:
             logger.warning(
-                "%s denied. Required=%s Current=%s",
+                "%s denied. Required=%s Current=%s.",
                 LOG_RBAC,
                 required,
                 user_role,
@@ -970,60 +928,47 @@ def require_role(
 
 
 # =============================================================================
-# Multiple Role Dependency
+# Multiple-Role RBAC
 # =============================================================================
+
 
 def require_roles(
     *allowed_roles: UserRole,
-):
+) -> Callable[..., AuthenticatedUser]:
     """
-    Create a dependency that restricts endpoint access to
-    one or more roles.
+    Create a FastAPI dependency allowing multiple user roles.
 
-    Workflow
-    --------
-    Current Active User
-            │
-            ▼
-      Resolve User Role
-            │
-            ▼
-    Check Allowed Roles
-            │
-            ▼
-      Authorized?
-       │          │
-      Yes         No
-       │          │
-       ▼          ▼
-    Return User   Raise AuthorizationError
-
-    Responsibilities
-    ----------------
-    • Validate the authenticated user's role.
-    • Restrict endpoint access to one or more roles.
-    • Return the authenticated user when authorized.
+    Example
+    -------
+    ``Depends(require_roles(UserRole.ADMIN, UserRole.MANAGER))``
 
     Parameters
     ----------
     allowed_roles:
-        Roles permitted to access the endpoint.
+        One or more roles permitted to access the endpoint.
 
     Returns
     -------
     Callable
         FastAPI dependency callable.
+
+    Raises
+    ------
+    ValueError
+        If no allowed roles are supplied.
     """
+    if not allowed_roles:
+        raise ValueError(
+            "At least one allowed role must be provided.",
+        )
 
     allowed = {
-        role.value
-        if isinstance(role, UserRole)
-        else str(role)
+        _normalize_role(role)
         for role in allowed_roles
     }
 
     logger.debug(
-        "%s configured for roles: %s",
+        "%s configured for roles: %s.",
         LOG_RBAC,
         ", ".join(sorted(allowed)),
     )
@@ -1032,19 +977,15 @@ def require_roles(
         current_user: CurrentActiveUser,
     ) -> AuthenticatedUser:
         """
-        Validate that the authenticated user possesses
-        one of the permitted roles.
+        Validate that the current user has one of the allowed roles.
         """
-
-        user_role = (
-            current_user.role.value
-            if isinstance(current_user.role, UserRole)
-            else str(current_user.role)
+        user_role = _normalize_role(
+            current_user.role,
         )
 
         if user_role not in allowed:
             logger.warning(
-                "%s denied. Allowed=%s Current=%s",
+                "%s denied. Allowed=%s Current=%s.",
                 LOG_RBAC,
                 ", ".join(sorted(allowed)),
                 user_role,
@@ -1063,71 +1004,17 @@ def require_roles(
 
     return dependency
 
-
-# =============================================================================
-# End Role-Based Access Control
-# =============================================================================
 # =============================================================================
 # Authentication Dependency Aliases
 # =============================================================================
 
-CurrentUser = Annotated[
-    AuthenticatedUser,
-    Depends(get_current_user),
-]
-
-OptionalCurrentUser = Annotated[
-    AuthenticatedUser | None,
-    Depends(get_optional_current_user),
-]
-
-CurrentActiveUser = Annotated[
-    AuthenticatedUser,
-    Depends(get_current_active_user),
-]
-
-CurrentAdmin = Annotated[
-    AuthenticatedUser,
-    Depends(get_current_admin),
-]
-
-# =============================================================================
-# OAuth2 Dependency Aliases
-# =============================================================================
-
-OAuth2Token = Annotated[
-    str,
-    Depends(oauth2_scheme),
-]
-
-OptionalOAuth2Token = Annotated[
-    str | None,
-    Depends(oauth2_scheme),
-]
-
-# =============================================================================
-# Dependency Alias Groups
-# =============================================================================
-
-# Authentication
 AuthenticationDependency = CurrentUser
 
-# Authorization
+OptionalAuthenticationDependency = OptionalCurrentUser
+
 ActiveUserDependency = CurrentActiveUser
 
 AdministratorDependency = CurrentAdmin
-
-# Optional Authentication
-OptionalAuthenticationDependency = OptionalCurrentUser
-
-# OAuth2 Tokens
-BearerToken = OAuth2Token
-
-OptionalBearerToken = OptionalOAuth2Token
-
-# =============================================================================
-# End Dependency Aliases
-# =============================================================================
 
 
 # =============================================================================
@@ -1135,11 +1022,11 @@ OptionalBearerToken = OptionalOAuth2Token
 # =============================================================================
 
 __all__ = [
-
     # -------------------------------------------------------------------------
     # OAuth2 Configuration
     # -------------------------------------------------------------------------
     "oauth2_scheme",
+    "optional_oauth2_scheme",
     "OAuth2Token",
     "OptionalOAuth2Token",
     "BearerToken",
@@ -1182,21 +1069,22 @@ __all__ = [
     # Authentication Aliases
     # -------------------------------------------------------------------------
     "CurrentUser",
+    "OptionalCurrentUser",
     "CurrentActiveUser",
     "CurrentAdmin",
-    "OptionalCurrentUser",
 
     "AuthenticationDependency",
+    "OptionalAuthenticationDependency",
     "ActiveUserDependency",
     "AdministratorDependency",
-    "OptionalAuthenticationDependency",
 
     # -------------------------------------------------------------------------
-    # Authorization
+    # Role-Based Access Control
     # -------------------------------------------------------------------------
     "require_role",
     "require_roles",
 ]
+
 
 # =============================================================================
 # Module Initialization
@@ -1206,8 +1094,3 @@ logger.info(
     "%s initialized successfully.",
     LOG_INITIALIZATION,
 )
-
-# =============================================================================
-# End Module
-# =============================================================================
-
