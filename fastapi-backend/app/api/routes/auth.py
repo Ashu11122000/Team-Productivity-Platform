@@ -1,25 +1,60 @@
 """
 ===============================================================================
-Authentication Router
+Enterprise Team Productivity Platform
+FastAPI Backend
+
+Module: app.api.routes.auth
+
+Architecture:
+    Clean Architecture
+    Thin Controller Pattern
+    Service Layer Pattern
+    Repository Pattern
+
+Python:
+    3.12+
+
+Framework:
+    FastAPI
+
+Database:
+    PostgreSQL
+
+ORM:
+    SQLAlchemy 2.x
+
+Validation:
+    Pydantic v2
 ===============================================================================
 
-Enterprise FastAPI router responsible for exposing all Authentication REST APIs.
+Overview
+--------
+Enterprise FastAPI router responsible for exposing all Authentication REST
+APIs.
+
+The router represents the HTTP presentation layer between API clients and
+AuthService.
+
+The router intentionally contains no authentication or authorization
+business logic.
 
 Responsibilities
 ----------------
 • Receive authentication requests
 • Validate request payloads
-• Authenticate users
-• Delegate business logic to AuthService
-• Return authentication responses
+• Authenticate users through dependencies
+• Delegate authentication operations to AuthService
+• Return response DTOs
+• Define HTTP status codes
 • Generate OpenAPI documentation
 
 Architecture
 ------------
+
                 HTTP Request
                      │
                      ▼
-             Authentication Router
+           Authentication Router
                      │
                      ▼
                 AuthService
@@ -28,7 +63,77 @@ Architecture
                UserRepository
                      │
                      ▼
+                SQLAlchemy ORM
+                     │
+                     ▼
                 PostgreSQL
+
+Router Responsibilities
+------------------------
+• HTTP transport
+• Request validation
+• Dependency injection
+• Authentication dependencies
+• Response serialization
+• OpenAPI metadata
+• HTTP status codes
+
+AuthService Responsibilities
+----------------------------
+• User registration
+• User authentication
+• Credential validation
+• Password hashing
+• Password verification
+• Password changes
+• JWT generation
+• Token renewal
+• Current-user validation
+• Active-account validation
+• Administrator validation
+• Logout workflow
+
+Repository Responsibilities
+----------------------------
+• User persistence
+• User lookup
+• Email lookup
+• CRUD operations
+• Database transactions
+
+Business Rules
+--------------
+This router NEVER contains business logic.
+
+Authentication rules are delegated entirely to:
+
+    app.services.auth_service.AuthService
+
+The router only coordinates HTTP communication.
+
+Microservice Responsibilities
+------------------------------
+FastAPI owns:
+
+• Authentication
+• Authorization
+• JWT generation
+• Refresh/token renewal
+• Users
+• Notes
+• Open Library Integration
+
+NestJS owns:
+
+• Tasks
+• Categories
+• Tags
+• Notifications
+• Analytics
+• Dashboard
+• Activity Logs
+
+Authentication must remain exclusively owned by FastAPI.
 
 Design Principles
 -----------------
@@ -37,44 +142,79 @@ Design Principles
 • Dependency Injection
 • Single Responsibility Principle
 • OpenAPI First Design
-• Enterprise Ready
 • Clean Architecture
+• Explicit typing
+• Centralized business logic
+• Enterprise Ready
 
-Business Rules
---------------
-This router NEVER contains business logic.
+Security
+--------
+The router does not directly perform:
 
-Authentication rules are delegated entirely to:
+• Password hashing
+• Password verification
+• JWT creation
+• JWT validation
+• Role validation
+• Account activation validation
+• Credential validation
 
-    • AuthService
-
-The router only coordinates HTTP communication.
+These responsibilities belong to AuthService and authentication
+dependencies.
 
 Compatible With
 ---------------
 • FastAPI
 • SQLAlchemy 2.x
 • Pydantic v2
+• PostgreSQL
 • Python 3.12+
+
+===============================================================================
 """
 
 from __future__ import annotations
+
+# =============================================================================
+# Standard Library Imports
+# =============================================================================
+
+from typing import TypeAlias
+
+# =============================================================================
+# Third-Party Imports
+# =============================================================================
 
 from fastapi import (
     APIRouter,
     status,
 )
 
+# =============================================================================
+# Application Dependencies
+# =============================================================================
+
 from app.api.deps import (
     AuthServiceDep,
     CurrentUser,
 )
+
+# =============================================================================
+# Schema Imports
+# =============================================================================
+
 from app.schemas.auth import (
     AuthResponse,
+    ChangePasswordRequest,
     LoginRequest,
     RegisterRequest,
 )
+
 from app.schemas.user import UserResponse
+
+# =============================================================================
+# Public Module Exports
+# =============================================================================
 
 __all__ = [
     "router",
@@ -92,9 +232,9 @@ AUTH_TAG: str = "Authentication"
 # HTTP Status Codes
 # =============================================================================
 
-HTTP_CREATED = status.HTTP_201_CREATED
+HTTP_CREATED: int = status.HTTP_201_CREATED
 
-HTTP_OK = status.HTTP_200_OK
+HTTP_OK: int = status.HTTP_200_OK
 
 # =============================================================================
 # Router Configuration
@@ -109,43 +249,91 @@ router = APIRouter(
 # Type Aliases
 # =============================================================================
 
-AuthenticationResponse = AuthResponse
+AuthenticationResponse: TypeAlias = AuthResponse
 
-CurrentUserResponse = UserResponse
+CurrentUserResponse: TypeAlias = UserResponse
 
-# =============================================================================
-# End Module Configuration
-# =============================================================================
+AuthenticationService: TypeAlias = AuthServiceDep
 
-# =============================================================================
-# Route Summary Constants
-# =============================================================================
+AuthenticatedUser: TypeAlias = CurrentUser
 
-REGISTER_USER_SUMMARY = "Register User"
+RegisterPayload: TypeAlias = RegisterRequest
 
-LOGIN_USER_SUMMARY = "Login User"
+LoginPayload: TypeAlias = LoginRequest
 
-CURRENT_USER_SUMMARY = "Get Current User"
+PasswordChangePayload: TypeAlias = ChangePasswordRequest
 
-# =============================================================================
-# Response Description Constants
-# =============================================================================
+RegisterResponse: TypeAlias = AuthenticationResponse
 
-REGISTER_RESPONSE = "Successfully registered user."
+LoginResponse: TypeAlias = AuthenticationResponse
 
-LOGIN_RESPONSE = "JWT access token generated successfully."
+RefreshResponse: TypeAlias = AuthenticationResponse
 
-CURRENT_USER_RESPONSE = "Authenticated user information."
+MeResponse: TypeAlias = CurrentUserResponse
+
+ChangePasswordResponse: TypeAlias = UserResponse
+
+LogoutResponse: TypeAlias = dict[str, str]
 
 # =============================================================================
 # Authentication Route Paths
 # =============================================================================
 
-REGISTER_PATH = "/register"
+REGISTER_PATH: str = "/register"
 
-LOGIN_PATH = "/login"
+LOGIN_PATH: str = "/login"
 
-CURRENT_USER_PATH = "/me"
+CURRENT_USER_PATH: str = "/me"
+
+REFRESH_PATH: str = "/refresh"
+
+CHANGE_PASSWORD_PATH: str = "/change-password"
+
+LOGOUT_PATH: str = "/logout"
+
+# =============================================================================
+# Route Summary Constants
+# =============================================================================
+
+REGISTER_USER_SUMMARY: str = "Register User"
+
+LOGIN_USER_SUMMARY: str = "Login User"
+
+CURRENT_USER_SUMMARY: str = "Get Current User"
+
+REFRESH_TOKEN_SUMMARY: str = "Refresh Access Token"
+
+CHANGE_PASSWORD_SUMMARY: str = "Change Password"
+
+LOGOUT_USER_SUMMARY: str = "Logout User"
+
+# =============================================================================
+# Response Description Constants
+# =============================================================================
+
+REGISTER_RESPONSE: str = (
+    "Successfully registered user."
+)
+
+LOGIN_RESPONSE: str = (
+    "JWT access token generated successfully."
+)
+
+CURRENT_USER_RESPONSE: str = (
+    "Authenticated user information."
+)
+
+REFRESH_RESPONSE: str = (
+    "New JWT access token generated successfully."
+)
+
+CHANGE_PASSWORD_RESPONSE: str = (
+    "Password changed successfully."
+)
+
+LOGOUT_RESPONSE: str = (
+    "User logout confirmation."
+)
 
 # =============================================================================
 # Common OpenAPI Responses
@@ -153,53 +341,35 @@ CURRENT_USER_PATH = "/me"
 
 COMMON_AUTH_RESPONSES = {
     status.HTTP_400_BAD_REQUEST: {
-        "description": "Invalid request."
+        "description": "Invalid request.",
     },
     status.HTTP_401_UNAUTHORIZED: {
-        "description": "Authentication failed."
+        "description": "Authentication failed.",
     },
     status.HTTP_403_FORBIDDEN: {
-        "description": "Permission denied."
+        "description": "Permission denied.",
+    },
+    status.HTTP_404_NOT_FOUND: {
+        "description": "User not found.",
+    },
+    status.HTTP_409_CONFLICT: {
+        "description": "Resource conflict.",
     },
     status.HTTP_422_UNPROCESSABLE_ENTITY: {
-        "description": "Validation error."
+        "description": "Validation error.",
     },
     status.HTTP_500_INTERNAL_SERVER_ERROR: {
-        "description": "Internal server error."
+        "description": "Internal server error.",
     },
 }
 
 # =============================================================================
-# Dependency Aliases
+# End Module Configuration
 # =============================================================================
 
-AuthenticationService = AuthServiceDep
-
-AuthenticatedUser = CurrentUser
 
 # =============================================================================
-# Request Model Aliases
-# =============================================================================
-
-RegisterPayload = RegisterRequest
-
-LoginPayload = LoginRequest
-
-# =============================================================================
-# Response Model Aliases
-# =============================================================================
-
-RegisterResponse = AuthenticationResponse
-
-LoginResponse = AuthenticationResponse
-
-MeResponse = CurrentUserResponse
-
-# =============================================================================
-# End Authentication Metadata
-# =============================================================================
-# =============================================================================
-# Authentication Endpoints
+# Register User
 # =============================================================================
 
 @router.post(
@@ -220,14 +390,17 @@ def register_api(
     Responsibilities
     ----------------
     • Validate the registration payload.
-    • Delegate registration to the service layer.
-    • Return the newly created user and JWT tokens.
+    • Delegate registration to AuthService.
+    • Return the created user.
+    • Return the generated JWT access token.
 
     Business Rules
     --------------
-    • User registration is handled entirely by ``AuthService``.
-    • Password validation and hashing occur in the service layer.
-    • Duplicate email validation is handled by the service layer.
+    • Registration is handled by AuthService.
+    • Password hashing is handled by AuthService.
+    • Duplicate email validation is handled by AuthService.
+    • Default role assignment is handled by AuthService.
+    • JWT generation is handled by AuthService.
     • The router contains no business logic.
 
     Parameters
@@ -236,13 +409,13 @@ def register_api(
         Registration request payload.
 
     auth_service:
-        Authentication service responsible for business logic.
+        Authentication service.
 
     Returns
     -------
     RegisterResponse
         Authentication response containing the created user
-        and issued access token.
+        and issued JWT access token.
     """
     return auth_service.register(
         request=request,
@@ -250,7 +423,7 @@ def register_api(
 
 
 # =============================================================================
-# Login Endpoint
+# Login User
 # =============================================================================
 
 @router.post(
@@ -271,14 +444,17 @@ def login_api(
     Responsibilities
     ----------------
     • Validate the login payload.
-    • Delegate authentication to the service layer.
-    • Return a JWT access token and authenticated user.
+    • Delegate credential validation to AuthService.
+    • Return the generated JWT access token.
+    • Return the authenticated user.
 
     Business Rules
     --------------
-    • Credential verification is performed by ``AuthService``.
-    • JWT generation is performed by ``AuthService``.
-    • Failed authentication raises the appropriate exception.
+    • Credential verification is handled by AuthService.
+    • Password verification is handled by AuthService.
+    • Active-account validation is handled by AuthService.
+    • JWT generation is handled by AuthService.
+    • Failed authentication is handled by AuthService.
     • The router contains no business logic.
 
     Parameters
@@ -287,13 +463,13 @@ def login_api(
         Login request payload.
 
     auth_service:
-        Authentication service responsible for business logic.
+        Authentication service.
 
     Returns
     -------
     LoginResponse
         Authentication response containing the authenticated
-        user and issued JWT token.
+        user and issued JWT access token.
     """
     return auth_service.login(
         request=request,
@@ -301,10 +477,7 @@ def login_api(
 
 
 # =============================================================================
-# End Authentication Endpoints
-# =============================================================================
-# =============================================================================
-# Current User Endpoint
+# Current User
 # =============================================================================
 
 @router.get(
@@ -321,17 +494,14 @@ def get_current_user_api(
     """
     Retrieve the currently authenticated user.
 
+    Authentication is performed by the authentication dependency.
+
     Responsibilities
     ----------------
     • Authenticate the incoming request.
+    • Receive the authenticated user.
+    • Convert the ORM model into UserResponse.
     • Return the authenticated user's profile.
-    • Produce a validated response model.
-
-    Business Rules
-    --------------
-    • Authentication is performed by the authentication dependency.
-    • The router contains no authorization or business logic.
-    • The authenticated user is returned as a validated response model.
 
     Parameters
     ----------
@@ -349,6 +519,168 @@ def get_current_user_api(
 
 
 # =============================================================================
-# End Current User Endpoint
+# Refresh Access Token
 # =============================================================================
 
+@router.post(
+    REFRESH_PATH,
+    response_model=RefreshResponse,
+    status_code=HTTP_OK,
+    summary=REFRESH_TOKEN_SUMMARY,
+    response_description=REFRESH_RESPONSE,
+    responses=COMMON_AUTH_RESPONSES,
+)
+def refresh_access_token_api(
+    current_user: AuthenticatedUser,
+    auth_service: AuthenticationService,
+) -> RefreshResponse:
+    """
+    Generate a new JWT access token.
+
+    Responsibilities
+    ----------------
+    • Authenticate the current user.
+    • Delegate token generation to AuthService.
+    • Return the new authentication response.
+
+    Business Rules
+    --------------
+    • Only active users may renew their access token.
+    • JWT generation is handled by AuthService.
+    • The router contains no token-generation logic.
+
+    Parameters
+    ----------
+    current_user:
+        Authenticated user.
+
+    auth_service:
+        Authentication service.
+
+    Returns
+    -------
+    RefreshResponse
+        Authentication response containing the newly generated
+        JWT access token.
+    """
+    return auth_service.refresh_access_token(
+        current_user=current_user,
+    )
+
+
+# =============================================================================
+# Change Password
+# =============================================================================
+
+@router.post(
+    CHANGE_PASSWORD_PATH,
+    response_model=ChangePasswordResponse,
+    status_code=HTTP_OK,
+    summary=CHANGE_PASSWORD_SUMMARY,
+    response_description=CHANGE_PASSWORD_RESPONSE,
+    responses=COMMON_AUTH_RESPONSES,
+)
+def change_password_api(
+    request: PasswordChangePayload,
+    current_user: AuthenticatedUser,
+    auth_service: AuthenticationService,
+) -> ChangePasswordResponse:
+    """
+    Change the authenticated user's password.
+
+    Responsibilities
+    ----------------
+    • Validate the password-change payload.
+    • Authenticate the current user.
+    • Delegate password-change logic to AuthService.
+    • Return the updated user.
+
+    Business Rules
+    --------------
+    • Current-password verification is handled by AuthService.
+    • New-password validation is handled by AuthService.
+    • Password hashing is handled by AuthService.
+    • Persistence is delegated through the repository layer.
+    • The router contains no password business logic.
+
+    Parameters
+    ----------
+    request:
+        Password change request.
+
+    current_user:
+        Authenticated user.
+
+    auth_service:
+        Authentication service.
+
+    Returns
+    -------
+    ChangePasswordResponse
+        Updated user profile.
+    """
+    return auth_service.change_password(
+        user=current_user,
+        request=request,
+    )
+
+
+# =============================================================================
+# Logout
+# =============================================================================
+
+@router.post(
+    LOGOUT_PATH,
+    response_model=LogoutResponse,
+    status_code=HTTP_OK,
+    summary=LOGOUT_USER_SUMMARY,
+    response_description=LOGOUT_RESPONSE,
+    responses=COMMON_AUTH_RESPONSES,
+)
+def logout_api(
+    current_user: AuthenticatedUser,
+    auth_service: AuthenticationService,
+) -> LogoutResponse:
+    """
+    Logout the currently authenticated user.
+
+    JWT authentication is stateless in the current implementation.
+    AuthService therefore returns a logout confirmation and the client is
+    responsible for discarding the access token.
+
+    Future token-revocation functionality can be implemented inside
+    AuthService without changing this router's responsibility.
+
+    Responsibilities
+    ----------------
+    • Authenticate the current user.
+    • Delegate logout handling to AuthService.
+    • Return logout confirmation.
+
+    Business Rules
+    --------------
+    • Logout logic belongs to AuthService.
+    • Token revocation is not implemented here.
+    • The router contains no authentication state management.
+
+    Parameters
+    ----------
+    current_user:
+        Authenticated user.
+
+    auth_service:
+        Authentication service.
+
+    Returns
+    -------
+    LogoutResponse
+        Logout confirmation message.
+    """
+    return auth_service.logout(
+        user=current_user,
+    )
+
+
+# =============================================================================
+# End Authentication Router
+# =============================================================================
