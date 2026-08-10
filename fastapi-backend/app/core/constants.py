@@ -24,6 +24,13 @@ from typing import Final
 
 API_VERSION: Final[str] = "v1"
 
+# =============================================================================
+# API Configuration
+# =============================================================================
+
+API_PREFIX: str = "/api"
+API_VERSION: str = "v1"
+API_V1_PREFIX: str = f"{API_PREFIX}/{API_VERSION}"
 # ==========================================================
 # Authentication
 # ==========================================================
@@ -31,6 +38,9 @@ API_VERSION: Final[str] = "v1"
 class TokenType(str, Enum):
     BEARER = "Bearer"
 
+
+ACCESS_TOKEN_TYPE: Final[str] = "access"
+REFRESH_TOKEN_TYPE: Final[str] = "refresh"
 
 AUTHORIZATION_HEADER: Final[str] = "Authorization"
 
@@ -178,4 +188,8 @@ __all__ = [
     "MINUTES_PER_HOUR",
     "HOURS_PER_DAY",
     "BYTES_PER_MB",
+    "TokenType",
+    "ACCESS_TOKEN_TYPE",
+    "REFRESH_TOKEN_TYPE",
+    "AUTHORIZATION_HEADER",
 ]

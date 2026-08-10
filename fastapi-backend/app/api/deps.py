@@ -452,7 +452,7 @@ NoteServiceDep = Annotated[
 
 def get_current_user(
     token: AccessToken,
-    auth_service: AuthenticationService,
+    auth_service: AuthServiceDep,
 ) -> AuthenticatedUser:
     """
     Retrieve the currently authenticated user.
@@ -592,7 +592,7 @@ def get_current_user(
 
 def get_optional_current_user(
     token: OptionalAccessToken,
-    auth_service: AuthenticationService,
+    auth_service: AuthServiceDep,
 ) -> AuthenticatedUser | None:
     """
     Retrieve the currently authenticated user if available.
@@ -731,8 +731,8 @@ OptionalCurrentUser = Annotated[
 # =============================================================================
 
 def get_current_active_user(
-    current_user: AuthenticatedUser,
-    auth_service: AuthenticationService,
+    current_user: CurrentUser,
+    auth_service: AuthServiceDep,
 ) -> AuthenticatedUser:
     """
     Ensure the authenticated user account is active.
@@ -804,7 +804,7 @@ CurrentActiveUser = Annotated[
 
 def get_current_admin(
     current_user: CurrentActiveUser,
-    auth_service: AuthenticationService,
+    auth_service: AuthServiceDep,
 ) -> AuthenticatedUser:
     """
     Ensure the authenticated user has administrator privileges.

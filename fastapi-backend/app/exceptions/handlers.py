@@ -39,7 +39,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.logging import get_logger
-from app.exceptions.exceptions import ApplicationError
+from app.core.exceptions import ApplicationError
 
 logger = get_logger(__name__)
 

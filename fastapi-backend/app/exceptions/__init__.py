@@ -28,9 +28,11 @@ Compatible With
 ==========================================================
 """
 
-from app.exceptions.exceptions import (
+from app.core.exceptions import (
+    ApplicationError,
     AuthenticationError,
     AuthorizationError,
+    DatabaseError,
     EmailAlreadyExistsError,
     InactiveUserError,
     NoteAlreadyConvertedError,
@@ -39,8 +41,10 @@ from app.exceptions.exceptions import (
 )
 
 __all__ = [
+    "ApplicationError",
     "AuthenticationError",
     "AuthorizationError",
+    "DatabaseError",
     "EmailAlreadyExistsError",
     "InactiveUserError",
     "NoteAlreadyConvertedError",

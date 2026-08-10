@@ -173,6 +173,23 @@ class EmailAlreadyExistsError(ApplicationError):
             error_code="EMAIL_ALREADY_EXISTS",
             status_code=HTTPStatus.CONFLICT,
         )
+        
+# ==========================================================
+# Database
+# ==========================================================
+
+class DatabaseError(ApplicationError):
+    """Raised when a database operation fails."""
+
+    def __init__(
+        self,
+        message: str = "Database operation failed.",
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code="DATABASE_ERROR",
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
 
 
 # ==========================================================
@@ -219,4 +236,5 @@ __all__ = [
     "EmailAlreadyExistsError",
     "NoteNotFoundError",
     "NoteAlreadyConvertedError",
+    "DatabaseError",
 ]
