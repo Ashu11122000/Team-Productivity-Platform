@@ -1,34 +1,30 @@
 """
-==========================================================
-Application Exceptions
-==========================================================
+Application exceptions.
 
 Centralized custom exception hierarchy for the
 Team Productivity Platform.
 
 Responsibilities
 ----------------
-✓ Define reusable domain exceptions
-✓ Decouple business logic from FastAPI
-✓ Provide structured exception metadata
-✓ Standardize error handling across services
+- Define reusable application exceptions.
+- Decouple services from FastAPI-specific exceptions.
+- Provide structured exception metadata.
+- Standardize application error information.
+- Provide safe serialization for API exception handlers.
 
-Compatible With
----------------
-- FastAPI
-- SQLAlchemy 2.x
-- PostgreSQL
-- Docker
-- Alembic
-- Pydantic v2
-- Python 3.12+
-==========================================================
+The exception classes themselves do not perform HTTP response handling.
+HTTP response conversion belongs to the centralized exception handler layer.
 """
 
 from __future__ import annotations
 
 from http import HTTPStatus
 from typing import Any
+
+
+# ============================================================================
+# Base Application Exception
+# ============================================================================
 
 
 class ApplicationError(Exception):
@@ -44,13 +40,13 @@ class ApplicationError(Exception):
         Machine-readable application error code.
 
     status_code:
-        HTTP status associated with this exception.
+        HTTP status associated with this application error.
 
     details:
-        Optional structured metadata.
+        Optional safe structured metadata.
 
     headers:
-        Optional HTTP response headers.
+        Optional HTTP response headers required by the exception handler.
     """
 
     def __init__(
@@ -62,20 +58,42 @@ class ApplicationError(Exception):
         details: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
-        super().__init__(message)
+        normalized_message = message.strip()
+        normalized_error_code = error_code.strip()
 
-        self.message = message
-        self.error_code = error_code
+        if not normalized_message:
+            raise ValueError(
+                "ApplicationError message must not be empty."
+            )
+
+        if not normalized_error_code:
+            raise ValueError(
+                "ApplicationError error_code must not be empty."
+            )
+
+        super().__init__(normalized_message)
+
+        self.message = normalized_message
+        self.error_code = normalized_error_code
         self.status_code = status_code
         self.details = details or {}
         self.headers = headers or {}
 
     def __str__(self) -> str:
+        """
+        Return the human-readable application error message.
+        """
+
         return self.message
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Serialize exception for API responses.
+        Serialize the exception into the application's standard
+        error response structure.
+
+        HTTP status and headers are intentionally excluded because
+        they are transport-level concerns handled separately by the
+        exception handler.
         """
 
         return {
@@ -88,13 +106,15 @@ class ApplicationError(Exception):
         }
 
 
-# ==========================================================
+# ============================================================================
 # Authentication & Authorization
-# ==========================================================
+# ============================================================================
 
 
 class AuthenticationError(ApplicationError):
-    """Raised when authentication fails."""
+    """
+    Raised when authentication fails.
+    """
 
     def __init__(
         self,
@@ -111,7 +131,10 @@ class AuthenticationError(ApplicationError):
 
 
 class AuthorizationError(ApplicationError):
-    """Raised when the authenticated user lacks permissions."""
+    """
+    Raised when an authenticated user lacks permission
+    to perform an operation.
+    """
 
     def __init__(
         self,
@@ -127,7 +150,9 @@ class AuthorizationError(ApplicationError):
 
 
 class InactiveUserError(ApplicationError):
-    """Raised when an inactive user attempts an authenticated action."""
+    """
+    Raised when an inactive user attempts an authenticated action.
+    """
 
     def __init__(
         self,
@@ -140,13 +165,15 @@ class InactiveUserError(ApplicationError):
         )
 
 
-# ==========================================================
+# ============================================================================
 # User Exceptions
-# ==========================================================
+# ============================================================================
 
 
 class UserNotFoundError(ApplicationError):
-    """Raised when a user cannot be found."""
+    """
+    Raised when a requested user cannot be found.
+    """
 
     def __init__(
         self,
@@ -160,26 +187,34 @@ class UserNotFoundError(ApplicationError):
 
 
 class EmailAlreadyExistsError(ApplicationError):
-    """Raised when an email address already exists."""
+    """
+    Raised when an email address is already registered.
+    """
 
     def __init__(
         self,
-        message: str = (
-            "Email address is already registered."
-        ),
+        message: str = "Email address is already registered.",
     ) -> None:
         super().__init__(
             message=message,
             error_code="EMAIL_ALREADY_EXISTS",
             status_code=HTTPStatus.CONFLICT,
         )
-        
-# ==========================================================
-# Database
-# ==========================================================
+
+
+# ============================================================================
+# Database Exceptions
+# ============================================================================
+
 
 class DatabaseError(ApplicationError):
-    """Raised when a database operation fails."""
+    """
+    Raised when a database operation fails.
+
+    Internal database details must not be exposed through the public
+    API response. Detailed database diagnostics belong in application
+    logs handled by the exception layer.
+    """
 
     def __init__(
         self,
@@ -192,13 +227,15 @@ class DatabaseError(ApplicationError):
         )
 
 
-# ==========================================================
-# Notes
-# ==========================================================
+# ============================================================================
+# Note Exceptions
+# ============================================================================
 
 
 class NoteNotFoundError(ApplicationError):
-    """Raised when a note cannot be found."""
+    """
+    Raised when a requested note cannot be found.
+    """
 
     def __init__(
         self,
@@ -212,7 +249,9 @@ class NoteNotFoundError(ApplicationError):
 
 
 class NoteAlreadyConvertedError(ApplicationError):
-    """Raised when a note has already been converted into a task."""
+    """
+    Raised when a note has already been converted into a task.
+    """
 
     def __init__(
         self,
@@ -227,14 +266,18 @@ class NoteAlreadyConvertedError(ApplicationError):
         )
 
 
+# ============================================================================
+# Public Exports
+# ============================================================================
+
 __all__ = [
     "ApplicationError",
     "AuthenticationError",
     "AuthorizationError",
-    "InactiveUserError",
-    "UserNotFoundError",
-    "EmailAlreadyExistsError",
-    "NoteNotFoundError",
-    "NoteAlreadyConvertedError",
     "DatabaseError",
+    "EmailAlreadyExistsError",
+    "InactiveUserError",
+    "NoteAlreadyConvertedError",
+    "NoteNotFoundError",
+    "UserNotFoundError",
 ]
