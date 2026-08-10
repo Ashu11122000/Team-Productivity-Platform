@@ -3,83 +3,119 @@
 FastAPI Application Entry Point
 ===============================================================================
 
-Team Productivity Platform API
+Enterprise Team Productivity Platform API
 
+Module:
+    app.main
+
+Architecture:
+    Clean Architecture
+    Composition Root Pattern
+    Service Layer Pattern
+    Repository Pattern
+    Microservice Architecture
+
+Python:
+    3.12+
+
+Framework:
+    FastAPI
+
+Database:
+    PostgreSQL
+
+ORM:
+    SQLAlchemy 2.x
+
+Validation:
+    Pydantic v2
+
+===============================================================================
+
+Overview
+--------
 This module is the composition root of the FastAPI backend.
 
-It creates and configures the complete application instance by assembling:
+It creates and configures the complete FastAPI application by assembling:
 
 • Application metadata
-• Database lifecycle
-• Middleware stack
+• Application lifecycle
+• Database initialization
+• Middleware
 • Exception handlers
 • API routers
-• Health monitoring endpoints
+• Root endpoint
+• Health endpoint
+
+This module contains no domain or business logic.
 
 Architecture
 ------------
 
-Frontend
---------
-Next.js Application
+                    Next.js Frontend
+                           │
+                           ▼
+                    HTTP / REST API
+                           │
+                           ▼
+                 FastAPI Application
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ▼            ▼            ▼
+         Middleware    Exceptions     Routers
+                                        │
+                                        ▼
+                                    Services
+                                        │
+                                        ▼
+                                  Repositories
+                                        │
+                                        ▼
+                                   PostgreSQL
 
 
-Backend
--------
-FastAPI
+Microservice Responsibilities
+-----------------------------
 
-Responsibilities:
-    • Authentication
-    • User Management
-    • Notes Management
-    • Open Library Integration
+FastAPI owns:
 
-
-NestJS
-
-Responsibilities:
-    • Tasks
-    • Categories
-    • Tags
-    • Notifications
-    • Analytics
-    • Dashboard
+• Authentication
+• Authorization
+• Users
+• Notes
+• Open Library Integration
+• Notes → Task conversion preparation
 
 
-Database
---------
-PostgreSQL
+NestJS owns:
+
+• Tasks
+• Categories
+• Tags
+• Notifications
+• Analytics
+• Dashboard
+• Activity Logs
 
 
-Application Flow
+These ownership boundaries must remain explicit.
+
+Responsibilities
 ----------------
 
-HTTP Request
+This module is responsible only for:
 
-      ↓
+✓ Creating the FastAPI application
+✓ Configuring application metadata
+✓ Managing application lifecycle
+✓ Initializing infrastructure
+✓ Registering middleware
+✓ Registering exception handlers
+✓ Registering API routers
+✓ Exposing infrastructure health endpoints
 
-FastAPI Application
-
-      ↓
-
-Middleware Layer
-
-      ↓
-
-API Router
-
-      ↓
-
-Service Layer
-
-      ↓
-
-Repository Layer
-
-      ↓
-
-PostgreSQL
-
+Business logic MUST NOT exist here.
 
 Design Principles
 -----------------
@@ -91,21 +127,9 @@ Design Principles
 • Centralized Configuration
 • Production Lifecycle Management
 • Enterprise Middleware Pipeline
-
-
-Responsibilities
-----------------
-
-This module is responsible ONLY for:
-
-✓ Creating FastAPI application
-✓ Configuring infrastructure
-✓ Registering components
-✓ Managing lifecycle
-
-
-Business logic MUST NOT exist here.
-
+• Thin HTTP Layer
+• Explicit Microservice Boundaries
+• Structured Logging
 
 Compatible With
 ---------------
@@ -124,15 +148,23 @@ Compatible With
 
 from __future__ import annotations
 
+# =============================================================================
+# Standard Library Imports
+# =============================================================================
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import Final
 
-from fastapi import (
-    FastAPI,
-    status,
-)
+# =============================================================================
+# Third-Party Imports
+# =============================================================================
 
+from fastapi import FastAPI, status
+
+# =============================================================================
+# API Route Imports
+# =============================================================================
 
 from app.api.routes import (
     auth,
@@ -140,7 +172,15 @@ from app.api.routes import (
     users,
 )
 
+# =============================================================================
+# Application Configuration
+# =============================================================================
+
 from app.core.config import settings
+
+# =============================================================================
+# Application Constants
+# =============================================================================
 
 from app.core.constants import (
     API_V1_PREFIX,
@@ -148,106 +188,108 @@ from app.core.constants import (
     SERVICE_STATUS,
 )
 
+# =============================================================================
+# Logging
+# =============================================================================
+
 from app.core.logging import get_logger
 
-from app.db.init_db import (
-    initialize_database,
-)
+# =============================================================================
+# Database Initialization
+# =============================================================================
 
-from app.exceptions.handlers import (
-    register_exception_handlers,
-)
+from app.db.init_db import initialize_database
 
-from app.middleware.cors import (
-    configure_cors,
-)
+# =============================================================================
+# Exception Handling
+# =============================================================================
 
-from app.middleware.logging import (
-    LoggingMiddleware,
-)
+from app.exceptions.handlers import register_exception_handlers
 
+# =============================================================================
+# Middleware
+# =============================================================================
+
+from app.middleware.cors import configure_cors
+from app.middleware.logging import LoggingMiddleware
+
+# =============================================================================
+# Public Module API
+# =============================================================================
 
 __all__ = [
     "app",
     "create_application",
 ]
 
-
 # =============================================================================
 # Module Logger
 # =============================================================================
 
-
-logger = get_logger(
-    __name__,
-)
-
+logger = get_logger(__name__)
 
 # =============================================================================
-# Application Constants
+# Application Metadata Constants
 # =============================================================================
 
+APPLICATION_NAME: Final[str] = settings.APP_NAME
 
-APPLICATION_NAME = settings.APP_NAME
+APPLICATION_VERSION: Final[str] = settings.APP_VERSION
 
-APPLICATION_VERSION = settings.APP_VERSION
+APPLICATION_ENVIRONMENT: Final[str] = settings.ENVIRONMENT
 
-APPLICATION_ENVIRONMENT = settings.ENVIRONMENT
+# =============================================================================
+# Application Paths
+# =============================================================================
 
+DEFAULT_ROOT_PATH: Final[str] = "/"
 
-DEFAULT_ROOT_PATH = "/"
+HEALTH_PATH: Final[str] = "/health"
 
-HEALTH_PATH = "/health"
+DOCS_PATH: Final[str] = "/docs"
 
+REDOC_PATH: Final[str] = "/redoc"
 
-DOCS_PATH = "/docs"
-
-REDOC_PATH = "/redoc"
-
+OPENAPI_PATH: Final[str] = "/openapi.json"
 
 # =============================================================================
 # HTTP Constants
 # =============================================================================
 
-
-HTTP_OK = status.HTTP_200_OK
-
+HTTP_OK: Final[int] = status.HTTP_200_OK
 
 # =============================================================================
 # Logging Constants
 # =============================================================================
 
+LOG_STARTUP: Final[str] = "Application startup"
 
-LOG_STARTUP = "Application startup"
+LOG_SHUTDOWN: Final[str] = "Application shutdown"
 
-LOG_SHUTDOWN = "Application shutdown"
+LOG_ROUTER: Final[str] = "Router registration"
 
-LOG_ROUTER = "Router registration"
+LOG_MIDDLEWARE: Final[str] = "Middleware registration"
 
-LOG_MIDDLEWARE = "Middleware registration"
+LOG_EXCEPTION: Final[str] = "Exception handler registration"
 
-LOG_EXCEPTION = "Exception handler registration"
-
+LOG_APPLICATION: Final[str] = "Application configuration"
 
 # =============================================================================
-# End Module Foundation
-# =============================================================================
-# =============================================================================
-# Application Metadata
+# Application Description
 # =============================================================================
 
-
-APPLICATION_DESCRIPTION = """
+APPLICATION_DESCRIPTION: Final[str] = """
 Enterprise Team Productivity Platform API.
 
 FastAPI Responsibilities
 ------------------------
 
 • Authentication
+• Authorization
 • User Management
 • Notes Management
 • Open Library Integration
-• Notes → Task Conversion
+• Notes → Task Conversion Preparation
 
 
 Architecture
@@ -255,17 +297,23 @@ Architecture
 
 The platform follows a microservice architecture.
 
+
 FastAPI
 -------
+
 Responsible for:
 
 • Authentication
+• Authorization
+• JWT identity
 • Users
 • Notes
+• Open Library Integration
 
 
 NestJS
 ------
+
 Responsible for:
 
 • Tasks
@@ -274,56 +322,42 @@ Responsible for:
 • Notifications
 • Analytics
 • Dashboard
+• Activity Logs
 
 
 Frontend
 --------
 
-Next.js communicates with both backend services.
+The Next.js frontend communicates with both backend services.
+
 
 Authentication
 --------------
 
-JWT authentication is shared between services.
-"""
+FastAPI is the source of truth for authentication and JWT generation.
 
+NestJS validates JWTs issued by FastAPI when authenticated communication
+with NestJS-owned resources is required.
+"""
 
 # =============================================================================
 # OpenAPI Metadata
 # =============================================================================
 
-
-OPENAPI_CONTACT = {
+OPENAPI_CONTACT: Final[dict[str, str]] = {
     "name": "Ashish Sharma",
     "url": "https://github.com/Ashu11122000",
 }
 
-
-OPENAPI_LICENSE = {
+OPENAPI_LICENSE: Final[dict[str, str]] = {
     "name": "MIT",
 }
-
-
-# =============================================================================
-# Documentation Metadata
-# =============================================================================
-
-
-DOCUMENTATION_METADATA = {
-    "title": APPLICATION_NAME,
-    "version": APPLICATION_VERSION,
-    "description": APPLICATION_DESCRIPTION,
-    "contact": OPENAPI_CONTACT,
-    "license_info": OPENAPI_LICENSE,
-}
-
 
 # =============================================================================
 # Root Endpoint Metadata
 # =============================================================================
 
-
-ROOT_RESPONSE_METADATA = {
+ROOT_RESPONSE_METADATA: Final[dict[str, str]] = {
     "name": APPLICATION_NAME,
     "version": APPLICATION_VERSION,
     "environment": APPLICATION_ENVIRONMENT,
@@ -333,268 +367,137 @@ ROOT_RESPONSE_METADATA = {
     "health": HEALTH_PATH,
 }
 
-
 # =============================================================================
 # Health Endpoint Metadata
 # =============================================================================
 
-
-HEALTH_RESPONSE_METADATA = {
+HEALTH_RESPONSE_METADATA: Final[dict[str, str]] = {
     "status": HEALTH_STATUS,
     "service": APPLICATION_NAME,
     "version": APPLICATION_VERSION,
     "environment": APPLICATION_ENVIRONMENT,
 }
 
-
 # =============================================================================
-# End Application Metadata
-# =============================================================================
-# =============================================================================
-# Application Lifespan Management
+# Application Lifespan
 # =============================================================================
 
 
 @asynccontextmanager
 async def lifespan(
-    app: FastAPI,
+    application: FastAPI,
 ) -> AsyncIterator[None]:
     """
-    Manage application startup and shutdown lifecycle.
+    Manage the FastAPI application lifecycle.
 
     Responsibilities
     ----------------
     Startup:
-        • Log application startup information.
-        • Initialize database resources.
-        • Prepare application infrastructure.
+
+    • Log application metadata.
+    • Initialize database infrastructure.
+    • Verify required startup resources.
 
     Runtime:
-        • Keep application running.
+
+    • Yield control to the FastAPI runtime.
 
     Shutdown:
-        • Release resources.
-        • Log graceful shutdown.
+
+    • Execute future resource cleanup hooks.
+    • Log graceful application shutdown.
 
     Parameters
     ----------
-    app:
+    application:
         FastAPI application instance.
 
     Yields
     ------
     None
-        Control returns to FastAPI runtime.
+        Control is yielded to FastAPI while the application is running.
 
     Raises
     ------
     Exception
-        Propagates startup failures so the application
-        does not run in an unhealthy state.
+        Startup exceptions are propagated to prevent the application from
+        running in an unhealthy state.
+
+        Shutdown exceptions are also propagated after being logged.
     """
+    logger.info("=" * 80)
+    logger.info("%s started.", LOG_STARTUP)
+    logger.info("Application : %s", APPLICATION_NAME)
+    logger.info("Version     : %s", APPLICATION_VERSION)
+    logger.info("Environment : %s", APPLICATION_ENVIRONMENT)
+    logger.info("=" * 80)
 
     # =========================================================================
     # Startup
     # =========================================================================
 
-    logger.info(
-        "=" * 80,
-    )
-
-    logger.info(
-        "%s started.",
-        LOG_STARTUP,
-    )
-
-    logger.info(
-        "Application : %s",
-        APPLICATION_NAME,
-    )
-
-    logger.info(
-        "Version     : %s",
-        APPLICATION_VERSION,
-    )
-
-    logger.info(
-        "Environment : %s",
-        APPLICATION_ENVIRONMENT,
-    )
-
-    logger.info(
-        "=" * 80,
-    )
-
-
     try:
-        # ---------------------------------------------------------------------
-        # Database Initialization
-        # ---------------------------------------------------------------------
-
-        logger.info(
-            "Initializing database.",
-        )
+        logger.info("Initializing database.")
 
         initialize_database()
 
-        logger.info(
-            "Database initialized successfully.",
-        )
+        logger.info("Database initialized successfully.")
+        logger.info("%s completed successfully.", LOG_STARTUP)
 
-
-        logger.info(
-            "%s completed successfully.",
+    except Exception:
+        logger.exception(
+            "%s failed.",
             LOG_STARTUP,
         )
-
-
-    except Exception as exc:
-
-        logger.exception(
-            "Application startup failed.",
-            exc_info=exc,
-        )
-
         raise
 
-
     # =========================================================================
-    # Application Runtime
+    # Runtime
     # =========================================================================
 
-    yield
-
+    try:
+        yield
 
     # =========================================================================
     # Shutdown
     # =========================================================================
 
-    logger.info(
-        "=" * 80,
-    )
-
-    logger.info(
-        "%s started.",
-        LOG_SHUTDOWN,
-    )
-
-
-    try:
-
-        # ---------------------------------------------------------------------
-        # Future Cleanup Hooks
-        # ---------------------------------------------------------------------
-        #
-        # Examples:
-        #
-        # await redis_client.close()
-        # await http_client.aclose()
-        # await message_queue.shutdown()
-        #
-        # ---------------------------------------------------------------------
-
-        logger.info(
-            "Application resources released successfully.",
-        )
-
-
-    except Exception as exc:
-
-        logger.exception(
-            "Application shutdown encountered an error.",
-            exc_info=exc,
-        )
-
-        raise
-
-
     finally:
+        logger.info("=" * 80)
+        logger.info("%s started.", LOG_SHUTDOWN)
 
-        logger.info(
-            "%s completed successfully.",
-            LOG_SHUTDOWN,
-        )
+        try:
+            # -----------------------------------------------------------------
+            # Future resource cleanup hooks
+            # -----------------------------------------------------------------
+            #
+            # Examples:
+            #
+            # await redis_client.aclose()
+            # await http_client.aclose()
+            # await message_queue.shutdown()
+            #
+            # -----------------------------------------------------------------
 
-        logger.info(
-            "=" * 80,
-        )
+            logger.info(
+                "Application resources released successfully."
+            )
 
+        except Exception:
+            logger.exception(
+                "%s encountered an error.",
+                LOG_SHUTDOWN,
+            )
+            raise
 
-# =============================================================================
-# End Application Lifespan
-# =============================================================================
-# =============================================================================
-# FastAPI Application Factory
-# =============================================================================
-
-
-def create_application() -> FastAPI:
-    """
-    Create and configure the FastAPI application.
-
-    This function is the application composition root.
-
-    Responsibilities
-    ----------------
-    • Create FastAPI instance.
-    • Apply application metadata.
-    • Attach lifecycle management.
-    • Configure middleware.
-    • Register exception handlers.
-    • Register API routers.
-
-    Returns
-    -------
-    FastAPI
-        Fully configured FastAPI application.
-
-    Notes
-    -----
-    This function contains only application assembly.
-
-    Business logic belongs to:
-
-    • Services
-    • Repositories
-    • Domain layers
-
-    """
-
-    logger.info(
-        "Creating FastAPI application instance.",
-    )
+        finally:
+            logger.info(
+                "%s completed.",
+                LOG_SHUTDOWN,
+            )
+            logger.info("=" * 80)
 
 
-    application = FastAPI(
-        title=APPLICATION_NAME,
-        version=APPLICATION_VERSION,
-        debug=settings.DEBUG,
-        lifespan=lifespan,
-        description=APPLICATION_DESCRIPTION,
-        contact=OPENAPI_CONTACT,
-        license_info=OPENAPI_LICENSE,
-    )
-
-
-    logger.info(
-        "FastAPI application instance created.",
-    )
-
-
-    return application
-
-
-# =============================================================================
-# Application Instance
-# =============================================================================
-
-
-app = create_application()
-
-
-# =============================================================================
-# End Application Factory
-# =============================================================================
 # =============================================================================
 # Middleware Configuration
 # =============================================================================
@@ -604,53 +507,38 @@ def configure_middlewares(
     application: FastAPI,
 ) -> None:
     """
-    Configure and register application middleware.
-
-    Responsibilities
-    ----------------
-    • Register request logging middleware.
-    • Configure Cross-Origin Resource Sharing.
-    • Provide a centralized location for future middleware.
+    Configure application middleware.
 
     Registered Middleware
     ---------------------
-    1. LoggingMiddleware
 
-        Responsibilities:
+    LoggingMiddleware
+
+        Responsible for:
+
         • Request logging
         • Response logging
         • Request lifecycle tracking
 
 
-    2. CORS Middleware
+    CORS Middleware
 
-        Responsibilities:
-        • Allow frontend communication.
-        • Control browser cross-origin access.
+        Responsible for:
+
+        • Browser cross-origin access
+        • Next.js frontend communication
+        • Origin policy enforcement
 
 
     Parameters
     ----------
     application:
         FastAPI application instance.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    Middleware execution order matters.
-
-    FastAPI executes middleware in reverse registration order.
-    Therefore new middleware should be added carefully.
     """
-
     logger.info(
         "%s started.",
         LOG_MIDDLEWARE,
     )
-
 
     # =========================================================================
     # Request Logging Middleware
@@ -660,11 +548,9 @@ def configure_middlewares(
         LoggingMiddleware,
     )
 
-
     logger.debug(
-        "Logging middleware registered.",
+        "Logging middleware registered."
     )
-
 
     # =========================================================================
     # CORS Middleware
@@ -674,21 +560,15 @@ def configure_middlewares(
         application,
     )
 
-
     logger.debug(
-        "CORS middleware configured.",
+        "CORS middleware configured."
     )
-
 
     logger.info(
         "%s completed successfully.",
         LOG_MIDDLEWARE,
     )
 
-
-# =============================================================================
-# End Middleware Configuration
-# =============================================================================
 
 # =============================================================================
 # Exception Handler Configuration
@@ -699,116 +579,36 @@ def configure_exception_handlers(
     application: FastAPI,
 ) -> None:
     """
-    Register global application exception handlers.
+    Register global exception handlers.
 
     Responsibilities
     ----------------
-    • Configure centralized exception handling.
-    • Convert application exceptions into API responses.
-    • Keep error responses consistent.
-    • Provide a single registration point.
 
-    Registered Handlers
-    -------------------
-
-    Application Exception Handler
-
-        Handles:
-        • AuthenticationError
-        • AuthorizationError
-        • ValidationError
-        • DatabaseError
-        • ResourceNotFoundError
-
-
-    Validation Handler
-
-        Handles:
-        • Pydantic validation failures
-
-
-    Unexpected Exception Handler
-
-        Handles:
-        • Unknown runtime exceptions
-
+    • Centralize exception handling.
+    • Convert application exceptions into HTTP responses.
+    • Maintain consistent API error responses.
+    • Handle validation failures.
+    • Handle unexpected runtime failures.
 
     Parameters
     ----------
     application:
         FastAPI application instance.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    Exception handlers are registered once during
-    application creation.
     """
-
     logger.info(
         "%s started.",
         LOG_EXCEPTION,
     )
 
-
     register_exception_handlers(
         application,
     )
-
 
     logger.info(
         "%s completed successfully.",
         LOG_EXCEPTION,
     )
 
-
-# =============================================================================
-# End Exception Handler Configuration
-# =============================================================================
-# =============================================================================
-# Root Endpoint
-# =============================================================================
-
-
-@app.get(
-    DEFAULT_ROOT_PATH,
-    tags=["Root"],
-    status_code=HTTP_OK,
-)
-async def root() -> dict[str, str]:
-    """
-    Return basic application information.
-
-    Responsibilities
-    ----------------
-    • Confirm API availability.
-    • Expose application metadata.
-    • Provide documentation links.
-
-    Returns
-    -------
-    dict[str, str]
-        Basic application information.
-
-    Notes
-    -----
-    This endpoint does not perform:
-
-    • Database queries
-    • Authentication
-    • External service calls
-
-    It should remain lightweight.
-    """
-
-    logger.debug(
-        "Root endpoint requested.",
-    )
-
-    return ROOT_RESPONSE_METADATA
 
 # =============================================================================
 # API Router Registration
@@ -819,25 +619,23 @@ def register_api_routes(
     application: FastAPI,
 ) -> None:
     """
-    Register all API routers.
+    Register all FastAPI routers.
 
-    Responsibilities
-    ----------------
-    • Attach API routers to the FastAPI application.
-    • Apply API version prefix.
-    • Organize endpoint groups.
-    • Provide centralized router management.
+    Registered Routes
+    -----------------
 
-    Registered Routers
-    ------------------
+    Authentication:
 
-    Authentication
         /api/v1/auth
 
-    Users
+
+    Users:
+
         /api/v1/users
 
-    Notes
+
+    Notes:
+
         /api/v1/notes
 
 
@@ -846,81 +644,56 @@ def register_api_routes(
     application:
         FastAPI application instance.
 
-    Returns
-    -------
-    None
-
     Notes
     -----
-    Future routers should be registered here.
+    Only FastAPI-owned domains are registered here.
 
-    Examples:
-
-    - Tasks router
-    - Notifications router
-    - Analytics router
-    - Dashboard router
+    Tasks, categories, tags, notifications, analytics, dashboard, and
+    activity logs remain owned by the NestJS microservice.
     """
-
     logger.info(
         "%s started.",
         LOG_ROUTER,
     )
 
-
     # =========================================================================
-    # Authentication Routes
+    # Authentication Router
     # =========================================================================
 
     application.include_router(
         auth.router,
         prefix=API_V1_PREFIX,
-        tags=[
-            "Authentication",
-        ],
     )
-
 
     logger.debug(
-        "Authentication routes registered.",
+        "Authentication routes registered."
     )
 
-
     # =========================================================================
-    # User Routes
+    # Users Router
     # =========================================================================
 
     application.include_router(
         users.router,
         prefix=API_V1_PREFIX,
-        tags=[
-            "Users",
-        ],
     )
-
 
     logger.debug(
-        "User routes registered.",
+        "User routes registered."
     )
 
-
     # =========================================================================
-    # Notes Routes
+    # Notes Router
     # =========================================================================
 
     application.include_router(
         notes.router,
         prefix=API_V1_PREFIX,
-        tags=[
-            "Notes",
-        ],
     )
-
 
     logger.debug(
-        "Notes routes registered.",
+        "Notes routes registered."
     )
-
 
     logger.info(
         "%s completed successfully.",
@@ -929,5 +702,205 @@ def register_api_routes(
 
 
 # =============================================================================
-# End Router Registration
+# Infrastructure Route Registration
+# =============================================================================
+
+
+def register_infrastructure_routes(
+    application: FastAPI,
+) -> None:
+    """
+    Register application-level infrastructure endpoints.
+
+    These endpoints are intentionally kept outside versioned business API
+    routes because they describe the running application itself rather than
+    a particular API domain.
+
+    Registered Endpoints
+    --------------------
+
+    GET /
+
+        Returns basic application metadata.
+
+
+    GET /health
+
+        Returns lightweight application health information.
+
+
+    Parameters
+    ----------
+    application:
+        FastAPI application instance.
+    """
+
+    # =========================================================================
+    # Root Endpoint
+    # =========================================================================
+
+    @application.get(
+        DEFAULT_ROOT_PATH,
+        tags=["Infrastructure"],
+        status_code=HTTP_OK,
+        summary="API Information",
+        response_description="Application metadata.",
+    )
+    async def root() -> dict[str, str]:
+        """
+        Return basic application information.
+
+        This endpoint intentionally performs no database queries,
+        authentication, or external service calls.
+        """
+        logger.debug(
+            "Root endpoint requested."
+        )
+
+        return ROOT_RESPONSE_METADATA.copy()
+
+    # =========================================================================
+    # Health Endpoint
+    # =========================================================================
+
+    @application.get(
+        HEALTH_PATH,
+        tags=["Infrastructure"],
+        status_code=HTTP_OK,
+        summary="Health Check",
+        response_description="Application health information.",
+    )
+    async def health() -> dict[str, str]:
+        """
+        Return lightweight application health information.
+
+        Notes
+        -----
+        This endpoint verifies that the FastAPI process is available.
+
+        It intentionally does not perform database or downstream-service
+        health checks. Deeper readiness checks can be introduced separately
+        in the future.
+        """
+        logger.debug(
+            "Health endpoint requested."
+        )
+
+        return HEALTH_RESPONSE_METADATA.copy()
+
+
+# =============================================================================
+# FastAPI Application Factory
+# =============================================================================
+
+
+def create_application() -> FastAPI:
+    """
+    Create and fully configure the FastAPI application.
+
+    This function is the application's composition root.
+
+    Responsibilities
+    ----------------
+
+    • Create the FastAPI instance.
+    • Configure OpenAPI metadata.
+    • Attach application lifecycle management.
+    • Register middleware.
+    • Register global exception handlers.
+    • Register infrastructure endpoints.
+    • Register versioned API routers.
+
+    Returns
+    -------
+    FastAPI
+        Fully configured FastAPI application.
+
+    Notes
+    -----
+    No business logic belongs in this function.
+
+    Business logic belongs in:
+
+    • Service layer
+    • Domain layer
+
+    Persistence logic belongs in:
+
+    • Repository layer
+    """
+    logger.info(
+        "%s started.",
+        LOG_APPLICATION,
+    )
+
+    # =========================================================================
+    # Create FastAPI Application
+    # =========================================================================
+
+    application = FastAPI(
+        title=APPLICATION_NAME,
+        version=APPLICATION_VERSION,
+        description=APPLICATION_DESCRIPTION,
+        debug=settings.DEBUG,
+        docs_url=DOCS_PATH,
+        redoc_url=REDOC_PATH,
+        openapi_url=OPENAPI_PATH,
+        contact=OPENAPI_CONTACT,
+        license_info=OPENAPI_LICENSE,
+        lifespan=lifespan,
+    )
+
+    logger.debug(
+        "FastAPI application instance created."
+    )
+
+    # =========================================================================
+    # Configure Middleware
+    # =========================================================================
+
+    configure_middlewares(
+        application,
+    )
+
+    # =========================================================================
+    # Configure Exception Handlers
+    # =========================================================================
+
+    configure_exception_handlers(
+        application,
+    )
+
+    # =========================================================================
+    # Register Infrastructure Routes
+    # =========================================================================
+
+    register_infrastructure_routes(
+        application,
+    )
+
+    # =========================================================================
+    # Register API Routes
+    # =========================================================================
+
+    register_api_routes(
+        application,
+    )
+
+    logger.info(
+        "%s completed successfully.",
+        LOG_APPLICATION,
+    )
+
+    return application
+
+
+# =============================================================================
+# Application Instance
+# =============================================================================
+
+app = create_application()
+
+# =============================================================================
+# End FastAPI Application Entry Point
 # =============================================================================
