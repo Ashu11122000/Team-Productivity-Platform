@@ -1,29 +1,63 @@
 """
-==========================================================
+===============================================================================
 Response Utilities
-==========================================================
+===============================================================================
 
 Reusable API response builders for the Team Productivity
 Platform.
 
 Responsibilities
 ----------------
-✓ Standardize API responses
-✓ Build success responses
-✓ Build error responses
-✓ Build paginated responses
-✓ Keep response formatting centralized
+• Standardize successful API responses.
+• Standardize error API responses.
+• Build HTTP 201 Created responses.
+• Build HTTP 202 Accepted responses.
+• Build HTTP 204 No Content responses.
+• Build standardized paginated responses.
+• Serialize Pydantic and Python objects safely.
+• Keep response formatting centralized.
+
+Response Contract
+-----------------
+Successful response:
+
+    {
+        "success": true,
+        "message": "...",
+        "data": ...,
+        "timestamp": "..."
+    }
+
+Error response:
+
+    {
+        "success": false,
+        "error": "...",
+        "message": "...",
+        "error_code": "...",
+        "details": ...,
+        "timestamp": "..."
+    }
+
+Pagination response:
+
+    {
+        "success": true,
+        "message": "...",
+        "data": [...],
+        "pagination": {...},
+        "timestamp": "..."
+    }
 
 Compatible With
 ---------------
-- FastAPI
-- SQLAlchemy 2.x
-- PostgreSQL
-- Docker
-- Alembic
-- Pydantic v2
-- Python 3.12+
-==========================================================
+• FastAPI
+• SQLAlchemy 2.x
+• PostgreSQL
+• Docker
+• Alembic
+• Pydantic v2
+• Python 3.12+
 """
 
 from __future__ import annotations
@@ -31,6 +65,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import Response, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from app.utils.datetime import to_iso, utc_now
@@ -40,17 +75,31 @@ from app.utils.pagination import (
 )
 
 
+# =============================================================================
+# Timestamp
+# =============================================================================
+
+
 def timestamp() -> str:
     """
     Return the current UTC timestamp in ISO-8601 format.
+
+    Returns
+    -------
+    str
+        Current UTC timestamp using the ``Z`` suffix.
+
+    Example
+    -------
+    ``2026-07-29T14:30:00Z``
     """
 
     return to_iso(utc_now())
 
 
-# ==========================================================
+# =============================================================================
 # Success Responses
-# ==========================================================
+# =============================================================================
 
 
 def success_response(
@@ -62,7 +111,29 @@ def success_response(
     headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
-    Build a standardized success response.
+    Build a standardized successful API response.
+
+    Parameters
+    ----------
+    data:
+        Response payload.
+
+    message:
+        Human-readable success message.
+
+    status_code:
+        HTTP status code.
+
+    request_id:
+        Optional request correlation ID.
+
+    headers:
+        Optional HTTP response headers.
+
+    Returns
+    -------
+    JSONResponse
+        Standardized JSON success response.
     """
 
     content: dict[str, Any] = {
@@ -77,7 +148,7 @@ def success_response(
 
     return JSONResponse(
         status_code=status_code,
-        content=content,
+        content=jsonable_encoder(content),
         headers=headers,
     )
 
@@ -90,7 +161,26 @@ def created_response(
     headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
-    Build a standardized HTTP 201 response.
+    Build a standardized HTTP 201 Created response.
+
+    Parameters
+    ----------
+    data:
+        Created resource or response payload.
+
+    message:
+        Human-readable success message.
+
+    request_id:
+        Optional request correlation ID.
+
+    headers:
+        Optional HTTP response headers.
+
+    Returns
+    -------
+    JSONResponse
+        HTTP 201 JSON response.
     """
 
     return success_response(
@@ -110,7 +200,26 @@ def accepted_response(
     headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
-    Build a standardized HTTP 202 response.
+    Build a standardized HTTP 202 Accepted response.
+
+    Parameters
+    ----------
+    data:
+        Optional response payload.
+
+    message:
+        Human-readable acceptance message.
+
+    request_id:
+        Optional request correlation ID.
+
+    headers:
+        Optional HTTP response headers.
+
+    Returns
+    -------
+    JSONResponse
+        HTTP 202 JSON response.
     """
 
     return success_response(
@@ -122,19 +231,37 @@ def accepted_response(
     )
 
 
-def no_content_response() -> Response:
+def no_content_response(
+    *,
+    headers: dict[str, str] | None = None,
+) -> Response:
     """
-    Build a standards-compliant HTTP 204 response.
+    Build a standards-compliant HTTP 204 No Content response.
+
+    Parameters
+    ----------
+    headers:
+        Optional HTTP response headers.
+
+    Returns
+    -------
+    Response
+        Empty HTTP 204 response.
+
+    Notes
+    -----
+    A 204 response intentionally contains no JSON body.
     """
 
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
+        headers=headers,
     )
 
 
-# ==========================================================
+# =============================================================================
 # Error Responses
-# ==========================================================
+# =============================================================================
 
 
 def error_response(
@@ -148,7 +275,41 @@ def error_response(
     headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
-    Build a standardized error response.
+    Build a standardized API error response.
+
+    Parameters
+    ----------
+    message:
+        Safe human-readable error message.
+
+    error:
+        High-level error identifier.
+
+    status_code:
+        HTTP status code.
+
+    error_code:
+        Optional application-specific error code.
+
+    details:
+        Optional structured error details.
+
+    request_id:
+        Optional request correlation ID.
+
+    headers:
+        Optional HTTP response headers.
+
+    Returns
+    -------
+    JSONResponse
+        Standardized JSON error response.
+
+    Security
+    --------
+    Callers should never pass raw database exceptions, stack traces,
+    credentials, tokens, or other sensitive implementation details as
+    ``message`` or ``details``.
     """
 
     content: dict[str, Any] = {
@@ -169,14 +330,14 @@ def error_response(
 
     return JSONResponse(
         status_code=status_code,
-        content=content,
+        content=jsonable_encoder(content),
         headers=headers,
     )
 
 
-# ==========================================================
+# =============================================================================
 # Pagination Responses
-# ==========================================================
+# =============================================================================
 
 
 def paginated_response(
@@ -188,7 +349,29 @@ def paginated_response(
     headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """
-    Build a standardized paginated response.
+    Build a standardized paginated API response.
+
+    Parameters
+    ----------
+    result:
+        Paginated result produced by ``app.utils.pagination``.
+
+    message:
+        Human-readable success message.
+
+    status_code:
+        HTTP status code.
+
+    request_id:
+        Optional request correlation ID.
+
+    headers:
+        Optional HTTP response headers.
+
+    Returns
+    -------
+    JSONResponse
+        Standardized paginated JSON response.
     """
 
     page = pagination_dict(result)
@@ -206,12 +389,16 @@ def paginated_response(
 
     return JSONResponse(
         status_code=status_code,
-        content=content,
+        content=jsonable_encoder(content),
         headers=headers,
     )
 
 
-__all__ = [
+# =============================================================================
+# Public Exports
+# =============================================================================
+
+__all__ = (
     "timestamp",
     "success_response",
     "created_response",
@@ -219,4 +406,4 @@ __all__ = [
     "no_content_response",
     "error_response",
     "paginated_response",
-]
+)
