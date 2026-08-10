@@ -1,40 +1,53 @@
 """
-==========================================================
+===============================================================================
 Note Model
-==========================================================
+===============================================================================
+
+Database model representing a user-owned note within the
+Team Productivity Platform.
 
 Responsibilities
 ----------------
-Represents a user-owned note within the Team Productivity
-Platform.
+• Store personal notes.
+• Associate notes with users.
+• Support Open Library integration.
+• Support conversion to NestJS tasks.
+• Track audit timestamps.
+• Provide optimized database indexes.
 
-Features
+Ownership
+---------
+Every note belongs to exactly one User.
+
+Integrations
+------------
+Open Library
+    ``book_reference_id`` stores an external book reference.
+
+NestJS
+    ``is_converted_to_task`` tracks whether the note has been
+    converted into a task handled by the NestJS service.
+
+Database
 --------
-✓ Store personal notes
-✓ Associate notes with users
-✓ Support Open Library integration
-✓ Support conversion to NestJS tasks
-✓ Track audit timestamps
-✓ Optimized database indexes
+PostgreSQL
 
-Compatible With
----------------
-- SQLAlchemy 2.x
-- PostgreSQL
-- Alembic
-- FastAPI
+ORM
+---
+SQLAlchemy 2.x
 
-Python Version
---------------
+Migrations
+----------
+Alembic
+
+Python
+------
 3.12+
-
-----------------------------------------------------------
-Imports
-----------------------------------------------------------
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -47,11 +60,7 @@ from sqlalchemy import (
     Text,
     false,
 )
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.constants import (
     NOTE_CONTENT_MAX_LENGTH,
@@ -66,32 +75,62 @@ if TYPE_CHECKING:
 
 class Note(Base):
     """
-    Database model representing a user note.
+    Database model representing a user-owned note.
 
     Each note belongs to exactly one user and may optionally
-    reference an Open Library book. Notes can also be marked
-    as converted into tasks for synchronization with the
-    NestJS Task service.
+    reference an Open Library book.
 
-    Relationships
-    -------------
-    owner
-        The user who owns this note.
+    A note can also be marked as converted into a task for
+    synchronization with the NestJS Task service.
+
+    Attributes
+    ----------
+    id:
+        Database-generated integer primary key.
+
+    title:
+        Note title.
+
+    content:
+        Optional note content.
+
+    owner_id:
+        ID of the User who owns the note.
+
+    book_reference_id:
+        Optional external Open Library book identifier.
+
+    is_converted_to_task:
+        Indicates whether this note has been converted into
+        a NestJS task.
+
+    created_at:
+        UTC timestamp indicating when the note was created.
+
+    updated_at:
+        UTC timestamp indicating when the note was last updated.
+
+    owner:
+        User who owns this note.
     """
 
     __tablename__ = "notes"
 
-    # ------------------------------------------------------
+    # =========================================================================
     # Database Indexes
+    # =========================================================================
     #
-    # These indexes optimize the most common query patterns:
+    # These indexes support the established query patterns:
     #
-    # - Fetch notes for a specific user
-    # - Sort notes by creation time
-    # - Search notes by title
-    # - Retrieve notes converted into tasks
-    # ------------------------------------------------------
-
+    # • Fetch notes belonging to a specific user.
+    # • Sort/filter notes by creation time.
+    # • Search/filter notes by title.
+    # • Retrieve notes that have been converted into tasks.
+    # • Efficiently fetch a user's notes ordered by creation time.
+    #
+    # Existing indexes are intentionally preserved to avoid unnecessary
+    # migration churn before repository query patterns are finalized.
+    #
     __table_args__ = (
         Index("idx_notes_owner_id", "owner_id"),
         Index("idx_notes_created_at", "created_at"),
@@ -107,9 +146,9 @@ class Note(Base):
         ),
     )
 
-    # ======================================================
+    # =========================================================================
     # Primary Key
-    # ======================================================
+    # =========================================================================
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -117,9 +156,9 @@ class Note(Base):
         autoincrement=True,
     )
 
-    # ======================================================
+    # =========================================================================
     # Note Information
-    # ======================================================
+    # =========================================================================
 
     title: Mapped[str] = mapped_column(
         String(NOTE_TITLE_MAX_LENGTH),
@@ -134,9 +173,9 @@ class Note(Base):
         nullable=True,
     )
 
-    # ======================================================
+    # =========================================================================
     # Ownership
-    # ======================================================
+    # =========================================================================
 
     owner_id: Mapped[int] = mapped_column(
         ForeignKey(
@@ -146,18 +185,18 @@ class Note(Base):
         nullable=False,
     )
 
-    # ======================================================
+    # =========================================================================
     # Open Library Integration
-    # ======================================================
+    # =========================================================================
 
     book_reference_id: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
 
-    # ======================================================
-    # NestJS Integration
-    # ======================================================
+    # =========================================================================
+    # NestJS Task Integration
+    # =========================================================================
 
     is_converted_to_task: Mapped[bool] = mapped_column(
         Boolean,
@@ -166,40 +205,44 @@ class Note(Base):
         server_default=false(),
     )
 
-    # ======================================================
-    # Audit Fields
-    # ======================================================
+    # =========================================================================
+    # Audit Timestamps
+    # =========================================================================
 
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=utc_now,
     )
 
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=utc_now,
         onupdate=utc_now,
     )
 
-    # ======================================================
+    # =========================================================================
     # Relationships
-    # ======================================================
+    # =========================================================================
 
     owner: Mapped["User"] = relationship(
         "User",
         back_populates="notes",
-        lazy="selectin",
+        lazy="select",
     )
 
-    # ======================================================
+    # =========================================================================
     # Representation
-    # ======================================================
+    # =========================================================================
 
     def __repr__(self) -> str:
         """
-        Return a developer-friendly string representation.
+        Return a developer-friendly representation of the note.
+
+        The owner relationship is intentionally excluded so that
+        representation does not traverse the relationship or
+        accidentally trigger additional database loading.
 
         Returns
         -------
