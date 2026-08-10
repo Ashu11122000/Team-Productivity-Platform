@@ -1,32 +1,54 @@
 """
-==========================================================
+===============================================================================
 Exception Package
-==========================================================
+===============================================================================
 
-Centralized exports for all custom application exceptions.
+Public exception API for the Team Productivity Platform.
 
 Responsibilities
 ----------------
-- Expose custom exception classes through a single import path
-- Hide internal package implementation details
-- Maintain a clean public API for the exception layer
+• Expose application exceptions through a stable import path.
+• Hide internal exception implementation details.
+• Provide a clean public API for the exception layer.
+• Keep exception imports consistent across the application.
+
+Architecture
+------------
+Application Code
+        │
+        ▼
+app.exceptions
+        │
+        ▼
+app.core.exceptions
+        │
+        ├── ApplicationError
+        ├── AuthenticationError
+        ├── AuthorizationError
+        ├── DatabaseError
+        ├── EmailAlreadyExistsError
+        ├── InactiveUserError
+        ├── NoteAlreadyConvertedError
+        ├── NoteNotFoundError
+        └── UserNotFoundError
 
 Example
 -------
-from app.exceptions import UserNotFoundError
-from app.exceptions import AuthenticationError
+    from app.exceptions import AuthenticationError
+    from app.exceptions import UserNotFoundError
 
 Compatible With
 ---------------
-- FastAPI
-- SQLAlchemy 2.x
-- Pydantic v2
-- PostgreSQL
-- Docker
-- Alembic
-- Python 3.12+
-==========================================================
+• FastAPI
+• SQLAlchemy 2.x
+• Pydantic v2
+• PostgreSQL
+• Docker
+• Alembic
+• Python 3.12+
 """
+
+from __future__ import annotations
 
 from app.core.exceptions import (
     ApplicationError,
@@ -40,7 +62,12 @@ from app.core.exceptions import (
     UserNotFoundError,
 )
 
-__all__ = [
+
+# =============================================================================
+# Public Exports
+# =============================================================================
+
+__all__ = (
     "ApplicationError",
     "AuthenticationError",
     "AuthorizationError",
@@ -50,4 +77,4 @@ __all__ = [
     "NoteAlreadyConvertedError",
     "NoteNotFoundError",
     "UserNotFoundError",
-]
+)

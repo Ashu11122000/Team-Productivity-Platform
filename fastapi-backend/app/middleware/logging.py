@@ -1,62 +1,231 @@
 """
-==========================================================
+===============================================================================
 Request Logging Middleware
-==========================================================
+===============================================================================
 
-Logs every incoming HTTP request and outgoing response.
+Request/response logging middleware for the Team Productivity Platform.
 
 Responsibilities
 ----------------
-- Generate or propagate request IDs
-- Log incoming HTTP requests
-- Log outgoing HTTP responses
-- Measure request processing time
-- Attach request metadata to responses
-- Log unexpected exceptions
+• Generate or propagate request IDs.
+• Store request IDs on ``request.state``.
+• Log incoming HTTP requests.
+• Log completed HTTP responses.
+• Measure request processing time.
+• Attach diagnostic response headers.
+• Log unexpected request-processing exceptions.
+• Preserve exception propagation for global exception handlers.
+
+Request Lifecycle
+-----------------
+Incoming Request
+        │
+        ▼
+LoggingMiddleware
+        │
+        ├── Request ID
+        ├── Start Timer
+        ├── Request Metadata
+        │
+        ▼
+Application
+        │
+        ├── Success
+        │      ↓
+        │   Response
+        │
+        └── Exception
+               ↓
+        Global Exception Handler
+               ↓
+            Response
+
+        ▼
+LoggingMiddleware
+        │
+        ├── X-Request-ID
+        └── X-Process-Time
+        │
+        ▼
+Client
+
+Security
+--------
+This middleware intentionally does NOT log:
+
+• Authorization headers
+• JWT access tokens
+• Refresh tokens
+• Passwords
+• Cookies
+• Request bodies
+• Sensitive personal information
+
+Performance
+-----------
+The middleware uses lightweight timing and UUID generation only.
+
+It does not perform database queries, external network calls, or other
+expensive operations.
 
 Compatible With
 ---------------
-- FastAPI
-- Starlette
-- Uvicorn
-- Docker
-- Python 3.12+
-==========================================================
+• FastAPI
+• Starlette
+• Uvicorn
+• Docker
+• Python 3.12+
 """
 
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
 from uuid import uuid4
 
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import (
+    BaseHTTPMiddleware,
+    RequestResponseEndpoint,
+)
 
 from app.core.logging import get_logger
+
+
+# =============================================================================
+# Module Logger
+# =============================================================================
 
 logger = get_logger(__name__)
 
 
+# =============================================================================
+# Constants
+# =============================================================================
+
+REQUEST_ID_HEADER = "X-Request-ID"
+PROCESS_TIME_HEADER = "X-Process-Time"
+
+REQUEST_ID_MAX_LENGTH = 128
+
+UNKNOWN_CLIENT = "unknown"
+
+
+# =============================================================================
+# Request ID Helpers
+# =============================================================================
+
+
+def _generate_request_id() -> str:
+    """
+    Generate a new request correlation ID.
+
+    Returns
+    -------
+    str
+        UUID4-based request ID.
+    """
+
+    return str(uuid4())
+
+
+def _get_request_id(request: Request) -> str:
+    """
+    Get or generate a request ID for the current request.
+
+    An incoming ``X-Request-ID`` header is reused when it is present and
+    reasonably sized. Otherwise a new UUID4 request ID is generated.
+
+    Parameters
+    ----------
+    request:
+        Incoming HTTP request.
+
+    Returns
+    -------
+    str
+        Safe request correlation ID.
+    """
+
+    incoming_request_id = request.headers.get(
+        REQUEST_ID_HEADER,
+    )
+
+    if incoming_request_id is None:
+        return _generate_request_id()
+
+    request_id = incoming_request_id.strip()
+
+    if not request_id:
+        return _generate_request_id()
+
+    if len(request_id) > REQUEST_ID_MAX_LENGTH:
+        logger.warning(
+            "Incoming request ID exceeded the maximum allowed length; "
+            "generating a new request ID."
+        )
+
+        return _generate_request_id()
+
+    return request_id
+
+
+# =============================================================================
+# Client Metadata Helpers
+# =============================================================================
+
+
+def _get_client_ip(request: Request) -> str:
+    """
+    Return the direct client IP address when available.
+
+    Parameters
+    ----------
+    request:
+        Incoming HTTP request.
+
+    Returns
+    -------
+    str
+        Client IP address or ``unknown``.
+    """
+
+    if request.client is None:
+        return UNKNOWN_CLIENT
+
+    return request.client.host
+
+
+# =============================================================================
+# Logging Middleware
+# =============================================================================
+
+
 class LoggingMiddleware(BaseHTTPMiddleware):
     """
-    Middleware responsible for logging the complete lifecycle
-    of every HTTP request.
+    Middleware responsible for logging the HTTP request lifecycle.
 
     Responsibilities
     ----------------
-    - Generate or propagate request IDs
-    - Measure request processing time
-    - Log request start
-    - Log request completion
-    - Log unexpected exceptions
-    - Add diagnostic response headers
+    • Generate or propagate request IDs.
+    • Attach request IDs to ``request.state``.
+    • Measure request processing time.
+    • Log request start.
+    • Log request completion.
+    • Log unexpected request-processing exceptions.
+    • Add diagnostic response headers.
+
+    Notes
+    -----
+    This middleware deliberately does not handle application exceptions itself.
+
+    Exceptions are re-raised so that FastAPI's centralized exception handling
+    layer can produce the appropriate API response.
     """
 
     async def dispatch(
         self,
         request: Request,
-        call_next: Callable,
+        call_next: RequestResponseEndpoint,
     ) -> Response:
         """
         Process an incoming HTTP request.
@@ -67,7 +236,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             Incoming FastAPI request.
 
         call_next:
-            Next middleware or route handler.
+            Next middleware or application handler.
 
         Returns
         -------
@@ -75,103 +244,124 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             HTTP response generated by the application.
         """
 
-        # --------------------------------------------------
-        # Start request timer
-        # --------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Request ID
+        # ---------------------------------------------------------------------
+
+        request_id = _get_request_id(request)
+
+        request.state.request_id = request_id
+
+        # ---------------------------------------------------------------------
+        # Request Timer
+        # ---------------------------------------------------------------------
 
         start_time = time.perf_counter()
 
-        # --------------------------------------------------
-        # Reuse the incoming request ID if provided.
-        # Otherwise generate a new UUID.
-        # --------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Request Metadata
+        # ---------------------------------------------------------------------
 
-        request_id = request.headers.get(
-            "X-Request-ID",
-            str(uuid4()),
-        )
+        method = request.method
+        path = request.url.path
+        client_ip = _get_client_ip(request)
 
-        # Store the request ID so it can be accessed
-        # throughout the request lifecycle.
-        request.state.request_id = request_id
-
-        # --------------------------------------------------
-        # Determine the client IP address.
-        # --------------------------------------------------
-
-        client_ip = (
-            request.client.host
-            if request.client
-            else "unknown"
-        )
-
-        # --------------------------------------------------
-        # Log the incoming request.
-        # --------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Request Start Logging
+        # ---------------------------------------------------------------------
 
         logger.info(
-            "Request Started | id=%s | %s %s | client=%s",
-            request_id,
-            request.method,
-            request.url.path,
-            client_ip,
+            "Request started.",
+            extra={
+                "request_id": request_id,
+                "method": method,
+                "path": path,
+                "client_ip": client_ip,
+            },
         )
 
         try:
+            # ---------------------------------------------------------------
+            # Process Request
+            # ---------------------------------------------------------------
 
-            # Process the request.
             response = await call_next(request)
 
         except Exception:
+            # ---------------------------------------------------------------
+            # Failed Request
+            # ---------------------------------------------------------------
 
-            # Calculate total processing time before logging.
-            elapsed = (
+            elapsed_ms = (
                 time.perf_counter() - start_time
             ) * 1000
 
             logger.exception(
-                "Request Failed | id=%s | %s %s | %.2f ms",
-                request_id,
-                request.method,
-                request.url.path,
-                elapsed,
+                "Request failed.",
+                extra={
+                    "request_id": request_id,
+                    "method": method,
+                    "path": path,
+                    "client_ip": client_ip,
+                    "duration_ms": round(elapsed_ms, 2),
+                },
             )
 
-            # Re-raise the exception so the global exception
-            # handlers can generate the appropriate response.
+            # ---------------------------------------------------------------
+            # IMPORTANT
+            # ---------------------------------------------------------------
+            #
+            # Do not convert the exception into an HTTP response here.
+            #
+            # The centralized exception handlers in:
+            #
+            #     app/exceptions/handlers.py
+            #
+            # remain responsible for converting application exceptions into
+            # standardized API responses.
+            #
+            # ---------------------------------------------------------------
+
             raise
 
-        # --------------------------------------------------
-        # Calculate request processing time.
-        # --------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Request Duration
+        # ---------------------------------------------------------------------
 
-        elapsed = (
+        elapsed_ms = (
             time.perf_counter() - start_time
         ) * 1000
 
-        # --------------------------------------------------
-        # Add diagnostic headers.
-        # --------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Diagnostic Response Headers
+        # ---------------------------------------------------------------------
 
-        response.headers["X-Request-ID"] = request_id
-        response.headers["X-Process-Time"] = f"{elapsed:.2f}"
+        response.headers[REQUEST_ID_HEADER] = request_id
+        response.headers[PROCESS_TIME_HEADER] = f"{elapsed_ms:.2f}"
 
-        # --------------------------------------------------
-        # Log the completed request.
-        # --------------------------------------------------
+        # ---------------------------------------------------------------------
+        # Request Completion Logging
+        # ---------------------------------------------------------------------
 
         logger.info(
-            "Request Completed | id=%s | %s %s | Status=%s | %.2f ms",
-            request_id,
-            request.method,
-            request.url.path,
-            response.status_code,
-            elapsed,
+            "Request completed.",
+            extra={
+                "request_id": request_id,
+                "method": method,
+                "path": path,
+                "status_code": response.status_code,
+                "client_ip": client_ip,
+                "duration_ms": round(elapsed_ms, 2),
+            },
         )
 
         return response
 
 
-__all__ = [
+# =============================================================================
+# Public Exports
+# =============================================================================
+
+__all__ = (
     "LoggingMiddleware",
-]
+)
