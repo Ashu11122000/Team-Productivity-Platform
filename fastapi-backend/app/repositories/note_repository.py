@@ -7,35 +7,47 @@ Enterprise repository implementation for Note persistence.
 
 Responsibilities
 ----------------
-✓ Encapsulate all database access for Note entities
-✓ Provide reusable query helpers
-✓ Support CRUD operations
-✓ Support owner-based queries
-✓ Support administrator queries
-✓ Support searching
-✓ Support pagination
-✓ Support sorting
-✓ Support Open Library integration
-✓ Support NestJS task conversion workflows
-✓ Remain free of business logic
+✓ Encapsulate all database access for Note entities.
+✓ Provide reusable query helpers.
+✓ Support CRUD operations.
+✓ Support owner-based queries.
+✓ Support administrator queries.
+✓ Support searching.
+✓ Support pagination.
+✓ Support sorting.
+✓ Support Open Library reference queries.
+✓ Support task-conversion persistence workflows.
+✓ Remain free of business logic.
+✓ Translate database failures consistently.
 
 Architecture
 ------------
 This repository is responsible ONLY for persistence.
 
 Business rules, authorization, ownership validation,
-external API communication, DTO mapping and orchestration
-must remain inside the service layer.
+external API communication, DTO mapping, response
+serialization, and orchestration must remain inside
+the service/API layers.
+
+The repository may persist state related to external
+integrations, such as:
+
+- Open Library book references.
+- NestJS task conversion state.
+
+It must NOT communicate directly with those services.
 
 Features
 --------
-✓ SQLAlchemy 2.x style queries
-✓ Repository Pattern
-✓ Structured logging
-✓ Type-safe queries
-✓ Generic CRUD support via BaseRepository
-✓ Reusable private query builders
-✓ Enterprise documentation
+✓ SQLAlchemy 2.x style queries.
+✓ Repository Pattern.
+✓ Structured logging.
+✓ Strong SQLAlchemy statement typing.
+✓ Generic CRUD support via BaseRepository.
+✓ Reusable private query builders.
+✓ Centralized database exception translation.
+✓ Pagination and sorting helpers.
+✓ Enterprise documentation.
 
 Compatible With
 ---------------
@@ -57,8 +69,10 @@ from sqlalchemy import Select
 from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import DatabaseError
 from app.core.logging import get_logger
 from app.models.note import Note
 from app.repositories.base_repository import BaseRepository
@@ -78,22 +92,24 @@ class NoteRepository(BaseRepository[Note]):
     """
     Repository responsible for Note persistence.
 
-    This repository contains ONLY persistence logic.
+    This repository contains persistence logic only.
 
     Responsibilities
     ----------------
     • Build SQLAlchemy queries.
     • Execute database operations.
-    • Return ORM models.
+    • Return Note ORM models.
+    • Persist Note integration state.
 
     This repository MUST NOT contain:
 
-    • Business rules
-    • Authorization
-    • Ownership validation
-    • Open Library communication
-    • NestJS communication
-    • Response serialization
+    • Business rules.
+    • Authorization.
+    • Ownership policy decisions.
+    • Open Library communication.
+    • NestJS communication.
+    • API response serialization.
+    • DTO mapping.
     """
 
     # ======================================================
@@ -125,14 +141,15 @@ class NoteRepository(BaseRepository[Note]):
                 "model": Note.__name__,
             },
         )
-        
-        # ======================================================
+
+    # ======================================================
     # Internal Query Helpers
     # ======================================================
 
-    def _base_query(self) -> Select[tuple[Note]]:
+    @staticmethod
+    def _base_query() -> Select[tuple[Note]]:
         """
-        Build the base SELECT statement for the Note model.
+        Build the base SELECT statement for Note.
 
         Returns
         -------
@@ -142,8 +159,8 @@ class NoteRepository(BaseRepository[Note]):
 
         return select(Note)
 
+    @staticmethod
     def _owner_query(
-        self,
         owner_id: int,
     ) -> Select[tuple[Note]]:
         """
@@ -160,8 +177,9 @@ class NoteRepository(BaseRepository[Note]):
             Owner-filtered SELECT statement.
         """
 
-        return self._base_query().where(
-            Note.owner_id == owner_id,
+        return (
+            select(Note)
+            .where(Note.owner_id == owner_id)
         )
 
     @staticmethod
@@ -171,7 +189,7 @@ class NoteRepository(BaseRepository[Note]):
         sort_by: str = "newest",
     ) -> Select[tuple[Note]]:
         """
-        Apply sorting to a SELECT statement.
+        Apply sorting to a Note SELECT statement.
 
         Supported values
         ----------------
@@ -184,12 +202,13 @@ class NoteRepository(BaseRepository[Note]):
         title
             Alphabetical by title.
 
-        Unknown values default to ``newest``.
+        Unknown values
+            Default to newest-first ordering.
 
         Parameters
         ----------
         statement:
-            Existing SQLAlchemy statement.
+            Existing SQLAlchemy SELECT statement.
 
         sort_by:
             Sorting strategy.
@@ -197,7 +216,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Select[tuple[Note]]
-            Updated statement.
+            Updated SELECT statement.
         """
 
         strategy = sort_by.strip().lower()
@@ -211,11 +230,13 @@ class NoteRepository(BaseRepository[Note]):
             case "title":
                 return statement.order_by(
                     Note.title.asc(),
+                    Note.id.asc(),
                 )
 
             case _:
                 return statement.order_by(
                     Note.created_at.desc(),
+                    Note.id.desc(),
                 )
 
     @staticmethod
@@ -226,7 +247,7 @@ class NoteRepository(BaseRepository[Note]):
         limit: int = 100,
     ) -> Select[tuple[Note]]:
         """
-        Apply pagination to a query.
+        Apply pagination to a Note query.
 
         Parameters
         ----------
@@ -237,12 +258,12 @@ class NoteRepository(BaseRepository[Note]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of rows returned.
 
         Returns
         -------
         Select[tuple[Note]]
-            Paginated statement.
+            Paginated SELECT statement.
         """
 
         return (
@@ -260,16 +281,13 @@ class NoteRepository(BaseRepository[Note]):
         """
         Apply an optional owner filter.
 
-        If ``owner_id`` is None, the original statement is
-        returned unchanged.
-
         Parameters
         ----------
         statement:
             Existing SELECT statement.
 
         owner_id:
-            Owner identifier.
+            Optional owner identifier.
 
         Returns
         -------
@@ -289,8 +307,7 @@ class NoteRepository(BaseRepository[Note]):
         statement: Select[tuple[Note]],
     ) -> Select[tuple[Note]]:
         """
-        Restrict the query to notes linked to an
-        Open Library book.
+        Restrict a query to notes containing a book reference.
 
         Parameters
         ----------
@@ -300,6 +317,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Select[tuple[Note]]
+            Updated SELECT statement.
         """
 
         return statement.where(
@@ -313,7 +331,7 @@ class NoteRepository(BaseRepository[Note]):
         converted: bool,
     ) -> Select[tuple[Note]]:
         """
-        Filter notes by conversion status.
+        Filter notes by task-conversion status.
 
         Parameters
         ----------
@@ -326,6 +344,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Select[tuple[Note]]
+            Updated SELECT statement.
         """
 
         return statement.where(
@@ -339,9 +358,10 @@ class NoteRepository(BaseRepository[Note]):
         query: str,
     ) -> Select[tuple[Note]]:
         """
-        Apply a case-insensitive search.
+        Apply a case-insensitive title/content search.
 
-        Searches both title and content.
+        Empty or whitespace-only queries do not add a
+        search condition.
 
         Parameters
         ----------
@@ -354,6 +374,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Select[tuple[Note]]
+            Updated SELECT statement.
         """
 
         keyword = query.strip()
@@ -367,34 +388,43 @@ class NoteRepository(BaseRepository[Note]):
             or_(
                 Note.title.ilike(pattern),
                 Note.content.ilike(pattern),
-            )
+            ),
         )
 
     @staticmethod
     def _count_statement(
-        statement: Select[Any],
-    ):
+        statement: Select[tuple[Note]],
+    ) -> Select[tuple[int]]:
         """
-        Convert a Note SELECT statement into an equivalent
-        COUNT query.
+        Convert a Note SELECT statement into a COUNT query.
+
+        Ordering is removed because it is unnecessary for
+        counting and may introduce unnecessary SQL work.
 
         Parameters
         ----------
         statement:
-            Existing SELECT statement.
+            Existing Note SELECT statement.
 
         Returns
         -------
-        Select
-            COUNT statement.
+        Select[tuple[int]]
+            COUNT SELECT statement.
         """
 
-        return (
-            select(func.count())
-            .select_from(
-                statement.order_by(None).subquery()
-            )
+        subquery = (
+            statement
+            .order_by(None)
+            .subquery()
         )
+
+        return select(
+            func.count(),
+        ).select_from(subquery)
+
+    # ======================================================
+    # Query Execution Helpers
+    # ======================================================
 
     def _execute_scalars(
         self,
@@ -412,25 +442,43 @@ class NoteRepository(BaseRepository[Note]):
         -------
         list[Note]
             Retrieved notes.
+
+        Raises
+        ------
+        DatabaseError
+            If the query fails.
         """
 
         logger.debug(
-            "Executing Note scalar query.",
+            "Executing Note collection query.",
             extra={
                 "repository": self.__class__.__name__,
             },
         )
 
-        return list(
-            self.db.scalars(statement).all()
-        )
+        try:
+            return list(
+                self.db.scalars(statement).all(),
+            )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Note collection query failed.",
+                extra={
+                    "repository": self.__class__.__name__,
+                },
+            )
+
+            raise DatabaseError(
+                "Failed to retrieve notes.",
+            ) from exc
 
     def _execute_scalar(
         self,
         statement: Select[tuple[Note]],
     ) -> Note | None:
         """
-        Execute a query returning a single Note.
+        Execute a query returning at most one Note.
 
         Parameters
         ----------
@@ -440,24 +488,42 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Note | None
-            Matching note if found.
+            Matching Note when found.
+
+        Raises
+        ------
+        DatabaseError
+            If the query fails.
         """
 
         logger.debug(
-            "Executing Note scalar lookup.",
+            "Executing Note scalar query.",
             extra={
                 "repository": self.__class__.__name__,
             },
         )
 
-        return self.db.scalar(statement)
+        try:
+            return self.db.scalar(statement)
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Note scalar query failed.",
+                extra={
+                    "repository": self.__class__.__name__,
+                },
+            )
+
+            raise DatabaseError(
+                "Failed to retrieve note.",
+            ) from exc
 
     def _execute_count(
         self,
-        statement,
+        statement: Select[tuple[int]],
     ) -> int:
         """
-        Execute a COUNT statement.
+        Execute a COUNT query.
 
         Parameters
         ----------
@@ -468,6 +534,11 @@ class NoteRepository(BaseRepository[Note]):
         -------
         int
             Number of matching rows.
+
+        Raises
+        ------
+        DatabaseError
+            If the query fails.
         """
 
         logger.debug(
@@ -477,12 +548,24 @@ class NoteRepository(BaseRepository[Note]):
             },
         )
 
-        return int(
-            self.db.scalar(statement)
-            or 0
-        )
-        
-        # ======================================================
+        try:
+            return int(
+                self.db.scalar(statement) or 0,
+            )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Note count query failed.",
+                extra={
+                    "repository": self.__class__.__name__,
+                },
+            )
+
+            raise DatabaseError(
+                "Failed to count notes.",
+            ) from exc
+
+    # ======================================================
     # Single Note Queries
     # ======================================================
 
@@ -491,7 +574,7 @@ class NoteRepository(BaseRepository[Note]):
         note_id: int,
     ) -> Note | None:
         """
-        Retrieve a note by its primary key.
+        Retrieve a Note by primary key.
 
         Parameters
         ----------
@@ -501,7 +584,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Note | None
-            Matching note if found, otherwise None.
+            Matching Note when found.
         """
 
         logger.debug(
@@ -514,6 +597,7 @@ class NoteRepository(BaseRepository[Note]):
         statement = (
             self._base_query()
             .where(Note.id == note_id)
+            .limit(1)
         )
 
         return self._execute_scalar(statement)
@@ -525,7 +609,7 @@ class NoteRepository(BaseRepository[Note]):
         owner_id: int,
     ) -> Note | None:
         """
-        Retrieve a note belonging to a specific owner.
+        Retrieve a Note belonging to a specific owner.
 
         Parameters
         ----------
@@ -538,6 +622,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Note | None
+            Matching owner Note when found.
         """
 
         logger.debug(
@@ -551,6 +636,7 @@ class NoteRepository(BaseRepository[Note]):
         statement = (
             self._owner_query(owner_id)
             .where(Note.id == note_id)
+            .limit(1)
         )
 
         return self._execute_scalar(statement)
@@ -568,12 +654,9 @@ class NoteRepository(BaseRepository[Note]):
         sort_by: str = "newest",
     ) -> list[Note]:
         """
-        Retrieve notes belonging to a user.
+        Retrieve notes belonging to a specific owner.
 
-        Supports
-        --------
-        ✓ Pagination
-        ✓ Sorting
+        Supports pagination and sorting.
 
         Parameters
         ----------
@@ -584,7 +667,7 @@ class NoteRepository(BaseRepository[Note]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of rows returned.
 
         sort_by:
             newest | oldest | title
@@ -592,7 +675,13 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         list[Note]
+            Owner notes.
         """
+
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing notes by owner.",
@@ -629,12 +718,7 @@ class NoteRepository(BaseRepository[Note]):
         """
         Retrieve all notes.
 
-        Intended for administrator usage.
-
-        Supports
-        --------
-        ✓ Pagination
-        ✓ Sorting
+        Intended for administrator-level service operations.
 
         Parameters
         ----------
@@ -642,7 +726,7 @@ class NoteRepository(BaseRepository[Note]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of rows returned.
 
         sort_by:
             newest | oldest | title
@@ -650,7 +734,13 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         list[Note]
+            Notes matching the requested page.
         """
+
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing all notes.",
@@ -684,7 +774,7 @@ class NoteRepository(BaseRepository[Note]):
     ) -> list[Note]:
         """
         Retrieve the most recently created notes
-        belonging to a specific user.
+        belonging to a specific owner.
 
         Parameters
         ----------
@@ -692,12 +782,18 @@ class NoteRepository(BaseRepository[Note]):
             User identifier.
 
         limit:
-            Maximum records returned.
+            Maximum number of records.
 
         Returns
         -------
         list[Note]
+            Recently created owner notes.
         """
+
+        self._validate_pagination(
+            skip=0,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing recent owner notes.",
@@ -711,6 +807,7 @@ class NoteRepository(BaseRepository[Note]):
             self._owner_query(owner_id)
             .order_by(
                 Note.created_at.desc(),
+                Note.id.desc(),
             )
             .limit(limit)
         )
@@ -723,10 +820,10 @@ class NoteRepository(BaseRepository[Note]):
         limit: int = 10,
     ) -> list[Note]:
         """
-        Retrieve the most recently created notes
-        across all users.
+        Retrieve the most recently created notes.
 
-        Intended primarily for administrator dashboards.
+        Intended primarily for administrator dashboard
+        persistence queries.
 
         Parameters
         ----------
@@ -736,7 +833,13 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         list[Note]
+            Recently created notes.
         """
+
+        self._validate_pagination(
+            skip=0,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing recent notes.",
@@ -749,6 +852,7 @@ class NoteRepository(BaseRepository[Note]):
             self._base_query()
             .order_by(
                 Note.created_at.desc(),
+                Note.id.desc(),
             )
             .limit(limit)
         )
@@ -763,7 +867,7 @@ class NoteRepository(BaseRepository[Note]):
     ) -> list[Note]:
         """
         Retrieve notes associated with a specific
-        Open Library book.
+        Open Library book reference.
 
         Parameters
         ----------
@@ -776,12 +880,12 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         list[Note]
+            Notes associated with the book reference.
         """
 
         logger.debug(
             "Listing notes by book reference.",
             extra={
-                "book_reference_id": book_reference_id,
                 "owner_id": owner_id,
             },
         )
@@ -797,11 +901,13 @@ class NoteRepository(BaseRepository[Note]):
             Note.book_reference_id == book_reference_id,
         )
 
-        statement = self._apply_sorting(statement)
+        statement = self._apply_sorting(
+            statement,
+        )
 
         return self._execute_scalars(statement)
-    
-        # ======================================================
+
+    # ======================================================
     # Search Operations
     # ======================================================
 
@@ -815,14 +921,10 @@ class NoteRepository(BaseRepository[Note]):
         sort_by: str = "newest",
     ) -> list[Note]:
         """
-        Search notes by title and content.
+        Search Notes by title and content.
 
-        Supports
-        --------
-        ✓ Administrator search
-        ✓ Owner-specific search
-        ✓ Pagination
-        ✓ Sorting
+        Supports owner-specific and administrator-level
+        persistence queries.
 
         Parameters
         ----------
@@ -836,7 +938,7 @@ class NoteRepository(BaseRepository[Note]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of rows returned.
 
         sort_by:
             newest | oldest | title
@@ -847,14 +949,19 @@ class NoteRepository(BaseRepository[Note]):
             Matching notes.
         """
 
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
+
         logger.debug(
             "Searching notes.",
             extra={
-                "query": query,
                 "owner_id": owner_id,
                 "skip": skip,
                 "limit": limit,
                 "sort_by": sort_by,
+                "has_query": bool(query.strip()),
             },
         )
 
@@ -890,7 +997,7 @@ class NoteRepository(BaseRepository[Note]):
         owner_id: int | None = None,
     ) -> int:
         """
-        Count notes matching a search query.
+        Count Notes matching a search query.
 
         Parameters
         ----------
@@ -907,10 +1014,10 @@ class NoteRepository(BaseRepository[Note]):
         """
 
         logger.debug(
-            "Counting search results.",
+            "Counting note search results.",
             extra={
-                "query": query,
                 "owner_id": owner_id,
+                "has_query": bool(query.strip()),
             },
         )
 
@@ -927,7 +1034,7 @@ class NoteRepository(BaseRepository[Note]):
         )
 
         return self._execute_count(
-            self._count_statement(statement)
+            self._count_statement(statement),
         )
 
     # ======================================================
@@ -945,13 +1052,6 @@ class NoteRepository(BaseRepository[Note]):
         """
         Retrieve notes linked to an Open Library book.
 
-        Supports
-        --------
-        ✓ Administrator queries
-        ✓ Owner-specific queries
-        ✓ Pagination
-        ✓ Sorting
-
         Parameters
         ----------
         owner_id:
@@ -961,7 +1061,7 @@ class NoteRepository(BaseRepository[Note]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of rows returned.
 
         sort_by:
             newest | oldest | title
@@ -969,12 +1069,21 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         list[Note]
+            Notes containing book references.
         """
+
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing notes with book references.",
             extra={
                 "owner_id": owner_id,
+                "skip": skip,
+                "limit": limit,
+                "sort_by": sort_by,
             },
         )
 
@@ -1018,6 +1127,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         int
+            Number of notes containing book references.
         """
 
         logger.debug(
@@ -1039,7 +1149,7 @@ class NoteRepository(BaseRepository[Note]):
         )
 
         return self._execute_count(
-            self._count_statement(statement)
+            self._count_statement(statement),
         )
 
     def has_book_reference(
@@ -1047,8 +1157,8 @@ class NoteRepository(BaseRepository[Note]):
         note_id: int,
     ) -> bool:
         """
-        Determine whether a note is linked to
-        an Open Library book.
+        Determine whether a Note has an Open Library
+        book reference.
 
         Parameters
         ----------
@@ -1058,10 +1168,11 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         bool
+            True when the Note has a book reference.
         """
 
         logger.debug(
-            "Checking book reference.",
+            "Checking Note book reference.",
             extra={
                 "note_id": note_id,
             },
@@ -1071,14 +1182,12 @@ class NoteRepository(BaseRepository[Note]):
             self._base_query()
             .where(Note.id == note_id)
             .where(
-                Note.book_reference_id.is_not(None)
+                Note.book_reference_id.is_not(None),
             )
+            .limit(1)
         )
 
-        return (
-            self._execute_scalar(statement)
-            is not None
-        )
+        return self._execute_scalar(statement) is not None
 
     def list_without_book_reference(
         self,
@@ -1089,8 +1198,7 @@ class NoteRepository(BaseRepository[Note]):
         sort_by: str = "newest",
     ) -> list[Note]:
         """
-        Retrieve notes without an Open Library
-        reference.
+        Retrieve notes without an Open Library reference.
 
         Parameters
         ----------
@@ -1101,20 +1209,29 @@ class NoteRepository(BaseRepository[Note]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of rows returned.
 
         sort_by:
-            Sorting strategy.
+            newest | oldest | title
 
         Returns
         -------
         list[Note]
+            Notes without book references.
         """
+
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing notes without book references.",
             extra={
                 "owner_id": owner_id,
+                "skip": skip,
+                "limit": limit,
+                "sort_by": sort_by,
             },
         )
 
@@ -1141,8 +1258,8 @@ class NoteRepository(BaseRepository[Note]):
         )
 
         return self._execute_scalars(statement)
-    
-        # ======================================================
+
+    # ======================================================
     # NestJS Task Conversion
     # ======================================================
 
@@ -1158,12 +1275,8 @@ class NoteRepository(BaseRepository[Note]):
         Retrieve notes that have not yet been converted
         into NestJS tasks.
 
-        Supports
-        --------
-        ✓ Administrator queries
-        ✓ Owner-specific queries
-        ✓ Pagination
-        ✓ Sorting
+        This method only queries persisted conversion state.
+        It does not communicate with NestJS.
 
         Parameters
         ----------
@@ -1184,6 +1297,11 @@ class NoteRepository(BaseRepository[Note]):
         list[Note]
             Notes awaiting task conversion.
         """
+
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing notes pending task conversion.",
@@ -1232,13 +1350,6 @@ class NoteRepository(BaseRepository[Note]):
         Retrieve notes that have already been converted
         into NestJS tasks.
 
-        Supports
-        --------
-        ✓ Administrator queries
-        ✓ Owner-specific queries
-        ✓ Pagination
-        ✓ Sorting
-
         Parameters
         ----------
         owner_id:
@@ -1258,6 +1369,11 @@ class NoteRepository(BaseRepository[Note]):
         list[Note]
             Converted notes.
         """
+
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
 
         logger.debug(
             "Listing converted notes.",
@@ -1299,8 +1415,11 @@ class NoteRepository(BaseRepository[Note]):
         note: Note,
     ) -> Note:
         """
-        Mark a note as successfully converted into
-        a NestJS task.
+        Mark a Note as converted into a NestJS task.
+
+        This method persists conversion state only. The
+        actual task creation must be performed by the
+        service/integration layer.
 
         Parameters
         ----------
@@ -1310,11 +1429,11 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Note
-            Updated Note instance.
+            Updated and refreshed Note.
         """
 
         logger.debug(
-            "Marking note as converted.",
+            "Marking Note as converted.",
             extra={
                 "note_id": note.id,
             },
@@ -1329,10 +1448,7 @@ class NoteRepository(BaseRepository[Note]):
         note: Note,
     ) -> Note:
         """
-        Reset the conversion status of a note.
-
-        Useful when a task is deleted or a conversion
-        workflow needs to be rolled back.
+        Reset a Note's task-conversion state.
 
         Parameters
         ----------
@@ -1342,11 +1458,11 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Note
-            Updated Note instance.
+            Updated and refreshed Note.
         """
 
         logger.debug(
-            "Resetting note conversion status.",
+            "Resetting Note conversion state.",
             extra={
                 "note_id": note.id,
             },
@@ -1395,7 +1511,7 @@ class NoteRepository(BaseRepository[Note]):
         )
 
         return self._execute_count(
-            self._count_statement(statement)
+            self._count_statement(statement),
         )
 
     def count_converted(
@@ -1438,10 +1554,10 @@ class NoteRepository(BaseRepository[Note]):
         )
 
         return self._execute_count(
-            self._count_statement(statement)
+            self._count_statement(statement),
         )
-        
-        # ======================================================
+
+    # ======================================================
     # Statistics
     # ======================================================
 
@@ -1450,7 +1566,7 @@ class NoteRepository(BaseRepository[Note]):
         owner_id: int,
     ) -> int:
         """
-        Count all notes belonging to a specific owner.
+        Count all notes belonging to an owner.
 
         Parameters
         ----------
@@ -1460,7 +1576,7 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         int
-            Total number of notes.
+            Number of notes owned by the user.
         """
 
         logger.debug(
@@ -1473,12 +1589,10 @@ class NoteRepository(BaseRepository[Note]):
         statement = self._owner_query(owner_id)
 
         return self._execute_count(
-            self._count_statement(statement)
+            self._count_statement(statement),
         )
 
-    def count_all(
-        self,
-    ) -> int:
+    def count_all(self) -> int:
         """
         Count all notes.
 
@@ -1495,7 +1609,7 @@ class NoteRepository(BaseRepository[Note]):
         return self._execute_count(
             self._count_statement(
                 self._base_query(),
-            )
+            ),
         )
 
     def exists_by_owner(
@@ -1505,8 +1619,7 @@ class NoteRepository(BaseRepository[Note]):
         owner_id: int,
     ) -> bool:
         """
-        Determine whether a note exists for
-        the specified owner.
+        Determine whether a Note exists for an owner.
 
         Parameters
         ----------
@@ -1519,10 +1632,11 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         bool
+            True when the owner owns the specified Note.
         """
 
         logger.debug(
-            "Checking owner note existence.",
+            "Checking owner Note existence.",
             extra={
                 "note_id": note_id,
                 "owner_id": owner_id,
@@ -1531,15 +1645,11 @@ class NoteRepository(BaseRepository[Note]):
 
         statement = (
             self._owner_query(owner_id)
-            .where(
-                Note.id == note_id,
-            )
+            .where(Note.id == note_id)
+            .limit(1)
         )
 
-        return (
-            self._execute_scalar(statement)
-            is not None
-        )
+        return self._execute_scalar(statement) is not None
 
     def refresh_note(
         self,
@@ -1556,11 +1666,11 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Note
-            Refreshed Note.
+            Refreshed Note instance.
         """
 
         logger.debug(
-            "Refreshing note instance.",
+            "Refreshing Note instance.",
             extra={
                 "note_id": note.id,
             },
@@ -1579,22 +1689,22 @@ class NoteRepository(BaseRepository[Note]):
         note: Note,
     ) -> Note:
         """
-        Merge a detached Note instance into the
-        current SQLAlchemy session.
+        Merge a detached Note instance into the current
+        SQLAlchemy session.
 
         Parameters
         ----------
         note:
-            Detached ORM instance.
+            Detached Note ORM instance.
 
         Returns
         -------
         Note
-            Managed ORM instance.
+            Managed and persisted Note instance.
         """
 
         logger.debug(
-            "Attaching detached note.",
+            "Attaching detached Note.",
             extra={
                 "note_id": note.id,
             },
@@ -1620,10 +1730,11 @@ class NoteRepository(BaseRepository[Note]):
         Returns
         -------
         Note
+            Updated and refreshed Note instance.
         """
 
         logger.debug(
-            "Saving note.",
+            "Saving Note.",
             extra={
                 "note_id": note.id,
             },
@@ -1645,7 +1756,7 @@ class NoteRepository(BaseRepository[Note]):
         """
 
         logger.debug(
-            "Removing note.",
+            "Removing Note.",
             extra={
                 "note_id": note.id,
             },
@@ -1658,16 +1769,19 @@ class NoteRepository(BaseRepository[Note]):
         notes: list[Note],
     ) -> None:
         """
-        Remove multiple notes.
+        Remove multiple Notes.
 
         Parameters
         ----------
         notes:
-            Collection of Note objects.
+            Collection of Note ORM instances.
         """
 
+        if not notes:
+            return
+
         logger.debug(
-            "Removing multiple notes.",
+            "Removing multiple Notes.",
             extra={
                 "count": len(notes),
             },
@@ -1680,12 +1794,12 @@ class NoteRepository(BaseRepository[Note]):
         note: Note,
     ) -> Note:
         """
-        Persist changes and refresh the entity.
+        Commit the current Note state and refresh the entity.
 
         Parameters
         ----------
         note:
-            Existing Note instance.
+            Existing managed Note instance.
 
         Returns
         -------
@@ -1694,7 +1808,7 @@ class NoteRepository(BaseRepository[Note]):
         """
 
         logger.debug(
-            "Touching note.",
+            "Touching Note.",
             extra={
                 "note_id": note.id,
             },

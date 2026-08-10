@@ -4,18 +4,19 @@ Base Repository
 ==========================================================
 
 Generic SQLAlchemy repository providing reusable CRUD
-operations for all persistence layers.
+operations for persistence layers.
 
 Responsibilities
 ----------------
-✓ Provide reusable CRUD operations
-✓ Encapsulate SQLAlchemy database access
-✓ Eliminate duplicated repository code
-✓ Handle transaction lifecycle
-✓ Provide common query helpers
-✓ Remain free of business logic
-✓ Provide structured logging
-✓ Translate database exceptions
+✓ Provide reusable CRUD operations.
+✓ Encapsulate SQLAlchemy database access.
+✓ Eliminate duplicated repository code.
+✓ Handle repository-level transaction operations.
+✓ Provide common query helpers.
+✓ Remain free of business logic.
+✓ Provide structured logging.
+✓ Translate SQLAlchemy database exceptions.
+✓ Provide strongly typed reusable repository helpers.
 
 Architecture
 ------------
@@ -31,13 +32,15 @@ repositories.
 
 Features
 --------
-✓ SQLAlchemy 2.x style queries
-✓ Generic typing
-✓ Transaction management
-✓ Automatic rollback on failures
-✓ Structured logging
-✓ Centralized exception handling
-✓ Extensible helper methods
+✓ SQLAlchemy 2.x style queries.
+✓ Generic typing.
+✓ Explicit transaction operations.
+✓ Automatic rollback on failed write operations.
+✓ Structured logging.
+✓ Centralized database exception translation.
+✓ Extensible query helpers.
+✓ PostgreSQL compatibility.
+✓ Alembic compatibility.
 
 Compatible With
 ---------------
@@ -53,13 +56,11 @@ Compatible With
 
 from __future__ import annotations
 
-from select import select
-from typing import Any, Generic, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.exc import NoResultFound
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import DatabaseError
@@ -81,18 +82,20 @@ ModelType = TypeVar(
     bound=Base,
 )
 
+ResultType = TypeVar("ResultType")
+
 # ==========================================================
 # Base Repository
 # ==========================================================
 
 
-class BaseRepository(Generic[ModelType]):
+class BaseRepository[ModelType]:
     """
     Generic SQLAlchemy repository.
 
     This class provides reusable persistence operations
-    shared across all repositories while remaining free of
-    business logic.
+    shared across concrete repositories while remaining free
+    of application-specific business logic.
 
     Parameters
     ----------
@@ -128,7 +131,7 @@ class BaseRepository(Generic[ModelType]):
         self.model = model
 
         logger.debug(
-            "Initialized repository.",
+            "Repository initialized.",
             extra={
                 "repository": self.__class__.__name__,
                 "model": self.model.__name__,
@@ -142,22 +145,24 @@ class BaseRepository(Generic[ModelType]):
     @property
     def model_name(self) -> str:
         """
-        Return the managed model name.
+        Return the managed SQLAlchemy model name.
 
         Returns
         -------
         str
-            SQLAlchemy model name.
+            Name of the managed ORM model.
         """
 
         return self.model.__name__
 
     def _rollback(self) -> None:
         """
-        Safely roll back the active transaction.
+        Roll back the active database transaction.
 
-        This method never raises additional exceptions
-        during rollback.
+        Raises
+        ------
+        DatabaseError
+            If SQLAlchemy cannot perform the rollback.
         """
 
         try:
@@ -172,7 +177,7 @@ class BaseRepository(Generic[ModelType]):
 
         except SQLAlchemyError as exc:
             logger.exception(
-                "Rollback failed.",
+                "Database transaction rollback failed.",
                 extra={
                     "model": self.model_name,
                 },
@@ -184,7 +189,7 @@ class BaseRepository(Generic[ModelType]):
 
     def _commit(self) -> None:
         """
-        Commit the active transaction.
+        Commit the active database transaction.
 
         Raises
         ------
@@ -206,7 +211,7 @@ class BaseRepository(Generic[ModelType]):
             self._rollback()
 
             logger.exception(
-                "Integrity constraint violation.",
+                "Database integrity constraint violation.",
                 extra={
                     "model": self.model_name,
                 },
@@ -220,7 +225,7 @@ class BaseRepository(Generic[ModelType]):
             self._rollback()
 
             logger.exception(
-                "Database commit failed.",
+                "Database transaction commit failed.",
                 extra={
                     "model": self.model_name,
                 },
@@ -240,15 +245,27 @@ class BaseRepository(Generic[ModelType]):
         Parameters
         ----------
         obj:
-            ORM model instance.
+            ORM model instance to refresh.
+
+        Raises
+        ------
+        DatabaseError
+            If the object cannot be refreshed.
         """
 
         try:
             self.db.refresh(obj)
 
+            logger.debug(
+                "Database object refreshed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
         except SQLAlchemyError as exc:
             logger.exception(
-                "Failed to refresh ORM instance.",
+                "Database object refresh failed.",
                 extra={
                     "model": self.model_name,
                 },
@@ -263,17 +280,17 @@ class BaseRepository(Generic[ModelType]):
         obj: ModelType,
     ) -> ModelType:
         """
-        Commit the current transaction and refresh the object.
+        Commit the current transaction and refresh an ORM object.
 
         Parameters
         ----------
         obj:
-            ORM instance.
+            ORM instance to persist and refresh.
 
         Returns
         -------
         ModelType
-            Refreshed ORM instance.
+            Persisted and refreshed ORM instance.
         """
 
         self._commit()
@@ -284,24 +301,27 @@ class BaseRepository(Generic[ModelType]):
     def _execute_write(
         self,
         operation: str,
-        callback: Any,
-    ) -> Any:
+        callback: Callable[[], ResultType],
+    ) -> ResultType:
         """
-        Execute a write operation with automatic transaction
-        management.
+        Execute a repository write operation.
+
+        SQLAlchemy failures are translated into the application's
+        established DatabaseError type. Failed transactions are
+        rolled back before the error is propagated.
 
         Parameters
         ----------
         operation:
-            Operation name used for structured logging.
+            Short operation name used for structured logging.
 
         callback:
-            Callable executing the write operation.
+            Callable containing the actual database write operation.
 
         Returns
         -------
-        Any
-            Callback result.
+        ResultType
+            Result returned by the callback.
 
         Raises
         ------
@@ -345,18 +365,28 @@ class BaseRepository(Generic[ModelType]):
         """
         Raise a standardized not-found database exception.
 
+        This helper is intentionally explicit and is not used by
+        ``get_by_id()`` because the established repository contract
+        allows retrieval methods to return ``None`` when an entity
+        does not exist.
+
         Parameters
         ----------
         identifier:
             Entity identifier.
+
+        Raises
+        ------
+        DatabaseError
+            Always raised to indicate the entity was not found.
         """
 
         raise DatabaseError(
             f"{self.model_name} with identifier "
             f"{identifier!r} was not found."
         ) from NoResultFound()
-        
-        # ======================================================
+
+    # ======================================================
     # Create Operations
     # ======================================================
 
@@ -375,7 +405,7 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         ModelType
-            Persisted ORM instance.
+            Persisted and refreshed ORM instance.
         """
 
         def operation() -> ModelType:
@@ -410,7 +440,7 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         list[ModelType]
-            Persisted ORM objects.
+            Persisted and refreshed ORM objects.
         """
 
         if not objects:
@@ -458,7 +488,7 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         ModelType
-            Updated ORM instance.
+            Updated and refreshed ORM instance.
         """
 
         def operation() -> ModelType:
@@ -493,14 +523,14 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         ModelType
-            Managed ORM instance.
+            Managed, persisted, and refreshed ORM instance.
         """
 
         def operation() -> ModelType:
             merged = self.db.merge(obj)
 
             logger.debug(
-                "Merging detached ORM object.",
+                "Merging detached database object.",
                 extra={
                     "model": self.model_name,
                 },
@@ -596,6 +626,11 @@ class BaseRepository(Generic[ModelType]):
     def flush(self) -> None:
         """
         Flush pending SQL statements without committing.
+
+        Raises
+        ------
+        DatabaseError
+            If the session cannot be flushed.
         """
 
         try:
@@ -608,11 +643,25 @@ class BaseRepository(Generic[ModelType]):
                 },
             )
 
+        except IntegrityError as exc:
+            self._rollback()
+
+            logger.exception(
+                "Database integrity constraint violation during flush.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                "Database integrity constraint violated."
+            ) from exc
+
         except SQLAlchemyError as exc:
             self._rollback()
 
             logger.exception(
-                "Database flush failed.",
+                "Database session flush failed.",
                 extra={
                     "model": self.model_name,
                 },
@@ -632,7 +681,7 @@ class BaseRepository(Generic[ModelType]):
         Parameters
         ----------
         obj:
-            ORM instance.
+            ORM instance to refresh.
         """
 
         self._refresh(obj)
@@ -650,8 +699,8 @@ class BaseRepository(Generic[ModelType]):
         """
 
         self._rollback()
-        
-        # ======================================================
+
+    # ======================================================
     # Read Operations
     # ======================================================
 
@@ -670,21 +719,38 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         ModelType | None
-            Matching ORM instance if found, otherwise None.
+            Matching ORM instance if found, otherwise ``None``.
+
+        Raises
+        ------
+        DatabaseError
+            If the database lookup fails.
         """
 
         logger.debug(
             "Retrieving object by primary key.",
             extra={
                 "model": self.model_name,
-                "id": obj_id,
             },
         )
 
-        return self.db.get(
-            self.model,
-            obj_id,
-        )
+        try:
+            return self.db.get(
+                self.model,
+                obj_id,
+            )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Database primary-key lookup failed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                f"Failed to retrieve {self.model_name}."
+            ) from exc
 
     def get_all(
         self,
@@ -707,7 +773,20 @@ class BaseRepository(Generic[ModelType]):
         -------
         list[ModelType]
             Retrieved ORM objects.
+
+        Raises
+        ------
+        DatabaseError
+            If the database query fails.
+
+        ValueError
+            If ``skip`` or ``limit`` is invalid.
         """
+
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
 
         logger.debug(
             "Retrieving multiple objects.",
@@ -724,17 +803,29 @@ class BaseRepository(Generic[ModelType]):
             .limit(limit)
         )
 
-        return list(
-            self.db.scalars(statement).all()
-        )
+        try:
+            return list(
+                self.db.scalars(statement).all()
+            )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Database collection lookup failed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                f"Failed to retrieve {self.model_name} records."
+            ) from exc
 
     def get_one_by(
         self,
         **filters: Any,
     ) -> ModelType | None:
         """
-        Retrieve a single ORM object matching the
-        supplied filters.
+        Retrieve a single ORM object matching equality filters.
 
         Parameters
         ----------
@@ -744,13 +835,19 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         ModelType | None
+            Matching ORM instance if found, otherwise ``None``.
+
+        Raises
+        ------
+        DatabaseError
+            If the database query fails.
         """
 
         logger.debug(
             "Retrieving single object using filters.",
             extra={
                 "model": self.model_name,
-                "filters": filters,
+                "filter_fields": tuple(filters.keys()),
             },
         )
 
@@ -760,7 +857,20 @@ class BaseRepository(Generic[ModelType]):
             .limit(1)
         )
 
-        return self.db.scalar(statement)
+        try:
+            return self.db.scalar(statement)
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Filtered single-object lookup failed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                f"Failed to retrieve {self.model_name}."
+            ) from exc
 
     def get_many_by(
         self,
@@ -770,8 +880,7 @@ class BaseRepository(Generic[ModelType]):
         **filters: Any,
     ) -> list[ModelType]:
         """
-        Retrieve multiple ORM objects using equality
-        filters.
+        Retrieve multiple ORM objects using equality filters.
 
         Parameters
         ----------
@@ -779,7 +888,7 @@ class BaseRepository(Generic[ModelType]):
             Number of rows to skip.
 
         limit:
-            Maximum rows to return.
+            Maximum number of rows to return.
 
         **filters:
             SQLAlchemy equality filters.
@@ -787,13 +896,29 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         list[ModelType]
+            Retrieved ORM objects.
+
+        Raises
+        ------
+        DatabaseError
+            If the database query fails.
+
+        ValueError
+            If ``skip`` or ``limit`` is invalid.
         """
 
+        self._validate_pagination(
+            skip=skip,
+            limit=limit,
+        )
+
         logger.debug(
-            "Retrieving multiple filtered objects.",
+            "Retrieving filtered objects.",
             extra={
                 "model": self.model_name,
-                "filters": filters,
+                "skip": skip,
+                "limit": limit,
+                "filter_fields": tuple(filters.keys()),
             },
         )
 
@@ -804,9 +929,22 @@ class BaseRepository(Generic[ModelType]):
             .limit(limit)
         )
 
-        return list(
-            self.db.scalars(statement).all()
-        )
+        try:
+            return list(
+                self.db.scalars(statement).all()
+            )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Filtered collection lookup failed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                f"Failed to retrieve {self.model_name} records."
+            ) from exc
 
     # ======================================================
     # Existence
@@ -817,7 +955,7 @@ class BaseRepository(Generic[ModelType]):
         obj_id: int,
     ) -> bool:
         """
-        Determine whether a record exists.
+        Determine whether a record exists by primary key.
 
         Parameters
         ----------
@@ -827,19 +965,22 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         bool
+            ``True`` when the record exists.
+
+        Raises
+        ------
+        DatabaseError
+            If the database lookup fails.
         """
 
-        return (
-            self.get_by_id(obj_id)
-            is not None
-        )
+        return self.get_by_id(obj_id) is not None
 
     def exists_by(
         self,
         **filters: Any,
     ) -> bool:
         """
-        Determine whether a matching record exists.
+        Determine whether at least one record matches filters.
 
         Parameters
         ----------
@@ -849,17 +990,34 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         bool
+            ``True`` when at least one matching record exists.
+
+        Raises
+        ------
+        DatabaseError
+            If the database query fails.
         """
 
         statement = (
-            select(func.count())
-            .select_from(self.model)
+            select(self.model)
             .filter_by(**filters)
+            .limit(1)
         )
 
-        total = self.db.scalar(statement)
+        try:
+            return self.db.scalars(statement).first() is not None
 
-        return bool(total)
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Database existence check failed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                f"Failed to check whether {self.model_name} exists."
+            ) from exc
 
     # ======================================================
     # Count Operations
@@ -867,11 +1025,17 @@ class BaseRepository(Generic[ModelType]):
 
     def count(self) -> int:
         """
-        Return total number of records.
+        Return the total number of records.
 
         Returns
         -------
         int
+            Total record count.
+
+        Raises
+        ------
+        DatabaseError
+            If the database query fails.
         """
 
         statement = (
@@ -879,17 +1043,29 @@ class BaseRepository(Generic[ModelType]):
             .select_from(self.model)
         )
 
-        return int(
-            self.db.scalar(statement)
-            or 0
-        )
+        try:
+            total = self.db.scalar(statement)
+
+            return int(total or 0)
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Database count query failed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                f"Failed to count {self.model_name} records."
+            ) from exc
 
     def count_by(
         self,
         **filters: Any,
     ) -> int:
         """
-        Count matching records.
+        Count records matching equality filters.
 
         Parameters
         ----------
@@ -899,6 +1075,12 @@ class BaseRepository(Generic[ModelType]):
         Returns
         -------
         int
+            Number of matching records.
+
+        Raises
+        ------
+        DatabaseError
+            If the database query fails.
         """
 
         statement = (
@@ -907,10 +1089,69 @@ class BaseRepository(Generic[ModelType]):
             .filter_by(**filters)
         )
 
-        return int(
-            self.db.scalar(statement)
-            or 0
-        )
+        try:
+            total = self.db.scalar(statement)
+
+            return int(total or 0)
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Filtered database count query failed.",
+                extra={
+                    "model": self.model_name,
+                },
+            )
+
+            raise DatabaseError(
+                f"Failed to count filtered {self.model_name} records."
+            ) from exc
+
+    # ======================================================
+    # Validation Helpers
+    # ======================================================
+
+    @staticmethod
+    def _validate_pagination(
+        *,
+        skip: int,
+        limit: int,
+    ) -> None:
+        """
+        Validate repository pagination parameters.
+
+        Parameters
+        ----------
+        skip:
+            Number of records to skip.
+
+        limit:
+            Maximum number of records to return.
+
+        Raises
+        ------
+        ValueError
+            If ``skip`` is negative or ``limit`` is not positive.
+        """
+
+        if isinstance(skip, bool) or skip < 0:
+            raise ValueError(
+                "skip must be a non-negative integer."
+            )
+
+        if isinstance(limit, bool) or limit <= 0:
+            raise ValueError(
+                "limit must be a positive integer."
+            )
+
+        if not isinstance(skip, int):
+            raise ValueError(
+                "skip must be a non-negative integer."
+            )
+
+        if not isinstance(limit, int):
+            raise ValueError(
+                "limit must be a positive integer."
+            )
 
 
 # ==========================================================
