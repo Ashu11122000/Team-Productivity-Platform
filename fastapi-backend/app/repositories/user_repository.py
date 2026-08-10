@@ -7,15 +7,19 @@ Enterprise repository implementation for User persistence.
 
 Responsibilities
 ----------------
-✓ Encapsulate all database access for User entities
-✓ Provide reusable query helpers
-✓ Support CRUD operations
-✓ Support email lookups
-✓ Support active/inactive user queries
-✓ Support search
-✓ Support pagination
-✓ Support statistics
-✓ Remain free of business logic
+✓ Encapsulate all database access for User entities.
+✓ Provide reusable query helpers.
+✓ Support CRUD operations through BaseRepository.
+✓ Support email lookups.
+✓ Support active/inactive user queries.
+✓ Support verified/unverified user queries.
+✓ Support user search.
+✓ Support pagination.
+✓ Support sorting.
+✓ Support user statistics.
+✓ Support account state persistence.
+✓ Respect soft-delete semantics.
+✓ Remain free of business logic.
 
 Architecture
 ------------
@@ -23,24 +27,34 @@ This repository is responsible ONLY for persistence.
 
 Business rules such as:
 
-• Password hashing
-• Authentication
-• JWT generation
-• Authorization
-• Email verification
-• Password reset
-• Account recovery
+• Password hashing.
+• Authentication.
+• JWT generation.
+• Authorization.
+• Email verification.
+• Password reset.
+• Account recovery.
+• Duplicate-email policy.
+• Role validation.
 
 must remain inside the service layer.
 
+The repository may persist state changes such as
+``is_active`` or ``is_verified``, but it must not decide
+whether those changes are allowed.
+
 Features
 --------
-✓ SQLAlchemy 2.x style queries
-✓ Repository Pattern
-✓ Structured logging
-✓ Generic CRUD support via BaseRepository
-✓ Reusable private query builders
-✓ Enterprise documentation
+✓ SQLAlchemy 2.x style queries.
+✓ Repository Pattern.
+✓ Structured logging.
+✓ Generic CRUD support via BaseRepository.
+✓ Reusable private query builders.
+✓ Soft-delete aware queries.
+✓ Strong SQLAlchemy statement typing.
+✓ Case-insensitive email lookups.
+✓ Search across supported User fields.
+✓ Enterprise documentation.
 
 Compatible With
 ---------------
@@ -62,8 +76,10 @@ from sqlalchemy import Select
 from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import DatabaseError
 from app.core.logging import get_logger
 from app.models.user import User
 from app.repositories.base_repository import BaseRepository
@@ -89,17 +105,21 @@ class UserRepository(BaseRepository[User]):
     ----------------
     • Build SQLAlchemy queries.
     • Execute database operations.
-    • Return ORM models.
+    • Return User ORM models.
+    • Persist User state.
 
     This repository MUST NOT contain:
 
-    • Business rules
-    • Password hashing
-    • JWT creation
-    • Authentication
-    • Authorization
-    • Email verification
-    • Response serialization
+    • Business rules.
+    • Password hashing.
+    • Password verification.
+    • JWT creation.
+    • Authentication.
+    • Authorization.
+    • Email verification policy.
+    • Password reset logic.
+    • Account recovery logic.
+    • Response serialization.
     """
 
     # ======================================================
@@ -116,7 +136,7 @@ class UserRepository(BaseRepository[User]):
         Parameters
         ----------
         db:
-            Active SQLAlchemy session.
+            Active SQLAlchemy database session.
         """
 
         super().__init__(
@@ -131,14 +151,17 @@ class UserRepository(BaseRepository[User]):
                 "model": User.__name__,
             },
         )
-        
-        # ======================================================
+
+    # ======================================================
     # Internal Query Helpers
     # ======================================================
 
-    def _base_query(self) -> Select[tuple[User]]:
+    @staticmethod
+    def _base_query() -> Select[tuple[User]]:
         """
-        Build the base SELECT statement for the User model.
+        Build the base User SELECT statement.
+
+        The base query excludes soft-deleted users.
 
         Returns
         -------
@@ -146,11 +169,17 @@ class UserRepository(BaseRepository[User]):
             Base SQLAlchemy SELECT statement.
         """
 
-        return select(User)
+        return (
+            select(User)
+            .where(
+                User.deleted_at.is_(None),
+            )
+        )
 
-    def _active_query(self) -> Select[tuple[User]]:
+    @staticmethod
+    def _active_query() -> Select[tuple[User]]:
         """
-        Build a query for active users.
+        Build a query for active, non-deleted users.
 
         Returns
         -------
@@ -158,13 +187,17 @@ class UserRepository(BaseRepository[User]):
             Active-user SELECT statement.
         """
 
-        return self._base_query().where(
-            User.is_active.is_(True),
+        return (
+            UserRepository._base_query()
+            .where(
+                User.is_active.is_(True),
+            )
         )
 
-    def _inactive_query(self) -> Select[tuple[User]]:
+    @staticmethod
+    def _inactive_query() -> Select[tuple[User]]:
         """
-        Build a query for inactive users.
+        Build a query for inactive, non-deleted users.
 
         Returns
         -------
@@ -172,8 +205,47 @@ class UserRepository(BaseRepository[User]):
             Inactive-user SELECT statement.
         """
 
-        return self._base_query().where(
-            User.is_active.is_(False),
+        return (
+            UserRepository._base_query()
+            .where(
+                User.is_active.is_(False),
+            )
+        )
+
+    @staticmethod
+    def _verified_query() -> Select[tuple[User]]:
+        """
+        Build a query for verified, non-deleted users.
+
+        Returns
+        -------
+        Select[tuple[User]]
+            Verified-user SELECT statement.
+        """
+
+        return (
+            UserRepository._base_query()
+            .where(
+                User.is_verified.is_(True),
+            )
+        )
+
+    @staticmethod
+    def _unverified_query() -> Select[tuple[User]]:
+        """
+        Build a query for unverified, non-deleted users.
+
+        Returns
+        -------
+        Select[tuple[User]]
+            Unverified-user SELECT statement.
+        """
+
+        return (
+            UserRepository._base_query()
+            .where(
+                User.is_verified.is_(False),
+            )
         )
 
     @staticmethod
@@ -183,13 +255,21 @@ class UserRepository(BaseRepository[User]):
         query: str,
     ) -> Select[tuple[User]]:
         """
-        Apply a case-insensitive search across
-        user name and email.
+        Apply a case-insensitive User search.
+
+        The current User model does not contain ``full_name``.
+        Therefore search is performed across fields that
+        actually belong to the User model.
+
+        Search fields
+        -------------
+        • email
+        • role
 
         Parameters
         ----------
         statement:
-            Existing SELECT statement.
+            Existing SQLAlchemy SELECT statement.
 
         query:
             Search keyword.
@@ -209,9 +289,9 @@ class UserRepository(BaseRepository[User]):
 
         return statement.where(
             or_(
-                User.full_name.ilike(pattern),
                 User.email.ilike(pattern),
-            )
+                User.role.ilike(pattern),
+            ),
         )
 
     @staticmethod
@@ -221,28 +301,32 @@ class UserRepository(BaseRepository[User]):
         sort_by: str = "newest",
     ) -> Select[tuple[User]]:
         """
-        Apply sorting to a SELECT statement.
+        Apply sorting to a User SELECT statement.
 
         Supported values
         ----------------
         newest
-            Most recently created users.
+            Most recently created users first.
 
         oldest
-            Earliest created users.
-
-        name
-            Alphabetical by full name.
+            Earliest created users first.
 
         email
-            Alphabetical by email address.
+            Alphabetical by email.
 
-        Unknown values default to ``newest``.
+        role
+            Alphabetical by role.
+
+        last_login
+            Most recently logged-in users first.
+
+        Unknown values
+            Default to newest-first ordering.
 
         Parameters
         ----------
         statement:
-            Existing SELECT statement.
+            Existing SQLAlchemy SELECT statement.
 
         sort_by:
             Sorting strategy.
@@ -250,7 +334,7 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         Select[tuple[User]]
-            Updated statement.
+            Updated SELECT statement.
         """
 
         strategy = sort_by.strip().lower()
@@ -259,21 +343,31 @@ class UserRepository(BaseRepository[User]):
             case "oldest":
                 return statement.order_by(
                     User.created_at.asc(),
-                )
-
-            case "name":
-                return statement.order_by(
-                    User.full_name.asc(),
+                    User.id.asc(),
                 )
 
             case "email":
                 return statement.order_by(
                     User.email.asc(),
+                    User.id.asc(),
+                )
+
+            case "role":
+                return statement.order_by(
+                    User.role.asc(),
+                    User.id.asc(),
+                )
+
+            case "last_login":
+                return statement.order_by(
+                    User.last_login_at.desc().nullslast(),
+                    User.id.desc(),
                 )
 
             case _:
                 return statement.order_by(
                     User.created_at.desc(),
+                    User.id.desc(),
                 )
 
     @staticmethod
@@ -284,7 +378,11 @@ class UserRepository(BaseRepository[User]):
         limit: int = 100,
     ) -> Select[tuple[User]]:
         """
-        Apply pagination to a SELECT statement.
+        Apply pagination to a User SELECT statement.
+
+        Pagination validation belongs to the validation/service
+        layer. This helper only translates validated values
+        into SQLAlchemy OFFSET/LIMIT operations.
 
         Parameters
         ----------
@@ -295,7 +393,7 @@ class UserRepository(BaseRepository[User]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of rows returned.
 
         Returns
         -------
@@ -310,37 +408,76 @@ class UserRepository(BaseRepository[User]):
         )
 
     @staticmethod
-    def _count_statement(
-        statement: Select[Any],
-    ) -> Select[tuple[int]]:
+    def _apply_verified_filter(
+        statement: Select[tuple[User]],
+        *,
+        verified: bool | None,
+    ) -> Select[tuple[User]]:
         """
-        Convert a SELECT statement into an equivalent
-        COUNT query.
+        Apply an optional verification-state filter.
 
         Parameters
         ----------
         statement:
             Existing SELECT statement.
 
+        verified:
+            Desired verification state.
+
+        Returns
+        -------
+        Select[tuple[User]]
+            Updated SELECT statement.
+        """
+
+        if verified is None:
+            return statement
+
+        return statement.where(
+            User.is_verified.is_(verified),
+        )
+
+    @staticmethod
+    def _count_statement(
+        statement: Select[tuple[User]],
+    ) -> Select[tuple[int]]:
+        """
+        Convert a User SELECT statement into a COUNT query.
+
+        Existing ordering is removed before constructing the
+        count subquery.
+
+        Parameters
+        ----------
+        statement:
+            Existing User SELECT statement.
+
         Returns
         -------
         Select[tuple[int]]
-            COUNT statement.
+            COUNT SELECT statement.
         """
 
-        return (
-            select(func.count())
-            .select_from(
-                statement.order_by(None).subquery()
-            )
+        subquery = (
+            statement
+            .order_by(None)
+            .subquery()
         )
+
+        return select(
+            func.count(),
+        ).select_from(subquery)
+
+    # ======================================================
+    # Query Execution Helpers
+    # ======================================================
 
     def _execute_scalar(
         self,
         statement: Select[tuple[User]],
     ) -> User | None:
         """
-        Execute a query returning a single User.
+        Execute a query returning at most one User.
 
         Parameters
         ----------
@@ -350,17 +487,35 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         User | None
-            Matching user if found.
+            Matching User when found.
+
+        Raises
+        ------
+        DatabaseError
+            If database execution fails.
         """
 
         logger.debug(
-            "Executing User scalar lookup.",
+            "Executing User scalar query.",
             extra={
                 "repository": self.__class__.__name__,
             },
         )
 
-        return self.db.scalar(statement)
+        try:
+            return self.db.scalar(statement)
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "User scalar query failed.",
+                extra={
+                    "repository": self.__class__.__name__,
+                },
+            )
+
+            raise DatabaseError(
+                "Failed to retrieve user.",
+            ) from exc
 
     def _execute_scalars(
         self,
@@ -378,25 +533,43 @@ class UserRepository(BaseRepository[User]):
         -------
         list[User]
             Retrieved users.
+
+        Raises
+        ------
+        DatabaseError
+            If database execution fails.
         """
 
         logger.debug(
-            "Executing User scalar query.",
+            "Executing User collection query.",
             extra={
                 "repository": self.__class__.__name__,
             },
         )
 
-        return list(
-            self.db.scalars(statement).all()
-        )
+        try:
+            return list(
+                self.db.scalars(statement).all(),
+            )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "User collection query failed.",
+                extra={
+                    "repository": self.__class__.__name__,
+                },
+            )
+
+            raise DatabaseError(
+                "Failed to retrieve users.",
+            ) from exc
 
     def _execute_count(
         self,
         statement: Select[tuple[int]],
     ) -> int:
         """
-        Execute a COUNT statement.
+        Execute a User COUNT query.
 
         Parameters
         ----------
@@ -406,7 +579,12 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         int
-            Number of matching rows.
+            Number of matching users.
+
+        Raises
+        ------
+        DatabaseError
+            If database execution fails.
         """
 
         logger.debug(
@@ -416,12 +594,24 @@ class UserRepository(BaseRepository[User]):
             },
         )
 
-        return int(
-            self.db.scalar(statement)
-            or 0
-        )
-        
-        # ======================================================
+        try:
+            return int(
+                self.db.scalar(statement) or 0,
+            )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "User count query failed.",
+                extra={
+                    "repository": self.__class__.__name__,
+                },
+            )
+
+            raise DatabaseError(
+                "Failed to count users.",
+            ) from exc
+
+    # ======================================================
     # Lookup Methods
     # ======================================================
 
@@ -430,9 +620,9 @@ class UserRepository(BaseRepository[User]):
         email: str,
     ) -> User | None:
         """
-        Retrieve a user by email address.
+        Retrieve a non-deleted User by email.
 
-        Email matching is case-insensitive.
+        Email comparison is case-insensitive.
 
         Parameters
         ----------
@@ -442,18 +632,24 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         User | None
-            Matching user if found.
+            Matching User when found.
         """
+
+        normalized_email = email.strip().lower()
 
         logger.debug(
             "Retrieving user by email.",
             extra={
-                "email": email.lower(),
+                "repository": self.__class__.__name__,
             },
         )
 
-        statement = self._base_query().where(
-            func.lower(User.email) == email.lower(),
+        statement = (
+            self._base_query()
+            .where(
+                func.lower(User.email) == normalized_email,
+            )
+            .limit(1)
         )
 
         return self._execute_scalar(statement)
@@ -463,7 +659,7 @@ class UserRepository(BaseRepository[User]):
         email: str,
     ) -> User | None:
         """
-        Retrieve an active user by email.
+        Retrieve an active User by email.
 
         Parameters
         ----------
@@ -473,18 +669,24 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         User | None
-            Active matching user if found.
+            Active matching User when found.
         """
+
+        normalized_email = email.strip().lower()
 
         logger.debug(
             "Retrieving active user by email.",
             extra={
-                "email": email.lower(),
+                "repository": self.__class__.__name__,
             },
         )
 
-        statement = self._active_query().where(
-            func.lower(User.email) == email.lower(),
+        statement = (
+            self._active_query()
+            .where(
+                func.lower(User.email) == normalized_email,
+            )
+            .limit(1)
         )
 
         return self._execute_scalar(statement)
@@ -494,7 +696,7 @@ class UserRepository(BaseRepository[User]):
         email: str,
     ) -> User | None:
         """
-        Retrieve an inactive user by email.
+        Retrieve an inactive User by email.
 
         Parameters
         ----------
@@ -504,18 +706,24 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         User | None
-            Inactive matching user if found.
+            Inactive matching User when found.
         """
+
+        normalized_email = email.strip().lower()
 
         logger.debug(
             "Retrieving inactive user by email.",
             extra={
-                "email": email.lower(),
+                "repository": self.__class__.__name__,
             },
         )
 
-        statement = self._inactive_query().where(
-            func.lower(User.email) == email.lower(),
+        statement = (
+            self._inactive_query()
+            .where(
+                func.lower(User.email) == normalized_email,
+            )
+            .limit(1)
         )
 
         return self._execute_scalar(statement)
@@ -532,12 +740,9 @@ class UserRepository(BaseRepository[User]):
         sort_by: str = "newest",
     ) -> list[User]:
         """
-        Retrieve all users.
+        Retrieve non-deleted users.
 
-        Supports
-        --------
-        ✓ Pagination
-        ✓ Sorting
+        Supports pagination and sorting.
 
         Parameters
         ----------
@@ -548,11 +753,12 @@ class UserRepository(BaseRepository[User]):
             Maximum number of users returned.
 
         sort_by:
-            newest | oldest | name | email
+            newest | oldest | email | role | last_login
 
         Returns
         -------
         list[User]
+            Users matching the requested page.
         """
 
         logger.debug(
@@ -587,12 +793,7 @@ class UserRepository(BaseRepository[User]):
         sort_by: str = "newest",
     ) -> list[User]:
         """
-        Retrieve active users.
-
-        Supports
-        --------
-        ✓ Pagination
-        ✓ Sorting
+        Retrieve active, non-deleted users.
 
         Parameters
         ----------
@@ -603,11 +804,12 @@ class UserRepository(BaseRepository[User]):
             Maximum number of users returned.
 
         sort_by:
-            newest | oldest | name | email
+            newest | oldest | email | role | last_login
 
         Returns
         -------
         list[User]
+            Active users.
         """
 
         logger.debug(
@@ -642,12 +844,7 @@ class UserRepository(BaseRepository[User]):
         sort_by: str = "newest",
     ) -> list[User]:
         """
-        Retrieve inactive users.
-
-        Supports
-        --------
-        ✓ Pagination
-        ✓ Sorting
+        Retrieve inactive, non-deleted users.
 
         Parameters
         ----------
@@ -658,11 +855,12 @@ class UserRepository(BaseRepository[User]):
             Maximum number of users returned.
 
         sort_by:
-            newest | oldest | name | email
+            newest | oldest | email | role | last_login
 
         Returns
         -------
         list[User]
+            Inactive users.
         """
 
         logger.debug(
@@ -689,6 +887,108 @@ class UserRepository(BaseRepository[User]):
 
         return self._execute_scalars(statement)
 
+    def list_verified_users(
+        self,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        sort_by: str = "newest",
+    ) -> list[User]:
+        """
+        Retrieve verified, non-deleted users.
+
+        Parameters
+        ----------
+        skip:
+            Number of rows to skip.
+
+        limit:
+            Maximum number of users returned.
+
+        sort_by:
+            newest | oldest | email | role | last_login
+
+        Returns
+        -------
+        list[User]
+            Verified users.
+        """
+
+        logger.debug(
+            "Listing verified users.",
+            extra={
+                "skip": skip,
+                "limit": limit,
+                "sort_by": sort_by,
+            },
+        )
+
+        statement = self._verified_query()
+
+        statement = self._apply_sorting(
+            statement,
+            sort_by=sort_by,
+        )
+
+        statement = self._apply_pagination(
+            statement,
+            skip=skip,
+            limit=limit,
+        )
+
+        return self._execute_scalars(statement)
+
+    def list_unverified_users(
+        self,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        sort_by: str = "newest",
+    ) -> list[User]:
+        """
+        Retrieve unverified, non-deleted users.
+
+        Parameters
+        ----------
+        skip:
+            Number of rows to skip.
+
+        limit:
+            Maximum number of users returned.
+
+        sort_by:
+            newest | oldest | email | role | last_login
+
+        Returns
+        -------
+        list[User]
+            Unverified users.
+        """
+
+        logger.debug(
+            "Listing unverified users.",
+            extra={
+                "skip": skip,
+                "limit": limit,
+                "sort_by": sort_by,
+            },
+        )
+
+        statement = self._unverified_query()
+
+        statement = self._apply_sorting(
+            statement,
+            sort_by=sort_by,
+        )
+
+        statement = self._apply_pagination(
+            statement,
+            skip=skip,
+            limit=limit,
+        )
+
+        return self._execute_scalars(statement)
+
     def list_recent_users(
         self,
         *,
@@ -696,8 +996,6 @@ class UserRepository(BaseRepository[User]):
     ) -> list[User]:
         """
         Retrieve the most recently registered users.
-
-        Intended primarily for administrator dashboards.
 
         Parameters
         ----------
@@ -707,6 +1005,7 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         list[User]
+            Recently registered users.
         """
 
         logger.debug(
@@ -720,13 +1019,14 @@ class UserRepository(BaseRepository[User]):
             self._base_query()
             .order_by(
                 User.created_at.desc(),
+                User.id.desc(),
             )
             .limit(limit)
         )
 
         return self._execute_scalars(statement)
-    
-        # ======================================================
+
+    # ======================================================
     # Search Operations
     # ======================================================
 
@@ -739,16 +1039,12 @@ class UserRepository(BaseRepository[User]):
         sort_by: str = "newest",
     ) -> list[User]:
         """
-        Search users by full name or email.
+        Search non-deleted users.
 
-        Search is case-insensitive.
+        The current User model supports search across:
 
-        Supports
-        --------
-        ✓ Full name search
-        ✓ Email search
-        ✓ Pagination
-        ✓ Sorting
+        • Email
+        • Role
 
         Parameters
         ----------
@@ -759,10 +1055,10 @@ class UserRepository(BaseRepository[User]):
             Number of rows to skip.
 
         limit:
-            Maximum rows returned.
+            Maximum number of users returned.
 
         sort_by:
-            newest | oldest | name | email
+            newest | oldest | email | role | last_login
 
         Returns
         -------
@@ -773,10 +1069,10 @@ class UserRepository(BaseRepository[User]):
         logger.debug(
             "Searching users.",
             extra={
-                "query": query,
                 "skip": skip,
                 "limit": limit,
                 "sort_by": sort_by,
+                "has_query": bool(query.strip()),
             },
         )
 
@@ -806,7 +1102,7 @@ class UserRepository(BaseRepository[User]):
         query: str,
     ) -> int:
         """
-        Count users matching a search query.
+        Count non-deleted users matching a search query.
 
         Parameters
         ----------
@@ -820,9 +1116,9 @@ class UserRepository(BaseRepository[User]):
         """
 
         logger.debug(
-            "Counting search results.",
+            "Counting user search results.",
             extra={
-                "query": query,
+                "has_query": bool(query.strip()),
             },
         )
 
@@ -834,7 +1130,7 @@ class UserRepository(BaseRepository[User]):
         )
 
         return self._execute_count(
-            self._count_statement(statement)
+            self._count_statement(statement),
         )
 
     # ======================================================
@@ -846,7 +1142,8 @@ class UserRepository(BaseRepository[User]):
         email: str,
     ) -> bool:
         """
-        Determine whether an email address already exists.
+        Determine whether a non-deleted User exists
+        with the supplied email.
 
         Parameters
         ----------
@@ -856,19 +1153,41 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         bool
+            True when the email already exists.
         """
 
+        normalized_email = email.strip().lower()
+
         logger.debug(
-            "Checking email existence.",
+            "Checking user email existence.",
             extra={
-                "email": email.lower(),
+                "repository": self.__class__.__name__,
             },
         )
 
-        return (
-            self.get_by_email(email)
-            is not None
+        statement = (
+            select(User.id)
+            .where(
+                User.deleted_at.is_(None),
+                func.lower(User.email) == normalized_email,
+            )
+            .limit(1)
         )
+
+        try:
+            return self.db.scalar(statement) is not None
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "User email existence query failed.",
+                extra={
+                    "repository": self.__class__.__name__,
+                },
+            )
+
+            raise DatabaseError(
+                "Failed to check user email.",
+            ) from exc
 
     def exists_by_email(
         self,
@@ -885,6 +1204,7 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         bool
+            True when the email exists.
         """
 
         return self.email_exists(email)
@@ -894,8 +1214,10 @@ class UserRepository(BaseRepository[User]):
         email: str,
     ) -> bool:
         """
-        Determine whether an email address is available
-        for registration.
+        Determine whether an email is available.
+
+        This method only performs persistence lookup.
+        Registration policy belongs to the service layer.
 
         Parameters
         ----------
@@ -905,17 +1227,58 @@ class UserRepository(BaseRepository[User]):
         Returns
         -------
         bool
-            True if the email is not already in use.
+            True when no non-deleted user has the email.
+        """
+
+        return not self.email_exists(email)
+
+    # ======================================================
+    # Verification Statistics
+    # ======================================================
+
+    def count_verified(
+        self,
+    ) -> int:
+        """
+        Count verified, non-deleted users.
+
+        Returns
+        -------
+        int
+            Number of verified users.
         """
 
         logger.debug(
-            "Checking email availability.",
-            extra={
-                "email": email.lower(),
-            },
+            "Counting verified users.",
         )
 
-        return not self.email_exists(email)
+        return self._execute_count(
+            self._count_statement(
+                self._verified_query(),
+            ),
+        )
+
+    def count_unverified(
+        self,
+    ) -> int:
+        """
+        Count unverified, non-deleted users.
+
+        Returns
+        -------
+        int
+            Number of unverified users.
+        """
+
+        logger.debug(
+            "Counting unverified users.",
+        )
+
+        return self._execute_count(
+            self._count_statement(
+                self._unverified_query(),
+            ),
+        )
 
     # ======================================================
     # User Counts
@@ -925,7 +1288,7 @@ class UserRepository(BaseRepository[User]):
         self,
     ) -> int:
         """
-        Count active users.
+        Count active, non-deleted users.
 
         Returns
         -------
@@ -940,14 +1303,14 @@ class UserRepository(BaseRepository[User]):
         return self._execute_count(
             self._count_statement(
                 self._active_query(),
-            )
+            ),
         )
 
     def count_inactive(
         self,
     ) -> int:
         """
-        Count inactive users.
+        Count inactive, non-deleted users.
 
         Returns
         -------
@@ -962,10 +1325,184 @@ class UserRepository(BaseRepository[User]):
         return self._execute_count(
             self._count_statement(
                 self._inactive_query(),
-            )
+            ),
         )
-        
-        # ======================================================
+
+    def total_users(
+        self,
+    ) -> int:
+        """
+        Count all non-deleted users.
+
+        Returns
+        -------
+        int
+            Total number of users.
+        """
+
+        logger.debug(
+            "Counting total users.",
+        )
+
+        return self._execute_count(
+            self._count_statement(
+                self._base_query(),
+            ),
+        )
+
+    def total_active_users(
+        self,
+    ) -> int:
+        """
+        Count active, non-deleted users.
+
+        Returns
+        -------
+        int
+            Total number of active users.
+        """
+
+        return self.count_active()
+
+    def total_inactive_users(
+        self,
+    ) -> int:
+        """
+        Count inactive, non-deleted users.
+
+        Returns
+        -------
+        int
+            Total number of inactive users.
+        """
+
+        return self.count_inactive()
+
+    def total_verified_users(
+        self,
+    ) -> int:
+        """
+        Count verified, non-deleted users.
+
+        Returns
+        -------
+        int
+            Total number of verified users.
+        """
+
+        return self.count_verified()
+
+    def total_unverified_users(
+        self,
+    ) -> int:
+        """
+        Count unverified, non-deleted users.
+
+        Returns
+        -------
+        int
+            Total number of unverified users.
+        """
+
+        return self.count_unverified()
+
+    def active_percentage(
+        self,
+    ) -> float:
+        """
+        Calculate the percentage of active users.
+
+        Returns
+        -------
+        float
+            Active-user percentage rounded to two decimals.
+        """
+
+        total = self.total_users()
+
+        if total == 0:
+            return 0.0
+
+        active = self.total_active_users()
+
+        return round(
+            (active / total) * 100,
+            2,
+        )
+
+    def inactive_percentage(
+        self,
+    ) -> float:
+        """
+        Calculate the percentage of inactive users.
+
+        Returns
+        -------
+        float
+            Inactive-user percentage rounded to two decimals.
+        """
+
+        total = self.total_users()
+
+        if total == 0:
+            return 0.0
+
+        inactive = self.total_inactive_users()
+
+        return round(
+            (inactive / total) * 100,
+            2,
+        )
+
+    def verified_percentage(
+        self,
+    ) -> float:
+        """
+        Calculate the percentage of verified users.
+
+        Returns
+        -------
+        float
+            Verified-user percentage rounded to two decimals.
+        """
+
+        total = self.total_users()
+
+        if total == 0:
+            return 0.0
+
+        verified = self.total_verified_users()
+
+        return round(
+            (verified / total) * 100,
+            2,
+        )
+
+    def unverified_percentage(
+        self,
+    ) -> float:
+        """
+        Calculate the percentage of unverified users.
+
+        Returns
+        -------
+        float
+            Unverified-user percentage rounded to two decimals.
+        """
+
+        total = self.total_users()
+
+        if total == 0:
+            return 0.0
+
+        unverified = self.total_unverified_users()
+
+        return round(
+            (unverified / total) * 100,
+            2,
+        )
+
+    # ======================================================
     # State Changes
     # ======================================================
 
@@ -974,7 +1511,10 @@ class UserRepository(BaseRepository[User]):
         user: User,
     ) -> User:
         """
-        Activate a user account.
+        Persist an active account state.
+
+        The service layer remains responsible for deciding
+        whether activation is allowed.
 
         Parameters
         ----------
@@ -991,7 +1531,6 @@ class UserRepository(BaseRepository[User]):
             "Activating user.",
             extra={
                 "user_id": user.id,
-                "email": user.email,
             },
         )
 
@@ -1004,7 +1543,10 @@ class UserRepository(BaseRepository[User]):
         user: User,
     ) -> User:
         """
-        Deactivate a user account.
+        Persist an inactive account state.
+
+        The service layer remains responsible for deciding
+        whether deactivation is allowed.
 
         Parameters
         ----------
@@ -1021,7 +1563,6 @@ class UserRepository(BaseRepository[User]):
             "Deactivating user.",
             extra={
                 "user_id": user.id,
-                "email": user.email,
             },
         )
 
@@ -1034,7 +1575,7 @@ class UserRepository(BaseRepository[User]):
         user: User,
     ) -> User:
         """
-        Toggle the active status of a user.
+        Toggle the persisted active state of a User.
 
         Parameters
         ----------
@@ -1059,135 +1600,68 @@ class UserRepository(BaseRepository[User]):
 
         return self.update(user)
 
+    def mark_verified(
+        self,
+        user: User,
+    ) -> User:
+        """
+        Persist the verified state of a User.
+
+        The service layer is responsible for the actual
+        email-verification business workflow.
+
+        Parameters
+        ----------
+        user:
+            Existing User ORM instance.
+
+        Returns
+        -------
+        User
+            Updated User instance.
+        """
+
+        logger.debug(
+            "Marking user as verified.",
+            extra={
+                "user_id": user.id,
+            },
+        )
+
+        user.is_verified = True
+
+        return self.update(user)
+
+    def mark_unverified(
+        self,
+        user: User,
+    ) -> User:
+        """
+        Persist the unverified state of a User.
+
+        Parameters
+        ----------
+        user:
+            Existing User ORM instance.
+
+        Returns
+        -------
+        User
+            Updated User instance.
+        """
+
+        logger.debug(
+            "Marking user as unverified.",
+            extra={
+                "user_id": user.id,
+            },
+        )
+
+        user.is_verified = False
+
+        return self.update(user)
+
     # ======================================================
-    # Statistics
-    # ======================================================
-
-    def total_users(
-        self,
-    ) -> int:
-        """
-        Count all users.
-
-        Returns
-        -------
-        int
-            Total number of users.
-        """
-
-        logger.debug(
-            "Counting total users.",
-        )
-
-        return self._execute_count(
-            self._count_statement(
-                self._base_query(),
-            )
-        )
-
-    def total_active_users(
-        self,
-    ) -> int:
-        """
-        Count active users.
-
-        Returns
-        -------
-        int
-            Total number of active users.
-        """
-
-        logger.debug(
-            "Counting total active users.",
-        )
-
-        return self._execute_count(
-            self._count_statement(
-                self._active_query(),
-            )
-        )
-
-    def total_inactive_users(
-        self,
-    ) -> int:
-        """
-        Count inactive users.
-
-        Returns
-        -------
-        int
-            Total number of inactive users.
-        """
-
-        logger.debug(
-            "Counting total inactive users.",
-        )
-
-        return self._execute_count(
-            self._count_statement(
-                self._inactive_query(),
-            )
-        )
-
-    def active_percentage(
-        self,
-    ) -> float:
-        """
-        Calculate the percentage of active users.
-
-        Returns
-        -------
-        float
-            Percentage of active users rounded to
-            two decimal places.
-        """
-
-        logger.debug(
-            "Calculating active user percentage.",
-        )
-
-        total = self.total_users()
-
-        if total == 0:
-            return 0.0
-
-        active = self.total_active_users()
-
-        return round(
-            (active / total) * 100,
-            2,
-        )
-
-    def inactive_percentage(
-        self,
-    ) -> float:
-        """
-        Calculate the percentage of inactive users.
-
-        Returns
-        -------
-        float
-            Percentage of inactive users rounded to
-            two decimal places.
-        """
-
-        logger.debug(
-            "Calculating inactive user percentage.",
-        )
-
-        total = self.total_users()
-
-        if total == 0:
-            return 0.0
-
-        inactive = self.total_inactive_users()
-
-        return round(
-            (inactive / total) * 100,
-            2,
-        )
-        
-        # ======================================================
     # Repository Utilities
     # ======================================================
 
@@ -1225,18 +1699,18 @@ class UserRepository(BaseRepository[User]):
         user: User,
     ) -> User:
         """
-        Attach (merge) a detached User instance into the
-        current SQLAlchemy session.
+        Merge a detached User instance into the current
+        SQLAlchemy session.
 
         Parameters
         ----------
         user:
-            Detached ORM instance.
+            Detached User ORM instance.
 
         Returns
         -------
         User
-            Managed ORM instance.
+            Managed User ORM instance.
         """
 
         logger.debug(
@@ -1255,8 +1729,7 @@ class UserRepository(BaseRepository[User]):
         """
         Persist changes to an existing User.
 
-        Convenience wrapper around
-        :meth:`BaseRepository.update`.
+        Convenience wrapper around BaseRepository.update().
 
         Parameters
         ----------
@@ -1273,7 +1746,6 @@ class UserRepository(BaseRepository[User]):
             "Saving user.",
             extra={
                 "user_id": user.id,
-                "email": user.email,
             },
         )
 
@@ -1284,7 +1756,12 @@ class UserRepository(BaseRepository[User]):
         user: User,
     ) -> None:
         """
-        Remove a User from the database.
+        Permanently remove a User.
+
+        This method intentionally delegates to the generic
+        BaseRepository delete operation. If the application
+        requires soft deletion, the service layer should use
+        the model's soft-delete behavior instead.
 
         Parameters
         ----------
@@ -1296,7 +1773,6 @@ class UserRepository(BaseRepository[User]):
             "Removing user.",
             extra={
                 "user_id": user.id,
-                "email": user.email,
             },
         )
 
@@ -1307,13 +1783,16 @@ class UserRepository(BaseRepository[User]):
         users: list[User],
     ) -> None:
         """
-        Remove multiple users.
+        Permanently remove multiple Users.
 
         Parameters
         ----------
         users:
             Collection of User ORM instances.
         """
+
+        if not users:
+            return
 
         logger.debug(
             "Removing multiple users.",
@@ -1329,11 +1808,7 @@ class UserRepository(BaseRepository[User]):
         user: User,
     ) -> User:
         """
-        Commit pending changes and refresh the entity.
-
-        This is useful when database-side defaults,
-        triggers, or computed columns may have changed
-        after persistence.
+        Commit pending changes and refresh the User entity.
 
         Parameters
         ----------
