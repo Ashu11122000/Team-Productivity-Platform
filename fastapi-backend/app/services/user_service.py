@@ -4,8 +4,7 @@ Enterprise Team Productivity Platform
 FastAPI Backend
 
 Module: app.services.user_service
-Author: Enterprise Engineering Team
-Architecture: Clean Architecture | Service Layer
+Architecture: Clean Architecture | Service Layer | Repository Pattern
 Python: 3.12+
 Framework: FastAPI
 Database: PostgreSQL
@@ -16,61 +15,51 @@ Validation: Pydantic v2
 
 Overview
 --------
-Enterprise business service responsible for all user management operations.
+Enterprise business service responsible for all User management operations.
 
-This service acts as the business layer between the FastAPI routers and the
-repository layer. It coordinates authorization, validation, business rules,
-response mapping, profile management, account lifecycle operations, and
-administrator workflows while delegating all persistence operations to
-``UserRepository``.
+This service acts as the business layer between FastAPI routers and the
+UserRepository.
 
-Authentication responsibilities including:
+The service coordinates:
 
-• User registration
+• User creation
+• User retrieval
+• User profile management
+• User updates
+• Account activation
+• Account deactivation
+• Permanent deletion
+• Administrator workflows
+• User search
+• Pagination
+• User statistics
+• Authorization
+• Business validation
+• Password hashing coordination
+• DTO ↔ ORM transformation
+• Structured logging
+
+Authentication responsibilities remain exclusively inside AuthService.
+
+AuthService owns:
+
 • Login
-• JWT generation
-• Refresh tokens
 • Password verification
+• JWT generation
+• Access tokens
+• Refresh tokens
 • Password reset
+• Authentication workflows
 
-belong exclusively to ``AuthService``.
+UserService owns user-management business rules.
 
-This service intentionally contains **no SQLAlchemy query logic**. Database
-interaction is fully delegated to the repository layer in accordance with
-Clean Architecture and the Repository Pattern.
+The service intentionally contains no SQLAlchemy query construction.
 
-Responsibilities
-----------------
-✓ User creation
-
-✓ User retrieval
-
-✓ User profile management
-
-✓ User updates
-
-✓ Account activation
-
-✓ Account deactivation
-
-✓ Permanent deletion
-
-✓ Administrator operations
-
-✓ User search
-
-✓ Pagination
-
-✓ User statistics
-
-✓ DTO ↔ ORM transformation
-
-✓ Business validation
-
-✓ Structured logging
+All persistence operations are delegated to UserRepository.
 
 Architecture
 ------------
+
 Client
     │
     ▼
@@ -91,139 +80,120 @@ SQLAlchemy ORM
     ▼
 PostgreSQL
 
-The service layer never performs SQLAlchemy queries directly.
-
 Repository Responsibilities
 ---------------------------
 UserRepository is responsible for:
 
-• CRUD operations
-
+• CRUD persistence
+• Email lookup
 • Search
-
 • Pagination
-
-• Filtering
-
 • Sorting
+• Filtering
+• Counts
+• Account-state persistence
+• Repository utilities
+• Soft-delete-aware queries
 
-• Aggregate queries
+The repository does NOT contain:
 
-• Transaction persistence
+• Password hashing
+• Password verification
+• JWT generation
+• Authentication
+• Authorization
+• Duplicate-email policy
+• Role validation
+• Password reset logic
 
 Service Responsibilities
 ------------------------
 UserService is responsible for:
 
 • Business rules
-
 • Authorization
-
 • Role validation
-
-• Profile ownership validation
-
+• Account lifecycle policy
+• Profile ownership
 • Input normalization
-
 • Password hashing coordination
-
-• DTO ↔ ORM mapping
-
+• DTO mapping
 • Administrator workflows
-
 • Statistics orchestration
-
 • Structured logging
 
-Microservice Responsibilities
------------------------------
+Microservice Ownership
+----------------------
 FastAPI owns:
 
 • Authentication
-
 • Users
-
 • Notes
-
-• Open Library Integration
+• Open Library integration
 
 NestJS owns:
 
 • Tasks
-
 • Categories
-
 • Tags
-
 • Notifications
-
 • Analytics
-
 • Dashboard
-
 • Activity Logs
 
-These ownership boundaries must never change.
+These ownership boundaries must remain stable.
 
-Design Principles
------------------
-• SOLID
+Exception Architecture
+-----------------------
+Service methods raise application exceptions.
 
-• Clean Architecture
+They do NOT directly construct HTTP responses.
 
-• Repository Pattern
+Expected flow:
 
-• Service Layer Pattern
+Service
+    ↓
+ApplicationError
+    ↓
+Global Exception Handler
+    ↓
+HTTP Response
 
-• Dependency Inversion
+This keeps business logic independent from the HTTP transport layer.
 
-• Separation of Concerns
+Security
+--------
+Passwords must never be:
 
-• Explicit Type Hints
+• Stored as plaintext
+• Logged
+• Returned in response schemas
 
-• Stateless Business Logic
-
-• Structured Logging
-
-• Enterprise Documentation
+Password hashing is coordinated by this service through the centralized
+security layer.
 
 Thread Safety
 -------------
-This service contains no shared mutable state.
+The service maintains no mutable shared request state.
 
-Every request receives its own SQLAlchemy session through dependency
-injection, making the implementation naturally thread-safe for concurrent
-ASGI applications.
+Repository instances are provided through dependency injection.
 
 Future Extension Points
 -----------------------
-The architecture is intentionally prepared for:
-
-• Distributed caching
+The architecture is prepared for:
 
 • Audit logging
-
 • Domain events
-
-• Event sourcing
-
-• Background workers
-
+• Distributed caching
 • OpenTelemetry tracing
-
-• Metrics collection
-
+• Metrics
 • Message queues
-
-• Identity federation
-
-• SSO integration
-
-• RBAC expansion
-
+• Background workers
 • Multi-tenancy
-
-without requiring changes to the public service API.
+• SSO
+• Identity federation
+• Advanced RBAC
+• Event sourcing
 
 ===============================================================================
 """
@@ -237,18 +207,23 @@ from __future__ import annotations
 from typing import Final, TypeAlias
 
 # =============================================================================
-# Third-Party Imports
-# =============================================================================
-
-from fastapi import HTTPException, status
-
-# =============================================================================
 # Application Core Imports
 # =============================================================================
 
 from app.core.constants import UserRole
 from app.core.logging import get_logger
 from app.core.security import hash_password
+
+# =============================================================================
+# Application Exception Imports
+# =============================================================================
+
+from app.exceptions import (
+    AuthorizationError,
+    EmailAlreadyExistsError,
+    InactiveUserError,
+    UserNotFoundError,
+)
 
 # =============================================================================
 # Domain Model Imports
@@ -303,6 +278,32 @@ MIN_PAGE_SIZE: Final[int] = 1
 
 MIN_PAGE_NUMBER: Final[int] = 1
 
+SUPPORTED_SORT_OPTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "newest",
+        "oldest",
+        "email",
+        "role",
+        "last_login",
+    }
+)
+
+PROTECTED_UPDATE_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "id",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+    }
+)
+
+ADMIN_ONLY_UPDATE_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "role",
+        "is_active",
+    }
+)
+
 # =============================================================================
 # Logging Constants
 # =============================================================================
@@ -342,10 +343,11 @@ PaginatedUserSummaries: TypeAlias = tuple[int, UserSummaryList]
 UserStatistics: TypeAlias = dict[str, int]
 
 # =============================================================================
-# Module Logger
+# Logger
 # =============================================================================
 
 logger = get_logger(__name__)
+
 
 # =============================================================================
 # User Service
@@ -354,204 +356,36 @@ logger = get_logger(__name__)
 
 class UserService:
     """
-    Enterprise service responsible for all user-related business operations.
+    Enterprise service responsible for User business operations.
 
-    This service represents the business layer between the FastAPI routing
-    layer and the persistence layer. It coordinates business rules,
-    authorization, account lifecycle management, profile updates,
-    administrator workflows, response transformation, and validation while
-    delegating all persistence operations to ``UserRepository``.
+    This class coordinates business rules and delegates persistence to
+    UserRepository.
 
-    Authentication responsibilities remain exclusively within AuthService.
+    Authentication remains outside this service.
 
     -----------------------------------------------------------------------
-    Architecture
+    Core Responsibilities
     -----------------------------------------------------------------------
 
-        HTTP Request
-              │
-              ▼
-        FastAPI Router
-              │
-              ▼
-        Authentication Dependency
-              │
-              ▼
-        UserService
-              │
-              ▼
-        UserRepository
-              │
-              ▼
-        SQLAlchemy ORM
-              │
-              ▼
-        PostgreSQL
-
-    Routers
-    -------
-    Responsible for:
-
-    • Request parsing
-
-    • Dependency injection
-
-    • Authentication dependencies
-
-    • Calling service methods
-
-    • Returning API responses
-
-    This service
-    ------------
-    Responsible for:
-
-    • User business logic
-
-    • Authorization
-
-    • Account lifecycle
-
-    • Profile ownership validation
-
-    • Business validation
-
-    • Password hashing coordination
-
-    • DTO ↔ ORM mapping
-
-    • Pagination orchestration
-
+    • User creation
+    • User retrieval
+    • User updates
+    • Profile management
+    • Account activation
+    • Account deactivation
+    • User deletion
     • Administrator operations
-
-    • User statistics
-
-    • Structured logging
-
-    Repository
-    ----------
-    Responsible for:
-
-    • CRUD operations
-
     • Search
-
     • Pagination
-
-    • Filtering
-
-    • Sorting
-
-    • Aggregate queries
-
-    • Transaction persistence
-
-    -----------------------------------------------------------------------
-    Responsibilities
-    -----------------------------------------------------------------------
-
-    ✓ User creation
-
-    ✓ User retrieval
-
-    ✓ User profile management
-
-    ✓ User updates
-
-    ✓ User activation
-
-    ✓ User deactivation
-
-    ✓ User deletion
-
-    ✓ User search
-
-    ✓ Administrator operations
-
-    ✓ User statistics
-
-    ✓ DTO mapping
-
-    ✓ Business validation
-
-    ✓ Audit-ready logging
-
-    -----------------------------------------------------------------------
-    Design Principles
-    -----------------------------------------------------------------------
-
-    • SOLID
-
-    • Clean Architecture
-
-    • Repository Pattern
-
-    • Service Layer Pattern
-
-    • Dependency Inversion
-
-    • Separation of Concerns
-
-    • Explicit Type Hints
-
-    • Stateless Design
-
-    • Structured Logging
-
-    • Enterprise Documentation
-
-    -----------------------------------------------------------------------
-    Future Extension Points
-    -----------------------------------------------------------------------
-
-    The service is intentionally designed for future support of:
-
-    • Audit logging
-
-    • Domain events
-
-    • OpenTelemetry tracing
-
-    • Distributed caching
-
-    • Message queues
-
-    • Multi-tenancy
-
-    • Identity federation
-
-    • SSO
-
-    • Advanced RBAC
-
-    • Event sourcing
-
-    • Background workers
-
-    without requiring changes to the public API.
+    • Statistics
+    • Authorization
+    • DTO transformation
+    • Password hashing coordination
     """
 
-    # =====================================================================
-    # Constructor
-    # =====================================================================
-
-    def __init__(
-        self,
-        user_repository: UserRepository,
-    ) -> None:
-        """
-        Initialize the service.
-
-        Parameters
-        ----------
-        user_repository:
-            Repository responsible for all user persistence operations.
-        """
-        self.user_repository = user_repository
-
-    # =====================================================================
+    # =========================================================================
     # Service Metadata
-    # =====================================================================
+    # =========================================================================
 
     SERVICE_NAME: Final[str] = "UserService"
 
@@ -559,9 +393,9 @@ class UserService:
 
     DOMAIN_NAME: Final[str] = "users"
 
-    # =====================================================================
-    # Pagination Defaults
-    # =====================================================================
+    # =========================================================================
+    # Pagination
+    # =========================================================================
 
     DEFAULT_PAGE: Final[int] = DEFAULT_PAGE
 
@@ -573,17 +407,19 @@ class UserService:
 
     MIN_PAGE_SIZE: Final[int] = MIN_PAGE_SIZE
 
-    # =====================================================================
-    # Role Constants
-    # =====================================================================
+    MIN_PAGE_NUMBER: Final[int] = MIN_PAGE_NUMBER
+
+    # =========================================================================
+    # Roles
+    # =========================================================================
 
     USER_ROLE: Final[str] = DEFAULT_USER_ROLE
 
     ADMIN_ROLE: Final[str] = ADMIN_ROLE
 
-    # =====================================================================
-    # Logging Prefixes
-    # =====================================================================
+    # =========================================================================
+    # Logging
+    # =========================================================================
 
     LOG_CREATE: Final[str] = LOG_CREATE
 
@@ -605,50 +441,59 @@ class UserService:
 
     LOG_ADMIN: Final[str] = LOG_ADMIN
 
-    # =====================================================================
-    # Private Helper Sections
-    # =====================================================================
+    # =========================================================================
+    # Constructor
+    # =========================================================================
 
-    # Repository helpers
+    def __init__(
+        self,
+        user_repository: UserRepository,
+    ) -> None:
+        """
+        Initialize UserService.
 
-    # Authorization helpers
+        Parameters
+        ----------
+        user_repository:
+            Injected UserRepository responsible for persistence.
+        """
+        self.user_repository = user_repository
 
-    # Validation helpers
+        logger.debug(
+            "UserService initialized.",
+            extra={
+                "service": self.SERVICE_NAME,
+                "version": self.SERVICE_VERSION,
+                "domain": self.DOMAIN_NAME,
+                "repository": user_repository.__class__.__name__,
+            },
+        )
 
-    # Response builders
-
-    # Pagination helpers
-
-    # Profile helpers
-
-    # Statistics helpers
-
-    # Utility helpers
-        # =====================================================================
-    # Repository Helpers
-    # =====================================================================
+    # =========================================================================
+    # Repository Helper
+    # =========================================================================
 
     def _repository(self) -> UserRepository:
         """
-        Return the configured repository instance.
+        Return the configured repository.
 
         Returns
         -------
         UserRepository
-            Repository responsible for all persistence operations.
+            Injected repository instance.
         """
         return self.user_repository
 
-    # =====================================================================
-    # Authorization Helpers
-    # =====================================================================
+    # =========================================================================
+    # Role Helpers
+    # =========================================================================
 
     def _is_admin(
         self,
         user: User,
     ) -> bool:
         """
-        Determine whether a user has administrator privileges.
+        Determine whether a user is an administrator.
 
         Parameters
         ----------
@@ -658,92 +503,25 @@ class UserService:
         Returns
         -------
         bool
-            True if the user is an administrator.
+            True when the user has administrator privileges.
         """
-        return user.role == self.ADMIN_ROLE
+        role = user.role
 
-    def _require_admin(
-        self,
-        current_user: User,
-    ) -> User:
-        """
-        Ensure the authenticated user has administrator privileges.
+        if isinstance(role, UserRole):
+            return role.value == self.ADMIN_ROLE
 
-        Parameters
-        ----------
-        current_user:
-            Authenticated user.
+        return str(role) == self.ADMIN_ROLE
 
-        Returns
-        -------
-        User
-            Administrator user.
-
-        Raises
-        ------
-        HTTPException
-            If administrator privileges are missing.
-        """
-        self._require_active_user(current_user)
-
-        if self._is_admin(current_user):
-            return current_user
-
-        logger.warning(
-            "%s | user_id=%s email=%s",
-            self.LOG_ADMIN,
-            current_user.id,
-            current_user.email,
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrator privileges are required.",
-        )
-
-    # =====================================================================
-    # Validation Helpers
-    # =====================================================================
-
-    def _require_user(
-        self,
-        user_id: int,
-    ) -> User:
-        """
-        Retrieve a user or raise HTTP 404.
-
-        Parameters
-        ----------
-        user_id:
-            Target user identifier.
-
-        Returns
-        -------
-        User
-            Existing ORM model.
-        """
-        user = self._repository().get_by_id(user_id)
-
-        if user is not None:
-            return user
-
-        logger.warning(
-            "%s | user_id=%s not found",
-            self.LOG_READ,
-            user_id,
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
-        )
+    # =========================================================================
+    # Active Account Validation
+    # =========================================================================
 
     def _require_active_user(
         self,
         user: User,
     ) -> User:
         """
-        Ensure a user account is active.
+        Ensure that a user account is active.
 
         Parameters
         ----------
@@ -754,6 +532,11 @@ class UserService:
         -------
         User
             Active user.
+
+        Raises
+        ------
+        InactiveUserError
+            If the account is inactive.
         """
         if user.is_active:
             return user
@@ -764,69 +547,255 @@ class UserService:
             user.id,
         )
 
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive.",
+        raise InactiveUserError()
+
+    # =========================================================================
+    # Administrator Authorization
+    # =========================================================================
+
+    def _require_admin(
+        self,
+        current_user: User,
+    ) -> User:
+        """
+        Ensure the current user is an administrator.
+
+        Parameters
+        ----------
+        current_user:
+            Authenticated user.
+
+        Returns
+        -------
+        User
+            Authenticated administrator.
+
+        Raises
+        ------
+        InactiveUserError
+            If the administrator account is inactive.
+
+        AuthorizationError
+            If the current user is not an administrator.
+        """
+        self._require_active_user(
+            current_user,
         )
 
-    # =====================================================================
-    # Response Builders
-    # =====================================================================
+        if self._is_admin(current_user):
+            return current_user
 
-    def _build_user_response(
+        logger.warning(
+            "%s denied | user_id=%s",
+            self.LOG_ADMIN,
+            current_user.id,
+        )
+
+        raise AuthorizationError()
+
+    # =========================================================================
+    # User Ownership Authorization
+    # =========================================================================
+
+    def _require_self_or_admin(
         self,
+        *,
+        current_user: User,
+        target_user: User,
+    ) -> None:
+        """
+        Ensure the current user can modify the target user.
+
+        Users may modify themselves.
+
+        Administrators may modify any user.
+
+        Parameters
+        ----------
+        current_user:
+            Authenticated actor.
+
+        target_user:
+            User being modified.
+
+        Raises
+        ------
+        AuthorizationError
+            If access is not permitted.
+        """
+        if current_user.id == target_user.id:
+            return
+
+        if self._is_admin(current_user):
+            return
+
+        logger.warning(
+            "%s denied | actor_id=%s target_id=%s",
+            self.LOG_UPDATE,
+            current_user.id,
+            target_user.id,
+        )
+
+        raise AuthorizationError()
+
+    # =========================================================================
+    # User Retrieval
+    # =========================================================================
+
+    def _require_user(
+        self,
+        user_id: int,
+    ) -> User:
+        """
+        Retrieve a user or raise UserNotFoundError.
+
+        Parameters
+        ----------
+        user_id:
+            User identifier.
+
+        Returns
+        -------
+        User
+            Existing User ORM model.
+
+        Raises
+        ------
+        UserNotFoundError
+            If the user does not exist.
+        """
+        user = self._repository().get_by_id(
+            user_id,
+        )
+
+        if user is not None:
+            return user
+
+        logger.warning(
+            "%s | user_id=%s not found",
+            self.LOG_READ,
+            user_id,
+        )
+
+        raise UserNotFoundError()
+
+    # =========================================================================
+    # Response Builders
+    # =========================================================================
+
+    @staticmethod
+    def _build_user_response(
         user: User,
     ) -> UserResponse:
         """
-        Convert a User ORM model into a UserResponse DTO.
-        """
-        return UserResponse.model_validate(user)
+        Convert User ORM model into UserResponse.
 
+        Password hashes are intentionally excluded because UserResponse
+        does not expose password storage fields.
+        """
+        return UserResponse.model_validate(
+            user,
+        )
+
+    @staticmethod
     def _build_user_summary(
-        self,
         user: User,
     ) -> UserSummary:
         """
-        Convert a User ORM model into a UserSummary DTO.
+        Convert User ORM model into lightweight UserSummary.
         """
-        return UserSummary.model_validate(user)
+        return UserSummary.model_validate(
+            user,
+        )
 
+    @classmethod
     def _build_user_responses(
-        self,
+        cls,
         users: list[User],
     ) -> UserResponseList:
         """
-        Convert multiple ORM models into response DTOs.
+        Convert multiple User ORM models into response DTOs.
         """
         return [
-            self._build_user_response(user)
+            cls._build_user_response(user)
             for user in users
         ]
 
+    @classmethod
     def _build_user_summaries(
-        self,
+        cls,
         users: list[User],
     ) -> UserSummaryList:
         """
-        Convert multiple ORM models into summary DTOs.
+        Convert multiple User ORM models into summary DTOs.
         """
         return [
-            self._build_user_summary(user)
+            cls._build_user_summary(user)
             for user in users
         ]
 
-    # =====================================================================
+    # =========================================================================
     # Pagination Helpers
-    # =====================================================================
+    # =========================================================================
 
+    @classmethod
+    def _normalize_page(
+        cls,
+        page: int,
+    ) -> int:
+        """
+        Normalize a one-based page number.
+
+        Parameters
+        ----------
+        page:
+            Requested page.
+
+        Returns
+        -------
+        int
+            Valid page number.
+        """
+        return max(
+            page,
+            cls.MIN_PAGE_NUMBER,
+        )
+
+    @classmethod
+    def _normalize_limit(
+        cls,
+        limit: int,
+    ) -> int:
+        """
+        Normalize a requested page size.
+
+        Parameters
+        ----------
+        limit:
+            Requested page size.
+
+        Returns
+        -------
+        int
+            Page size bounded by service limits.
+        """
+        return min(
+            max(
+                limit,
+                cls.MIN_PAGE_SIZE,
+            ),
+            cls.MAX_PAGE_SIZE,
+        )
+
+    @classmethod
     def _calculate_offset(
-        self,
+        cls,
         *,
         page: int,
         limit: int,
     ) -> int:
         """
-        Calculate SQL pagination offset.
+        Calculate SQL OFFSET from page and limit.
 
         Parameters
         ----------
@@ -839,55 +808,98 @@ class UserService:
         Returns
         -------
         int
-            SQL OFFSET value.
+            Zero-based offset.
         """
-        page = max(page, self.MIN_PAGE_NUMBER)
-        limit = max(
-            self.MIN_PAGE_SIZE,
-            min(limit, self.MAX_PAGE_SIZE),
+        normalized_page = cls._normalize_page(
+            page,
         )
 
-        return (page - 1) * limit
+        normalized_limit = cls._normalize_limit(
+            limit,
+        )
 
-    # =====================================================================
-    # Update Helpers
-    # =====================================================================
+        return (
+            normalized_page - 1
+        ) * normalized_limit
+
+    # =========================================================================
+    # Sorting Helpers
+    # =========================================================================
+
+    @classmethod
+    def _normalize_sort_order(
+        cls,
+        sort_by: str | None,
+    ) -> str:
+        """
+        Normalize the requested sorting strategy.
+
+        Supported repository values are:
+
+        • newest
+        • oldest
+        • email
+        • role
+        • last_login
+
+        Parameters
+        ----------
+        sort_by:
+            Requested sorting strategy.
+
+        Returns
+        -------
+        str
+            Supported sorting strategy.
+        """
+        if not sort_by:
+            return DEFAULT_SORT_ORDER
+
+        normalized = sort_by.strip().lower()
+
+        if normalized in SUPPORTED_SORT_OPTIONS:
+            return normalized
+
+        return DEFAULT_SORT_ORDER
+
+    # =========================================================================
+    # Update Data Normalization
+    # =========================================================================
 
     def _normalize_update_data(
         self,
         user_data: UserUpdate,
     ) -> dict[str, object]:
         """
-        Normalize update payload before persistence.
+        Normalize UserUpdate data.
 
-        - Removes unset values.
-        - Removes None values.
-        - Prevents modification of protected fields.
-        - Trims string values.
+        Responsibilities
+        ----------------
+        • Exclude fields that were not supplied.
+        • Exclude None values.
+        • Remove protected persistence fields.
+        • Trim string values.
 
         Parameters
         ----------
         user_data:
-            Incoming update schema.
+            Incoming update DTO.
 
         Returns
         -------
         dict[str, object]
-            Sanitized update payload.
+            Normalized update dictionary.
         """
         update_data = user_data.model_dump(
             exclude_unset=True,
             exclude_none=True,
         )
 
-        protected_fields = {
-            "id",
-            "created_at",
-            "updated_at",
-        }
-
-        for field in protected_fields:
-            update_data.pop(field, None)
+        for field in PROTECTED_UPDATE_FIELDS:
+            update_data.pop(
+                field,
+                None,
+            )
 
         for field, value in update_data.items():
             if isinstance(value, str):
@@ -895,59 +907,65 @@ class UserService:
 
         return update_data
 
-    # =====================================================================
-    # End Helper Methods
-    # =====================================================================
-        # =====================================================================
-    # User Creation
-    # =====================================================================
+    # =========================================================================
+    # Create User
+    # =========================================================================
 
     def create_user(
         self,
         user_data: UserCreate,
     ) -> UserResponse:
         """
-        Create a new user account.
+        Create a new user.
 
         Business Rules
         --------------
         • Email must be unique.
-        • Password is hashed before persistence.
+        • Password must be hashed.
         • New users receive the default USER role.
-        • Accounts are active by default.
+        • New users are active.
+
+        Authentication workflows such as JWT generation remain outside this
+        service.
 
         Parameters
         ----------
         user_data:
-            User registration information.
+            User creation payload.
 
         Returns
         -------
         UserResponse
             Newly created user.
+
+        Raises
+        ------
+        EmailAlreadyExistsError
+            If the email is already registered.
         """
-        logger.info(
-            "%s | email=%s",
-            self.LOG_CREATE,
+        email = str(
             user_data.email,
+        ).strip().lower()
+
+        logger.info(
+            "%s | user creation requested",
+            self.LOG_CREATE,
         )
 
         repository = self._repository()
 
-        if repository.email_exists(user_data.email):
+        if repository.email_exists(
+            email,
+        ):
             logger.warning(
-                "%s | duplicate email=%s",
+                "%s | duplicate email attempt",
                 self.LOG_CREATE,
-                user_data.email,
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email is already registered.",
-            )
+            raise EmailAlreadyExistsError()
 
         user = User(
-            email=user_data.email.strip(),
+            email=email,
             hashed_password=hash_password(
                 user_data.password,
             ),
@@ -955,10 +973,12 @@ class UserService:
             is_active=True,
         )
 
-        created_user = repository.create(user)
+        created_user = repository.create(
+            user,
+        )
 
         logger.info(
-            "%s completed | id=%s",
+            "%s completed | user_id=%s",
             self.LOG_CREATE,
             created_user.id,
         )
@@ -967,9 +987,9 @@ class UserService:
             created_user,
         )
 
-    # =====================================================================
-    # User Retrieval
-    # =====================================================================
+    # =========================================================================
+    # Get User By ID
+    # =========================================================================
 
     def get_user_by_id(
         self,
@@ -986,9 +1006,15 @@ class UserService:
         Returns
         -------
         UserResponse
+            Requested user.
+
+        Raises
+        ------
+        UserNotFoundError
+            If the user does not exist.
         """
         logger.info(
-            "%s | id=%s",
+            "%s | user_id=%s",
             self.LOG_READ,
             user_id,
         )
@@ -1001,6 +1027,10 @@ class UserService:
             user,
         )
 
+    # =========================================================================
+    # Get User By Email
+    # =========================================================================
+
     def get_user_by_email(
         self,
         email: str,
@@ -1011,41 +1041,46 @@ class UserService:
         Parameters
         ----------
         email:
-            User email.
+            User email address.
 
         Returns
         -------
         UserResponse
+            Matching user.
+
+        Raises
+        ------
+        UserNotFoundError
+            If the user does not exist.
         """
         logger.info(
-            "%s | email=%s",
+            "%s | email lookup requested",
             self.LOG_READ,
-            email,
+        )
+
+        normalized_email = (
+            email.strip().lower()
         )
 
         user = self._repository().get_by_email(
-            email.strip(),
+            normalized_email,
         )
 
         if user is None:
             logger.warning(
-                "%s | email=%s not found",
+                "%s | user not found by email",
                 self.LOG_READ,
-                email,
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found.",
-            )
+            raise UserNotFoundError()
 
         return self._build_user_response(
             user,
         )
 
-    # =====================================================================
+    # =========================================================================
     # Current User
-    # =====================================================================
+    # =========================================================================
 
     def get_current_user(
         self,
@@ -1062,9 +1097,10 @@ class UserService:
         Returns
         -------
         UserResponse
+            Current user.
         """
         logger.info(
-            "%s | current_user=%s",
+            "%s | current user | user_id=%s",
             self.LOG_READ,
             current_user.id,
         )
@@ -1077,16 +1113,16 @@ class UserService:
             current_user,
         )
 
-    # =====================================================================
-    # Internal Utility
-    # =====================================================================
+    # =========================================================================
+    # Email Existence
+    # =========================================================================
 
     def email_exists(
         self,
         email: str,
     ) -> bool:
         """
-        Determine whether an email address is already registered.
+        Determine whether an email is registered.
 
         Parameters
         ----------
@@ -1096,15 +1132,19 @@ class UserService:
         Returns
         -------
         bool
+            True if the email exists.
         """
-        return self._repository().email_exists(
-            email.strip(),
+        normalized_email = (
+            email.strip().lower()
         )
-    
-    
-        # =====================================================================
-    # User Update
-    # =====================================================================
+
+        return self._repository().email_exists(
+            normalized_email,
+        )
+
+    # =========================================================================
+    # Update User
+    # =========================================================================
 
     def update_user(
         self,
@@ -1114,81 +1154,63 @@ class UserService:
         user_data: UserUpdate,
     ) -> UserResponse:
         """
-        Update an existing user profile.
+        Update a user profile.
 
-        Business Rules
-        --------------
+        Authorization Rules
+        --------------------
         • Users may update their own profile.
-        • Administrators may update any profile.
+        • Administrators may update any user.
+        • Only administrators may change role.
+        • Only administrators may change is_active.
+        • Passwords are hashed before persistence.
         • Email addresses must remain unique.
-        • Passwords are always stored as hashes.
-        • Protected fields cannot be modified.
-        • Only supplied fields are updated.
 
         Parameters
         ----------
         current_user:
-            Currently authenticated user.
+            Authenticated actor.
 
         user_id:
             Target user identifier.
 
         user_data:
-            Incoming update payload.
+            Update payload.
 
         Returns
         -------
         UserResponse
-            Updated user profile.
+            Updated user.
 
         Raises
         ------
-        HTTPException
-            If the user does not exist.
+        UserNotFoundError
+            If the target user does not exist.
 
-        HTTPException
-            If the authenticated user is not authorized.
+        AuthorizationError
+            If the actor is not permitted to perform the operation.
 
-        HTTPException
-            If the email address already exists.
+        EmailAlreadyExistsError
+            If the requested email belongs to another user.
         """
         logger.info(
-            "%s | actor=%s target=%s",
+            "%s | actor_id=%s target_id=%s",
             self.LOG_UPDATE,
             current_user.id,
             user_id,
+        )
+
+        self._require_active_user(
+            current_user,
         )
 
         user = self._require_user(
             user_id,
         )
 
-        # ================================================================
-        # Authorization
-        # ================================================================
-
-        if (
-            current_user.id != user.id
-            and not self._is_admin(current_user)
-        ):
-            logger.warning(
-                "%s denied | actor=%s target=%s",
-                self.LOG_UPDATE,
-                current_user.id,
-                user.id,
-            )
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "You are not authorized "
-                    "to update this user."
-                ),
-            )
-
-        # ================================================================
-        # Normalize Update Payload
-        # ================================================================
+        self._require_self_or_admin(
+            current_user=current_user,
+            target_user=user,
+        )
 
         update_data = self._normalize_update_data(
             user_data,
@@ -1196,16 +1218,44 @@ class UserService:
 
         repository = self._repository()
 
-        # ================================================================
-        # Email Validation
-        # ================================================================
+        is_admin = self._is_admin(
+            current_user,
+        )
 
-        email = update_data.get("email")
+        # =====================================================================
+        # Administrator-Only Fields
+        # =====================================================================
 
-        if isinstance(email, str):
+        restricted_fields = (
+            ADMIN_ONLY_UPDATE_FIELDS
+            & update_data.keys()
+        )
+
+        if restricted_fields and not is_admin:
+            logger.warning(
+                "%s denied | restricted_fields=%s actor_id=%s",
+                self.LOG_UPDATE,
+                sorted(restricted_fields),
+                current_user.id,
+            )
+
+            raise AuthorizationError()
+
+        # =====================================================================
+        # Email Update
+        # =====================================================================
+
+        email = update_data.get(
+            "email",
+        )
+
+        if email is not None:
+            normalized_email = (
+                str(email).strip().lower()
+            )
 
             existing_user = repository.get_by_email(
-                email,
+                normalized_email,
             )
 
             if (
@@ -1213,47 +1263,88 @@ class UserService:
                 and existing_user.id != user.id
             ):
                 logger.warning(
-                    "%s duplicate email=%s",
+                    "%s | duplicate email during update",
                     self.LOG_UPDATE,
-                    email,
                 )
 
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Email is already registered.",
-                )
+                raise EmailAlreadyExistsError()
 
-        # ================================================================
-        # Password Hashing
-        # ================================================================
+            user.email = normalized_email
 
-        password = update_data.pop(
+        # =====================================================================
+        # Password Update
+        # =====================================================================
+
+        password = update_data.get(
             "password",
-            None,
         )
 
         if password is not None:
             user.hashed_password = hash_password(
-                password,
+                str(password),
             )
 
-        # ================================================================
-        # Apply Updates
-        # ================================================================
+        # =====================================================================
+        # Role Update
+        # =====================================================================
+
+        if "role" in update_data:
+            user.role = update_data["role"]
+
+        # =====================================================================
+        # Active State Update
+        # =====================================================================
+
+        if "is_active" in update_data:
+            user.is_active = update_data[
+                "is_active"
+            ]
+
+        # =====================================================================
+        # Remove Fields Already Applied Explicitly
+        # =====================================================================
+
+        update_data.pop(
+            "email",
+            None,
+        )
+
+        update_data.pop(
+            "password",
+            None,
+        )
+
+        update_data.pop(
+            "role",
+            None,
+        )
+
+        update_data.pop(
+            "is_active",
+            None,
+        )
+
+        # =====================================================================
+        # Apply Any Future Supported Fields
+        # =====================================================================
 
         for field, value in update_data.items():
-            setattr(
+            if hasattr(
                 user,
                 field,
-                value,
-            )
+            ):
+                setattr(
+                    user,
+                    field,
+                    value,
+                )
 
         updated_user = repository.update(
             user,
         )
 
         logger.info(
-            "%s completed | id=%s",
+            "%s completed | user_id=%s",
             self.LOG_UPDATE,
             updated_user.id,
         )
@@ -1262,12 +1353,9 @@ class UserService:
             updated_user,
         )
 
-    # =====================================================================
-    # End User Update
-    # =====================================================================
-        # =====================================================================
-    # User Listing
-    # =====================================================================
+    # =========================================================================
+    # List Users
+    # =========================================================================
 
     def list_users(
         self,
@@ -1275,11 +1363,12 @@ class UserService:
         current_user: User,
         page: int = DEFAULT_PAGE,
         limit: int = DEFAULT_PAGE_SIZE,
+        sort_by: str = DEFAULT_SORT_ORDER,
     ) -> PaginatedUsers:
         """
         Retrieve paginated users.
 
-        Administrator only.
+        Administrator authorization is required.
 
         Parameters
         ----------
@@ -1290,31 +1379,52 @@ class UserService:
             One-based page number.
 
         limit:
-            Maximum number of records.
+            Number of records per page.
+
+        sort_by:
+            newest | oldest | email | role | last_login
 
         Returns
         -------
         PaginatedUsers
+            Tuple containing total count and current-page users.
         """
-        logger.info(
-            "%s | page=%s limit=%s",
-            self.LOG_LIST,
+        self._require_admin(
+            current_user,
+        )
+
+        normalized_page = self._normalize_page(
             page,
+        )
+
+        normalized_limit = self._normalize_limit(
             limit,
         )
 
-        self._require_admin(current_user)
+        normalized_sort = self._normalize_sort_order(
+            sort_by,
+        )
+
+        offset = self._calculate_offset(
+            page=normalized_page,
+            limit=normalized_limit,
+        )
+
+        logger.info(
+            "%s | admin_id=%s page=%s limit=%s sort=%s",
+            self.LOG_LIST,
+            current_user.id,
+            normalized_page,
+            normalized_limit,
+            normalized_sort,
+        )
 
         repository = self._repository()
 
-        offset = self._calculate_offset(
-            page=page,
-            limit=limit,
-        )
-
         users = repository.list_users(
             skip=offset,
-            limit=limit,
+            limit=normalized_limit,
+            sort_by=normalized_sort,
         )
 
         total = repository.total_users()
@@ -1328,12 +1438,14 @@ class UserService:
 
         return (
             total,
-            self._build_user_responses(users),
+            self._build_user_responses(
+                users,
+            ),
         )
 
-    # =====================================================================
+    # =========================================================================
     # Active Users
-    # =====================================================================
+    # =========================================================================
 
     def list_active_users(
         self,
@@ -1341,11 +1453,12 @@ class UserService:
         current_user: User,
         page: int = DEFAULT_PAGE,
         limit: int = DEFAULT_PAGE_SIZE,
+        sort_by: str = DEFAULT_SORT_ORDER,
     ) -> PaginatedUserSummaries:
         """
-        Retrieve active users.
+        Retrieve paginated active users.
 
-        Administrator only.
+        Administrator authorization is required.
 
         Parameters
         ----------
@@ -1356,48 +1469,63 @@ class UserService:
             One-based page number.
 
         limit:
-            Maximum records.
+            Number of records per page.
+
+        sort_by:
+            newest | oldest | email | role | last_login
 
         Returns
         -------
         PaginatedUserSummaries
+            Total count and current-page summaries.
         """
-        logger.info(
-            "%s | active users",
-            self.LOG_LIST,
+        self._require_admin(
+            current_user,
         )
 
-        self._require_admin(current_user)
+        normalized_page = self._normalize_page(
+            page,
+        )
+
+        normalized_limit = self._normalize_limit(
+            limit,
+        )
+
+        normalized_sort = self._normalize_sort_order(
+            sort_by,
+        )
+
+        offset = self._calculate_offset(
+            page=normalized_page,
+            limit=normalized_limit,
+        )
+
+        logger.info(
+            "%s | active users | admin_id=%s",
+            self.LOG_LIST,
+            current_user.id,
+        )
 
         repository = self._repository()
 
-        offset = self._calculate_offset(
-            page=page,
-            limit=limit,
-        )
-
-        users = repository.get_active_users(
+        users = repository.list_active_users(
             skip=offset,
-            limit=limit,
+            limit=normalized_limit,
+            sort_by=normalized_sort,
         )
 
         total = repository.total_active_users()
 
-        logger.info(
-            "%s completed | active=%s returned=%s",
-            self.LOG_LIST,
-            total,
-            len(users),
-        )
-
         return (
             total,
-            self._build_user_summaries(users),
+            self._build_user_summaries(
+                users,
+            ),
         )
 
-    # =====================================================================
-    # User Search
-    # =====================================================================
+    # =========================================================================
+    # Search Users
+    # =========================================================================
 
     def search_users(
         self,
@@ -1406,11 +1534,17 @@ class UserService:
         query: str,
         page: int = DEFAULT_PAGE,
         limit: int = DEFAULT_PAGE_SIZE,
+        sort_by: str = DEFAULT_SORT_ORDER,
     ) -> UserSummaryList:
         """
         Search users.
 
-        Administrator only.
+        Administrator authorization is required.
+
+        The current repository searches supported User fields such as:
+
+        • email
+        • role
 
         Parameters
         ----------
@@ -1424,31 +1558,54 @@ class UserService:
             One-based page number.
 
         limit:
-            Maximum records.
+            Number of records per page.
+
+        sort_by:
+            newest | oldest | email | role | last_login
 
         Returns
         -------
         UserSummaryList
+            Matching user summaries.
         """
-        logger.info(
-            "%s | query=%s",
-            self.LOG_SEARCH,
-            query,
+        self._require_admin(
+            current_user,
         )
 
-        self._require_admin(current_user)
+        normalized_page = self._normalize_page(
+            page,
+        )
+
+        normalized_limit = self._normalize_limit(
+            limit,
+        )
+
+        normalized_sort = self._normalize_sort_order(
+            sort_by,
+        )
+
+        offset = self._calculate_offset(
+            page=normalized_page,
+            limit=normalized_limit,
+        )
+
+        normalized_query = query.strip()
+
+        logger.info(
+            "%s | admin_id=%s page=%s limit=%s",
+            self.LOG_SEARCH,
+            current_user.id,
+            normalized_page,
+            normalized_limit,
+        )
 
         repository = self._repository()
 
-        offset = self._calculate_offset(
-            page=page,
-            limit=limit,
-        )
-
         users = repository.search(
-            query=query.strip(),
+            query=normalized_query,
             skip=offset,
-            limit=limit,
+            limit=normalized_limit,
+            sort_by=normalized_sort,
         )
 
         logger.info(
@@ -1461,9 +1618,45 @@ class UserService:
             users,
         )
 
-    # =====================================================================
+    # =========================================================================
+    # Search User Count
+    # =========================================================================
+
+    def search_user_count(
+        self,
+        *,
+        current_user: User,
+        query: str,
+    ) -> int:
+        """
+        Count users matching a search query.
+
+        Administrator authorization is required.
+
+        Parameters
+        ----------
+        current_user:
+            Authenticated administrator.
+
+        query:
+            Search keyword.
+
+        Returns
+        -------
+        int
+            Number of matching users.
+        """
+        self._require_admin(
+            current_user,
+        )
+
+        return self._repository().search_count(
+            query=query.strip(),
+        )
+
+    # =========================================================================
     # User Statistics
-    # =====================================================================
+    # =========================================================================
 
     def get_statistics(
         self,
@@ -1473,53 +1666,48 @@ class UserService:
         """
         Retrieve user statistics.
 
-        Administrator only.
-
-        Parameters
-        ----------
-        current_user:
-            Authenticated administrator.
+        Administrator authorization is required.
 
         Returns
         -------
         UserStatistics
+            User account statistics.
+
+        Statistics
+        ----------
+        total_users
+        active_users
+        inactive_users
         """
-        logger.info(
-            "%s",
-            self.LOG_STATISTICS,
+        self._require_admin(
+            current_user,
         )
 
-        self._require_admin(current_user)
+        logger.info(
+            "%s | admin_id=%s",
+            self.LOG_STATISTICS,
+            current_user.id,
+        )
 
         repository = self._repository()
 
-        total_users = repository.total_users()
-
-        active_users = repository.total_active_users()
-
-        inactive_users = (
-            total_users - active_users
-        )
-
         statistics: UserStatistics = {
-            "total_users": total_users,
-            "active_users": active_users,
-            "inactive_users": inactive_users,
+            "total_users": repository.total_users(),
+            "active_users": repository.total_active_users(),
+            "inactive_users": repository.total_inactive_users(),
         }
 
         logger.info(
-            "%s completed",
+            "%s completed | admin_id=%s",
             self.LOG_STATISTICS,
+            current_user.id,
         )
 
         return statistics
 
-    # =====================================================================
-    # End Administrator Operations
-    # =====================================================================
-        # =====================================================================
+    # =========================================================================
     # Account Activation
-    # =====================================================================
+    # =========================================================================
 
     def activate_user(
         self,
@@ -1530,13 +1718,9 @@ class UserService:
         """
         Activate a user account.
 
-        Administrator only.
+        Administrator authorization is required.
 
-        Business Rules
-        --------------
-        • Only administrators may activate users.
-        • Activating an already active account is a no-op.
-        • Returns the current state of the account.
+        Activating an already active account is intentionally idempotent.
 
         Parameters
         ----------
@@ -1549,16 +1733,18 @@ class UserService:
         Returns
         -------
         UserResponse
+            Activated user.
         """
-        logger.info(
-            "%s | target=%s",
-            self.LOG_ACTIVATE,
-            user_id,
+        self._require_admin(
+            current_user,
         )
 
-        self._require_admin(current_user)
-
-        repository = self._repository()
+        logger.info(
+            "%s | admin_id=%s target_id=%s",
+            self.LOG_ACTIVATE,
+            current_user.id,
+            user_id,
+        )
 
         user = self._require_user(
             user_id,
@@ -1566,7 +1752,7 @@ class UserService:
 
         if user.is_active:
             logger.info(
-                "%s skipped | already active | id=%s",
+                "%s skipped | already active | user_id=%s",
                 self.LOG_ACTIVATE,
                 user.id,
             )
@@ -1575,12 +1761,14 @@ class UserService:
                 user,
             )
 
-        activated_user = repository.activate(
-            user,
+        activated_user = (
+            self._repository().activate(
+                user,
+            )
         )
 
         logger.info(
-            "%s completed | id=%s",
+            "%s completed | user_id=%s",
             self.LOG_ACTIVATE,
             activated_user.id,
         )
@@ -1589,9 +1777,9 @@ class UserService:
             activated_user,
         )
 
-    # =====================================================================
+    # =========================================================================
     # Account Deactivation
-    # =====================================================================
+    # =========================================================================
 
     def deactivate_user(
         self,
@@ -1602,13 +1790,9 @@ class UserService:
         """
         Deactivate a user account.
 
-        Administrator only.
+        Administrator authorization is required.
 
-        Business Rules
-        --------------
-        • Only administrators may deactivate users.
-        • Administrators cannot deactivate themselves.
-        • Deactivating an already inactive account is a no-op.
+        Administrators cannot deactivate themselves.
 
         Parameters
         ----------
@@ -1621,30 +1805,32 @@ class UserService:
         Returns
         -------
         UserResponse
-        """
-        logger.info(
-            "%s | target=%s",
-            self.LOG_DEACTIVATE,
-            user_id,
-        )
+            Deactivated user.
 
+        Raises
+        ------
+        AuthorizationError
+            If the administrator attempts self-deactivation.
+        """
         self._require_admin(
             current_user,
         )
 
+        logger.info(
+            "%s | admin_id=%s target_id=%s",
+            self.LOG_DEACTIVATE,
+            current_user.id,
+            user_id,
+        )
+
         if current_user.id == user_id:
             logger.warning(
-                "%s denied | self deactivation | id=%s",
+                "%s denied | self-deactivation | user_id=%s",
                 self.LOG_DEACTIVATE,
                 current_user.id,
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="You cannot deactivate your own account.",
-            )
-
-        repository = self._repository()
+            raise AuthorizationError()
 
         user = self._require_user(
             user_id,
@@ -1652,7 +1838,7 @@ class UserService:
 
         if not user.is_active:
             logger.info(
-                "%s skipped | already inactive | id=%s",
+                "%s skipped | already inactive | user_id=%s",
                 self.LOG_DEACTIVATE,
                 user.id,
             )
@@ -1661,12 +1847,14 @@ class UserService:
                 user,
             )
 
-        deactivated_user = repository.deactivate(
-            user,
+        deactivated_user = (
+            self._repository().deactivate(
+                user,
+            )
         )
 
         logger.info(
-            "%s completed | id=%s",
+            "%s completed | user_id=%s",
             self.LOG_DEACTIVATE,
             deactivated_user.id,
         )
@@ -1675,9 +1863,9 @@ class UserService:
             deactivated_user,
         )
 
-    # =====================================================================
+    # =========================================================================
     # Permanent User Deletion
-    # =====================================================================
+    # =========================================================================
 
     def delete_user(
         self,
@@ -1686,15 +1874,11 @@ class UserService:
         user_id: int,
     ) -> None:
         """
-        Permanently delete a user account.
+        Permanently delete a user.
 
-        Administrator only.
+        Administrator authorization is required.
 
-        Business Rules
-        --------------
-        • Only administrators may delete users.
-        • Administrators cannot delete themselves.
-        • Deletion is permanent.
+        Administrators cannot delete themselves.
 
         Parameters
         ----------
@@ -1703,80 +1887,62 @@ class UserService:
 
         user_id:
             Target user identifier.
-        """
-        logger.info(
-            "%s | target=%s",
-            self.LOG_DELETE,
-            user_id,
-        )
 
+        Raises
+        ------
+        AuthorizationError
+            If the administrator attempts self-deletion.
+
+        UserNotFoundError
+            If the target user does not exist.
+        """
         self._require_admin(
             current_user,
         )
 
+        logger.info(
+            "%s | admin_id=%s target_id=%s",
+            self.LOG_DELETE,
+            current_user.id,
+            user_id,
+        )
+
         if current_user.id == user_id:
             logger.warning(
-                "%s denied | self deletion | id=%s",
+                "%s denied | self-deletion | user_id=%s",
                 self.LOG_DELETE,
                 current_user.id,
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="You cannot delete your own account.",
-            )
-
-        repository = self._repository()
+            raise AuthorizationError()
 
         user = self._require_user(
             user_id,
         )
 
-        repository.delete(
+        self._repository().remove(
             user,
         )
 
         logger.info(
-            "%s completed | id=%s",
+            "%s completed | user_id=%s",
             self.LOG_DELETE,
             user.id,
         )
-        
-        # =====================================================================
-    # Utility Methods
-    # =====================================================================
 
-    def email_exists(
-        self,
-        email: str,
-    ) -> bool:
-        """
-        Determine whether an email address is already registered.
-
-        Parameters
-        ----------
-        email:
-            Email address to verify.
-
-        Returns
-        -------
-        bool
-            True if the email exists.
-        """
-        return self._repository().email_exists(
-            email.strip(),
-        )
+    # =========================================================================
+    # ORM Model Access
+    # =========================================================================
 
     def get_user_model(
         self,
         user_id: int,
     ) -> User:
         """
-        Retrieve the underlying ORM model.
+        Retrieve the User ORM model.
 
-        This method is intended for internal service-to-service
-        communication where the complete SQLAlchemy model is required
-        instead of a response DTO.
+        This method is intended for internal backend workflows that genuinely
+        require the ORM entity.
 
         Parameters
         ----------
@@ -1786,15 +1952,15 @@ class UserService:
         Returns
         -------
         User
-            SQLAlchemy ORM model.
+            User ORM model.
 
         Raises
         ------
-        HTTPException
+        UserNotFoundError
             If the user does not exist.
         """
-        logger.info(
-            "%s | get ORM model | id=%s",
+        logger.debug(
+            "%s | ORM model requested | user_id=%s",
             self.LOG_READ,
             user_id,
         )
@@ -1803,9 +1969,9 @@ class UserService:
             user_id,
         )
 
-    # =====================================================================
+    # =========================================================================
     # Validation Helpers
-    # =====================================================================
+    # =========================================================================
 
     def validate_admin(
         self,
@@ -1814,9 +1980,6 @@ class UserService:
         """
         Validate administrator privileges.
 
-        This helper is primarily intended for other services that
-        need administrator authorization without duplicating logic.
-
         Parameters
         ----------
         current_user:
@@ -1824,8 +1987,8 @@ class UserService:
 
         Raises
         ------
-        HTTPException
-            If administrator privileges are missing.
+        AuthorizationError
+            If the user is not an administrator.
         """
         self._require_admin(
             current_user,
@@ -1845,16 +2008,16 @@ class UserService:
 
         Raises
         ------
-        HTTPException
+        InactiveUserError
             If the account is inactive.
         """
         self._require_active_user(
             user,
         )
 
-    # =====================================================================
+    # =========================================================================
     # Service Metadata
-    # =====================================================================
+    # =========================================================================
 
     @classmethod
     def service_name(
@@ -1862,10 +2025,6 @@ class UserService:
     ) -> str:
         """
         Return the service name.
-
-        Returns
-        -------
-        str
         """
         return cls.SERVICE_NAME
 
@@ -1875,9 +2034,5 @@ class UserService:
     ) -> str:
         """
         Return the service version.
-
-        Returns
-        -------
-        str
         """
         return cls.SERVICE_VERSION

@@ -29,210 +29,178 @@ Validation:
 
 Overview
 --------
-Enterprise authentication service responsible for all authentication and
+Enterprise authentication service responsible for authentication and
 authorization business logic.
 
-This service coordinates user authentication, registration, credential
-validation, JWT generation, password management, token validation, and user
-identity verification while delegating all persistence operations to
-``UserRepository``.
+This service coordinates:
 
-This module intentionally contains **no SQLAlchemy query logic**.
+• User registration
+• User authentication
+• Credential validation
+• JWT access-token generation
+• Password verification
+• Password changes
+• Current-user retrieval
+• JWT identity validation
+• Administrator validation
+• DTO ↔ ORM transformation
+• Structured logging
 
-All database interaction is delegated to the repository layer according to
-Clean Architecture and the Repository Pattern.
+All persistence operations are delegated to UserRepository.
 
-Responsibilities
-----------------
-✓ User registration
+This service intentionally contains no SQLAlchemy query logic.
 
-✓ User authentication
+Authentication Ownership
+------------------------
+FastAPI is the single source of truth for authentication and JWT generation.
 
-✓ Credential validation
+NestJS consumes and validates the JWT contract issued by FastAPI.
 
-✓ JWT access token generation
+Authentication ownership must remain inside FastAPI.
 
-✓ Refresh token generation
+Exception Architecture
+-----------------------
+Service methods raise application-level exceptions.
 
-✓ Password verification
+They do not construct HTTP responses directly.
 
-✓ Password changes
+Expected flow:
 
-✓ Current user retrieval
-
-✓ JWT payload validation
-
-✓ User identity validation
-
-✓ Administrator validation
-
-✓ DTO ↔ ORM transformation
-
-✓ Structured logging
-
-Architecture
-------------
-Client
-    │
-    ▼
-FastAPI Router
-    │
-    ▼
-Authentication Dependency
-    │
-    ▼
 AuthService
-    │
-    ▼
-UserRepository
-    │
-    ▼
-SQLAlchemy ORM
-    │
-    ▼
-PostgreSQL
+    ↓
+ApplicationError
+    ↓
+Global Exception Handler
+    ↓
+HTTP Response
+
+This keeps authentication business logic independent from
+the HTTP transport layer.
+
+Password Security
+-----------------
+Passwords are handled through the centralized security layer.
+
+The service never:
+
+• Stores plaintext passwords
+• Logs plaintext passwords
+• Returns password hashes
+• Implements hashing algorithms directly
+
+The security layer owns the hashing implementation.
+
+JWT Security
+------------
+JWT creation is delegated to app.core.security.create_access_token().
+
+The service is responsible for deciding:
+
+• Which user identity is placed into the token
+• Which role is included
+• When a token may be issued
+• Whether the account is active
+
+The security layer is responsible for:
+
+• JWT encoding
+• JWT claims construction
+• Cryptographic signing
+• Token expiration
+• JWT validation
 
 Repository Responsibilities
 ---------------------------
 UserRepository is responsible for:
 
-• CRUD operations
-
-• User retrieval
-
+• User persistence
+• User lookup
 • Email lookup
-
+• CRUD operations
 • Transaction persistence
-
-• User updates
 
 Service Responsibilities
 ------------------------
 AuthService is responsible for:
 
 • Registration
-
 • Login
-
-• Password validation
-
+• Credential verification
 • Password hashing coordination
-
-• JWT generation
-
-• Refresh token generation
-
+• JWT generation orchestration
+• Active-account validation
 • User identity validation
-
-• Active account validation
-
 • Administrator validation
-
-• Response mapping
-
 • Business rules
-
+• DTO mapping
 • Structured logging
 
-Microservice Responsibilities
------------------------------
+Microservice Ownership
+----------------------
 FastAPI owns:
 
 • Authentication
-
+• Authorization
+• JWT generation
 • Users
-
 • Notes
-
-• Open Library Integration
+• Open Library integration
 
 NestJS owns:
 
 • Tasks
-
 • Categories
-
 • Tags
-
 • Notifications
-
 • Analytics
-
 • Dashboard
-
 • Activity Logs
-
-Authentication must always remain owned by FastAPI.
 
 Design Principles
 -----------------
 • SOLID
-
 • Clean Architecture
-
 • Repository Pattern
-
 • Service Layer Pattern
-
 • Dependency Inversion
-
 • Separation of Concerns
-
 • Explicit Type Hints
-
 • Stateless Design
-
-• Enterprise Documentation
-
 • Structured Logging
+• Security First
 
 Thread Safety
 -------------
-This service contains no shared mutable state.
+The service contains no shared mutable request state.
 
-Every request receives an independent SQLAlchemy session through dependency
-injection, making the implementation naturally thread-safe for concurrent
-ASGI applications.
+Repository dependencies are injected into the service.
 
 Future Extension Points
 -----------------------
-The architecture is intentionally prepared for:
+The architecture is prepared for:
 
 • Refresh token rotation
-
+• Refresh token revocation
 • Token blacklisting
-
-• OAuth2 providers
-
+• OAuth2
 • Google Login
-
 • GitHub Login
-
 • Microsoft Login
-
-• Single Sign-On (SSO)
-
-• Multi-factor Authentication (MFA)
-
+• SSO
+• MFA
 • Email verification
-
 • Password reset
-
 • Account lockout
-
+• Login throttling
+• Session management
+• Device management
 • Audit logging
-
 • Domain events
-
-• OpenTelemetry tracing
-
-• Metrics collection
-
+• OpenTelemetry
+• Metrics
 • Distributed caching
-
 • Message queues
-
-without requiring changes to the public service API.
+• Multi-tenancy
 
 ===============================================================================
 """
@@ -245,12 +213,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import Final, TypeAlias
-
-# =============================================================================
-# Third-Party Imports
-# =============================================================================
-
-from fastapi import HTTPException, status
 
 # =============================================================================
 # Application Configuration
@@ -271,7 +233,19 @@ from app.core.security import (
 )
 
 # =============================================================================
-# Domain Models
+# Application Exception Imports
+# =============================================================================
+
+from app.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    EmailAlreadyExistsError,
+    InactiveUserError,
+    UserNotFoundError,
+)
+
+# =============================================================================
+# Domain Model Imports
 # =============================================================================
 
 from app.models.user import User
@@ -301,15 +275,6 @@ from app.schemas.token import (
     CurrentUser,
     JWTClaims,
     TokenPayload,
-)
-
-# =============================================================================
-# User Schemas
-# =============================================================================
-
-from app.schemas.user import (
-    UserCreate,
-    UserResponse,
 )
 
 # =============================================================================
@@ -371,10 +336,11 @@ JWTIdentity: TypeAlias = JWTClaims
 DecodedToken: TypeAlias = TokenPayload
 
 # =============================================================================
-# Module Logger
+# Logger
 # =============================================================================
 
 logger = get_logger(__name__)
+
 
 # =============================================================================
 # Authentication Service
@@ -385,313 +351,24 @@ class AuthService:
     """
     Enterprise authentication and authorization service.
 
-    This service represents the business layer responsible for all
-    authentication-related workflows. It coordinates registration,
-    authentication, password management, JWT generation, token validation,
-    identity verification, and authorization while delegating persistence
-    operations to ``UserRepository``.
+    This service represents the authentication business layer.
 
-    The service intentionally contains **no SQLAlchemy query logic**.
-    All persistence operations are delegated to the repository layer in
-    accordance with Clean Architecture and the Repository Pattern.
+    It coordinates:
 
-    -----------------------------------------------------------------------
-    Architecture
-    -----------------------------------------------------------------------
-
-        HTTP Request
-              │
-              ▼
-        FastAPI Router
-              │
-              ▼
-        Authentication Dependency
-              │
-              ▼
-          AuthService
-              │
-              ▼
-        UserRepository
-              │
-              ▼
-        SQLAlchemy ORM
-              │
-              ▼
-          PostgreSQL
-
-    Routers
-    -------
-    Responsible for:
-
-    • Request validation
-
-    • Dependency injection
-
-    • Authentication dependencies
-
-    • Invoking service methods
-
-    • Returning HTTP responses
-
-    This Service
-    ------------
-    Responsible for:
-
-    • User registration
-
-    • User authentication
-
+    • Registration
+    • Login
     • Credential verification
-
-    • JWT access token generation
-
-    • Refresh token generation
-
-    • Password hashing coordination
-
-    • Password changes
-
-    • Current user retrieval
-
-    • JWT payload validation
-
-    • Identity verification
-
-    • Active account validation
-
+    • Password management
+    • JWT generation
+    • Current-user retrieval
+    • JWT identity validation
     • Administrator validation
 
-    • DTO ↔ ORM mapping
+    Persistence is delegated completely to UserRepository.
 
-    • Business rule enforcement
-
-    • Structured logging
-
-    Repository
-    ----------
-    Responsible for:
-
-    • User persistence
-
-    • CRUD operations
-
-    • User lookup
-
-    • Email lookup
-
-    • Database transactions
-
-    • ORM lifecycle management
-
-    -----------------------------------------------------------------------
-    Responsibilities
-    -----------------------------------------------------------------------
-
-    ✓ User registration
-
-    ✓ User authentication
-
-    ✓ Login
-
-    ✓ JWT access token generation
-
-    ✓ Refresh token generation
-
-    ✓ Password verification
-
-    ✓ Password changes
-
-    ✓ Current user retrieval
-
-    ✓ JWT claims validation
-
-    ✓ Token payload validation
-
-    ✓ Active user validation
-
-    ✓ Administrator validation
-
-    ✓ DTO transformation
-
-    ✓ Business validation
-
-    ✓ Structured logging
-
-    -----------------------------------------------------------------------
-    Microservice Responsibilities
-    -----------------------------------------------------------------------
-
-    FastAPI owns:
-
-    • Authentication
-
-    • Authorization
-
-    • JWT generation
-
-    • Refresh tokens
-
-    • User management
-
-    • Notes
-
-    • Open Library integration
-
-    NestJS owns:
-
-    • Tasks
-
-    • Categories
-
-    • Tags
-
-    • Notifications
-
-    • Dashboard
-
-    • Analytics
-
-    • Activity Logs
-
-    Authentication responsibilities must always remain inside the FastAPI
-    service to preserve a single source of truth for user identity and
-    security.
-
-    -----------------------------------------------------------------------
-    Design Principles
-    -----------------------------------------------------------------------
-
-    • SOLID
-
-    • Clean Architecture
-
-    • Repository Pattern
-
-    • Service Layer Pattern
-
-    • Dependency Inversion
-
-    • Separation of Concerns
-
-    • Explicit Type Hints
-
-    • Stateless Design
-
-    • Enterprise Documentation
-
-    • Structured Logging
-
-    • Security First
-
-    -----------------------------------------------------------------------
-    Security Principles
-    -----------------------------------------------------------------------
-
-    This service follows several security practices:
-
-    • Passwords are never stored in plain text.
-
-    • Password verification always uses secure hashing.
-
-    • JWT tokens contain only required claims.
-
-    • Authentication failures never expose sensitive information.
-
-    • Disabled accounts cannot authenticate.
-
-    • Authorization is validated before privileged operations.
-
-    • Business validation occurs before persistence.
-
-    -----------------------------------------------------------------------
-    Thread Safety
-    -----------------------------------------------------------------------
-
-    This service contains no shared mutable state.
-
-    Every request receives an independent SQLAlchemy session through
-    dependency injection, making the implementation naturally thread-safe
-    under concurrent ASGI workloads.
-
-    -----------------------------------------------------------------------
-    Future Extension Points
-    -----------------------------------------------------------------------
-
-    The architecture is intentionally designed for future support of:
-
-    • Refresh token rotation
-
-    • Refresh token revocation
-
-    • Token blacklisting
-
-    • OAuth2 providers
-
-    • Google authentication
-
-    • GitHub authentication
-
-    • Microsoft authentication
-
-    • Single Sign-On (SSO)
-
-    • Multi-factor Authentication (MFA)
-
-    • Email verification
-
-    • Password reset
-
-    • Account recovery
-
-    • Account lockout policies
-
-    • Login attempt throttling
-
-    • Session management
-
-    • Device management
-
-    • Audit logging
-
-    • Domain events
-
-    • Distributed caching
-
-    • OpenTelemetry tracing
-
-    • Metrics collection
-
-    • Message queues
-
-    • Multi-tenancy
-
-    without requiring changes to the public service API.
+    HTTP response construction is delegated to the global exception
+    handling layer.
     """
-    
-        # =========================================================================
-    # Constructor
-    # =========================================================================
-
-    def __init__(
-        self,
-        user_repository: UserRepository,
-    ) -> None:
-        """
-        Initialize the authentication service.
-
-        Parameters
-        ----------
-        user_repository:
-            Repository responsible for all user persistence
-            and retrieval operations.
-
-        Notes
-        -----
-        This service is intentionally stateless. The repository
-        instance is injected through FastAPI's dependency
-        injection system.
-        """
-        self.user_repository = user_repository
 
     # =========================================================================
     # Service Metadata
@@ -714,7 +391,7 @@ class AuthService:
     )
 
     # =========================================================================
-    # Default Roles
+    # Roles
     # =========================================================================
 
     DEFAULT_USER_ROLE: Final[str] = DEFAULT_USER_ROLE
@@ -722,7 +399,7 @@ class AuthService:
     ADMIN_ROLE: Final[str] = ADMIN_ROLE
 
     # =========================================================================
-    # Logging Prefixes
+    # Logging
     # =========================================================================
 
     LOG_REGISTER: Final[str] = LOG_REGISTER
@@ -746,7 +423,57 @@ class AuthService:
     LOG_TOKEN: Final[str] = LOG_TOKEN
 
     # =========================================================================
-    # Properties
+    # Constructor
+    # =========================================================================
+
+    def __init__(
+        self,
+        user_repository: UserRepository,
+    ) -> None:
+        """
+        Initialize AuthService.
+
+        Parameters
+        ----------
+        user_repository:
+            Repository responsible for user persistence and lookup.
+
+        Notes
+        -----
+        The service is stateless and receives its repository through
+        dependency injection.
+        """
+        self.user_repository = user_repository
+
+        logger.debug(
+            "AuthService initialized.",
+            extra={
+                "service": self.SERVICE_NAME,
+                "version": self.SERVICE_VERSION,
+                "domain": self.DOMAIN_NAME,
+                "repository": (
+                    user_repository.__class__.__name__
+                ),
+            },
+        )
+
+    # =========================================================================
+    # Repository Helper
+    # =========================================================================
+
+    def _repository(self) -> UserRepository:
+        """
+        Return the configured repository instance.
+
+        Returns
+        -------
+        UserRepository
+            Injected repository.
+        """
+        return self.user_repository
+
+    # =========================================================================
+    # Token Properties
     # =========================================================================
 
     @property
@@ -754,56 +481,40 @@ class AuthService:
         self,
     ) -> int:
         """
-        Return the configured JWT access-token lifetime.
+        Return the configured access-token lifetime.
 
         Returns
         -------
         int
-            Token lifetime in seconds.
+            Access-token lifetime in seconds.
         """
-        return self.ACCESS_TOKEN_EXPIRY_MINUTES * 60
+        return (
+            self.ACCESS_TOKEN_EXPIRY_MINUTES
+            * 60
+        )
 
     # =========================================================================
-    # Private Helper Sections
+    # Email Normalization
     # =========================================================================
 
-    # Repository helpers
-
-    # Authentication helpers
-
-    # Authorization helpers
-
-    # Password helpers
-
-    # JWT helpers
-
-    # Response builders
-
-    # Validation helpers
-
-    # User lookup helpers
-
-    # Utility helpers
-
-    # Health helpers
-    
-        # =========================================================================
-    # Repository Helpers
-    # =========================================================================
-
-    def _repository(self) -> UserRepository:
+    @staticmethod
+    def _normalize_email(
+        email: str,
+    ) -> str:
         """
-        Return the configured repository instance.
+        Normalize an email address before repository operations.
 
-        This helper centralizes repository access, making future migration
-        to dependency injection containers or repository interfaces easier.
+        Parameters
+        ----------
+        email:
+            User email.
 
         Returns
         -------
-        UserRepository
-            Repository responsible for all user persistence operations.
+        str
+            Normalized email.
         """
-        return self.user_repository
+        return email.strip().lower()
 
     # =========================================================================
     # User Lookup Helpers
@@ -814,36 +525,46 @@ class AuthService:
         email: str,
     ) -> User | None:
         """
-        Retrieve a user by email address.
+        Retrieve a user by email.
 
         Parameters
         ----------
         email:
-            User email address.
+            User email.
 
         Returns
         -------
         User | None
-            Matching user if found; otherwise ``None``.
+            Matching user, if found.
         """
-        return self._repository().get_by_email(
-            email.strip(),
+        normalized_email = (
+            self._normalize_email(email)
         )
 
-    def _require_user(
+        return self._repository().get_by_email(
+            normalized_email,
+        )
+
+    # =========================================================================
+    # Authentication User Lookup
+    # =========================================================================
+
+    def _require_authentication_user(
         self,
         email: str,
     ) -> User:
         """
-        Retrieve a user by email or raise an authentication error.
+        Retrieve the user required for authentication.
 
-        This helper is intentionally used during authentication workflows
-        where the existence of the account should not be disclosed.
+        A generic AuthenticationError is raised when the user does not exist.
+
+        This prevents authentication workflows from exposing whether an
+        email address is registered.
 
         Parameters
         ----------
         email:
-            User email address.
+            User email.
 
         Returns
         -------
@@ -852,8 +573,8 @@ class AuthService:
 
         Raises
         ------
-        HTTPException
-            If the user cannot be found.
+        AuthenticationError
+            If no user exists for the supplied email.
         """
         user = self._get_user_by_email(
             email,
@@ -863,18 +584,55 @@ class AuthService:
             return user
 
         logger.warning(
-            "%s | unknown email=%s",
+            "%s | authentication failed | unknown account",
             self.LOG_AUTHENTICATE,
-            email,
         )
 
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
-        )
+        raise AuthenticationError()
 
     # =========================================================================
-    # Validation Helpers
+    # User Retrieval Helper
+    # =========================================================================
+
+    def _require_user(
+        self,
+        user_id: int,
+    ) -> User:
+        """
+        Retrieve a user by identifier.
+
+        Parameters
+        ----------
+        user_id:
+            User identifier.
+
+        Returns
+        -------
+        User
+            Existing user.
+
+        Raises
+        ------
+        UserNotFoundError
+            If the user does not exist.
+        """
+        user = self._repository().get_by_id(
+            user_id,
+        )
+
+        if user is not None:
+            return user
+
+        logger.warning(
+            "%s | user_id=%s not found",
+            self.LOG_VALIDATE,
+            user_id,
+        )
+
+        raise UserNotFoundError()
+
+    # =========================================================================
+    # Active User Validation
     # =========================================================================
 
     def _require_active_user(
@@ -896,29 +654,22 @@ class AuthService:
 
         Raises
         ------
-        HTTPException
+        InactiveUserError
             If the account is inactive.
         """
         if user.is_active:
             return user
 
         logger.warning(
-            "%s | inactive account | user_id=%s email=%s",
+            "%s | inactive account | user_id=%s",
             self.LOG_AUTHENTICATE,
             user.id,
-            user.email,
         )
 
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive.",
-        )
+        raise InactiveUserError()
 
     # =========================================================================
-    # End Repository & Validation Helpers
-    # =========================================================================
-        # =========================================================================
-    # Password Helpers
+    # Credential Verification
     # =========================================================================
 
     def _verify_credentials(
@@ -928,7 +679,7 @@ class AuthService:
         hashed_password: str,
     ) -> None:
         """
-        Validate user credentials.
+        Verify a password against its stored hash.
 
         Parameters
         ----------
@@ -940,7 +691,7 @@ class AuthService:
 
         Raises
         ------
-        HTTPException
+        AuthenticationError
             If password verification fails.
         """
         if verify_password(
@@ -950,17 +701,14 @@ class AuthService:
             return
 
         logger.warning(
-            "%s | invalid password supplied",
+            "%s | password verification failed",
             self.LOG_VALIDATE,
         )
 
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
-        )
+        raise AuthenticationError()
 
     # =========================================================================
-    # JWT Helpers
+    # JWT Generation
     # =========================================================================
 
     def _generate_access_token(
@@ -968,7 +716,7 @@ class AuthService:
         user: User,
     ) -> str:
         """
-        Generate a JWT access token.
+        Generate a JWT access token for a user.
 
         Parameters
         ----------
@@ -988,10 +736,12 @@ class AuthService:
 
         return create_access_token(
             user_id=str(user.id),
-            email=user.email,
-            role=user.role,
+            email=str(user.email),
+            role=str(user.role),
             expires_delta=timedelta(
-                minutes=self.ACCESS_TOKEN_EXPIRY_MINUTES,
+                minutes=(
+                    self.ACCESS_TOKEN_EXPIRY_MINUTES
+                ),
             ),
         )
 
@@ -999,46 +749,43 @@ class AuthService:
     # Response Builders
     # =========================================================================
 
+    @staticmethod
     def _build_user_response(
-        self,
         user: User,
-    ) -> UserResponse:
+    ):
         """
-        Convert a User ORM model into a UserResponse DTO.
+        Convert a User ORM model into UserResponse.
 
-        Parameters
-        ----------
-        user:
-            SQLAlchemy ORM model.
-
-        Returns
-        -------
-        UserResponse
+        The UserResponse schema intentionally excludes sensitive password
+        storage fields.
         """
+        from app.schemas.user import UserResponse
+
         return UserResponse.model_validate(
             user,
         )
 
+    @staticmethod
     def _build_current_user(
-        self,
         user: User,
     ) -> CurrentUser:
         """
-        Convert a User ORM model into a CurrentUser DTO.
+        Convert a User ORM model into CurrentUser.
 
         Parameters
         ----------
         user:
-            SQLAlchemy ORM model.
+            User ORM model.
 
         Returns
         -------
         CurrentUser
+            Current authenticated-user representation.
         """
         return CurrentUser(
             id=user.id,
             email=user.email,
-            role=user.role,
+            role=str(user.role),
             is_active=user.is_active,
         )
 
@@ -1049,7 +796,7 @@ class AuthService:
         access_token: str,
     ) -> AuthenticationResult:
         """
-        Construct the standard authentication response.
+        Build the standard authentication response.
 
         Parameters
         ----------
@@ -1057,11 +804,12 @@ class AuthService:
             Authenticated user.
 
         access_token:
-            Newly generated JWT.
+            JWT access token.
 
         Returns
         -------
         AuthenticationResult
+            Authentication response.
         """
         return AuthResponse(
             access_token=access_token,
@@ -1073,7 +821,7 @@ class AuthService:
         )
 
     # =========================================================================
-    # Authorization Helpers
+    # Authorization
     # =========================================================================
 
     def _is_admin(
@@ -1091,15 +839,28 @@ class AuthService:
         Returns
         -------
         bool
+            True when the user is an administrator.
         """
-        return user.role == self.ADMIN_ROLE
+        role = user.role
+
+        if isinstance(
+            role,
+            UserRole,
+        ):
+            return role.value == self.ADMIN_ROLE
+
+        return str(role) == self.ADMIN_ROLE
+
+    # =========================================================================
+    # Administrator Validation
+    # =========================================================================
 
     def _require_admin(
         self,
         user: User,
     ) -> User:
         """
-        Validate administrator privileges.
+        Ensure a user has administrator privileges.
 
         Parameters
         ----------
@@ -1113,8 +874,11 @@ class AuthService:
 
         Raises
         ------
-        HTTPException
-            If administrator privileges are missing.
+        InactiveUserError
+            If the account is inactive.
+
+        AuthorizationError
+            If the user is not an administrator.
         """
         self._require_active_user(
             user,
@@ -1124,22 +888,14 @@ class AuthService:
             return user
 
         logger.warning(
-            "%s | user_id=%s email=%s",
+            "%s denied | user_id=%s",
             self.LOG_ADMIN,
             user.id,
-            user.email,
         )
 
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrator privileges are required.",
-        )
+        raise AuthorizationError()
 
     # =========================================================================
-    # End Helper Methods
-    # =========================================================================
-    
-        # =========================================================================
     # Registration
     # =========================================================================
 
@@ -1155,9 +911,8 @@ class AuthService:
         • Email addresses must be unique.
         • Passwords are hashed before persistence.
         • New users receive the default USER role.
-        • Accounts are active by default.
-        • Successful registration immediately returns
-          a valid JWT access token.
+        • New accounts are active.
+        • Successful registration returns an access token.
 
         Parameters
         ----------
@@ -1167,30 +922,33 @@ class AuthService:
         Returns
         -------
         AuthenticationResult
-            Authentication response containing the
-            JWT access token and user information.
+            Authentication response.
+
+        Raises
+        ------
+        EmailAlreadyExistsError
+            If the email is already registered.
         """
+        email = self._normalize_email(
+            str(request.email),
+        )
+
         logger.info(
-            "%s | email=%s",
+            "%s | registration requested",
             self.LOG_REGISTER,
-            request.email,
         )
 
         repository = self._repository()
 
-        email = request.email.strip()
-
-        if repository.email_exists(email):
+        if repository.email_exists(
+            email,
+        ):
             logger.warning(
-                "%s | duplicate email=%s",
+                "%s | duplicate registration attempt",
                 self.LOG_REGISTER,
-                email,
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email is already registered.",
-            )
+            raise EmailAlreadyExistsError()
 
         user = User(
             email=email,
@@ -1205,8 +963,10 @@ class AuthService:
             user,
         )
 
-        access_token = self._generate_access_token(
-            created_user,
+        access_token = (
+            self._generate_access_token(
+                created_user,
+            )
         )
 
         logger.info(
@@ -1231,13 +991,7 @@ class AuthService:
         password: str,
     ) -> User:
         """
-        Authenticate a user.
-
-        Business Rules
-        --------------
-        • Email must exist.
-        • Account must be active.
-        • Password must be valid.
+        Authenticate a user using email and password.
 
         Parameters
         ----------
@@ -1250,16 +1004,23 @@ class AuthService:
         Returns
         -------
         User
-            Authenticated ORM model.
+            Authenticated user.
+
+        Raises
+        ------
+        AuthenticationError
+            If the credentials are invalid.
+
+        InactiveUserError
+            If the account is inactive.
         """
         logger.info(
-            "%s | email=%s",
+            "%s | authentication requested",
             self.LOG_AUTHENTICATE,
-            email,
         )
 
-        user = self._require_user(
-            email.strip(),
+        user = self._require_authentication_user(
+            email,
         )
 
         self._require_active_user(
@@ -1290,13 +1051,6 @@ class AuthService:
         """
         Authenticate a user and issue a JWT access token.
 
-        Business Rules
-        --------------
-        • User credentials must be valid.
-        • Only active users may log in.
-        • A new JWT access token is generated for
-          every successful login.
-
         Parameters
         ----------
         request:
@@ -1305,22 +1059,30 @@ class AuthService:
         Returns
         -------
         AuthenticationResult
-            Authentication response containing the
-            access token and authenticated user.
+            Access token and authenticated user.
+
+        Raises
+        ------
+        AuthenticationError
+            If the credentials are invalid.
+
+        InactiveUserError
+            If the account is inactive.
         """
         logger.info(
-            "%s | email=%s",
+            "%s | login requested",
             self.LOG_LOGIN,
-            request.email,
         )
 
         user = self.authenticate_user(
-            email=request.email,
+            email=str(request.email),
             password=request.password,
         )
 
-        access_token = self._generate_access_token(
-            user,
+        access_token = (
+            self._generate_access_token(
+                user,
+            )
         )
 
         logger.info(
@@ -1335,11 +1097,7 @@ class AuthService:
         )
 
     # =========================================================================
-    # End Registration & Authentication
-    # =========================================================================
-    
-        # =========================================================================
-    # Password Management
+    # Change Password
     # =========================================================================
 
     def change_password(
@@ -1347,16 +1105,16 @@ class AuthService:
         *,
         user: User,
         request: ChangePasswordRequest,
-    ) -> UserResponse:
+    ):
         """
         Change the authenticated user's password.
 
         Business Rules
         --------------
+        • Account must be active.
         • Current password must be valid.
-        • New password must differ from the current password.
-        • Passwords are always stored as hashes.
-        • User information is returned after the update.
+        • New password must differ from current password.
+        • New password is hashed before persistence.
 
         Parameters
         ----------
@@ -1369,15 +1127,24 @@ class AuthService:
         Returns
         -------
         UserResponse
-            Updated user information.
+            Updated user.
+
+        Raises
+        ------
+        InactiveUserError
+            If the account is inactive.
+
+        AuthenticationError
+            If the current password is invalid.
+
+        AuthorizationError
+            If the new password is identical to the current password.
         """
         logger.info(
             "%s | user_id=%s",
             self.LOG_CHANGE_PASSWORD,
             user.id,
         )
-
-        repository = self._repository()
 
         self._require_active_user(
             user,
@@ -1393,24 +1160,18 @@ class AuthService:
             user.hashed_password,
         ):
             logger.warning(
-                "%s | identical password | user_id=%s",
+                "%s denied | same password | user_id=%s",
                 self.LOG_CHANGE_PASSWORD,
                 user.id,
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "New password must be different "
-                    "from the current password."
-                ),
-            )
+            raise AuthorizationError()
 
         user.hashed_password = hash_password(
             request.new_password,
         )
 
-        updated_user = repository.update(
+        updated_user = self._repository().update(
             user,
         )
 
@@ -1445,6 +1206,14 @@ class AuthService:
         -------
         UserIdentity
             Current authenticated user.
+
+        Raises
+        ------
+        UserNotFoundError
+            If the user no longer exists.
+
+        InactiveUserError
+            If the account is inactive.
         """
         logger.info(
             "%s | user_id=%s",
@@ -1452,23 +1221,9 @@ class AuthService:
             user_id,
         )
 
-        repository = self._repository()
-
-        user = repository.get_by_id(
+        user = self._require_user(
             user_id,
         )
-
-        if user is None:
-            logger.warning(
-                "%s | unknown user_id=%s",
-                self.LOG_CURRENT_USER,
-                user_id,
-            )
-
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found.",
-            )
 
         self._require_active_user(
             user,
@@ -1479,7 +1234,7 @@ class AuthService:
         )
 
     # =========================================================================
-    # JWT Claims
+    # JWT Claims → User
     # =========================================================================
 
     def get_user_from_claims(
@@ -1487,17 +1242,25 @@ class AuthService:
         claims: JWTIdentity,
     ) -> User:
         """
-        Retrieve the authenticated ORM user from validated JWT claims.
+        Resolve a validated JWT identity to the current ORM user.
 
         Parameters
         ----------
         claims:
-            Validated JWT claims.
+            Validated JWT identity.
 
         Returns
         -------
         User
-            Authenticated ORM model.
+            Current authenticated user.
+
+        Raises
+        ------
+        UserNotFoundError
+            If the user no longer exists.
+
+        InactiveUserError
+            If the account is inactive.
         """
         logger.info(
             "%s | user_id=%s",
@@ -1505,42 +1268,18 @@ class AuthService:
             claims.user_id,
         )
 
-        repository = self._repository()
-
-        user = repository.get_by_id(
+        user = self._require_user(
             claims.user_id,
         )
-
-        if user is None:
-            logger.warning(
-                "%s | invalid claims | user_id=%s",
-                self.LOG_VALIDATE,
-                claims.user_id,
-            )
-
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found.",
-            )
 
         self._require_active_user(
             user,
         )
 
-        logger.info(
-            "%s completed | user_id=%s",
-            self.LOG_VALIDATE,
-            user.id,
-        )
-
         return user
 
     # =========================================================================
-    # End Password & User Retrieval
-    # =========================================================================
-    
-        # =========================================================================
-    # Token Validation
+    # Token Payload Validation
     # =========================================================================
 
     def verify_token_payload(
@@ -1548,23 +1287,25 @@ class AuthService:
         payload: DecodedToken,
     ) -> UserIdentity:
         """
-        Validate a decoded JWT payload.
-
-        Business Rules
-        --------------
-        • The referenced user must exist.
-        • The user account must be active.
-        • A validated identity DTO is returned.
+        Validate a decoded JWT payload against the current user state.
 
         Parameters
         ----------
         payload:
-            Decoded JWT payload.
+            Validated JWT payload.
 
         Returns
         -------
         UserIdentity
-            Authenticated user identity.
+            Current authenticated identity.
+
+        Raises
+        ------
+        UserNotFoundError
+            If the referenced user does not exist.
+
+        InactiveUserError
+            If the account is inactive.
         """
         logger.info(
             "%s | user_id=%s",
@@ -1572,32 +1313,12 @@ class AuthService:
             payload.user_id,
         )
 
-        repository = self._repository()
-
-        user = repository.get_by_id(
+        user = self._require_user(
             payload.user_id,
         )
 
-        if user is None:
-            logger.warning(
-                "%s | invalid payload | user_id=%s",
-                self.LOG_VALIDATE,
-                payload.user_id,
-            )
-
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials.",
-            )
-
         self._require_active_user(
             user,
-        )
-
-        logger.info(
-            "%s completed | user_id=%s",
-            self.LOG_VALIDATE,
-            user.id,
         )
 
         return self._build_current_user(
@@ -1613,12 +1334,17 @@ class AuthService:
         current_user: User,
     ) -> AuthenticationResult:
         """
-        Generate a fresh JWT access token.
+        Issue a fresh access token for an authenticated active user.
 
-        Business Rules
-        --------------
-        • Only active users may refresh tokens.
-        • A completely new JWT is generated.
+        Important
+        ---------
+        This method does NOT implement full refresh-token rotation.
+
+        The current architecture reserves refresh-token rotation,
+        revocation, and lifecycle management for future support.
+
+        This method only issues another access token after the current
+        authenticated user has been validated.
 
         Parameters
         ----------
@@ -1628,7 +1354,7 @@ class AuthService:
         Returns
         -------
         AuthenticationResult
-            Authentication response containing a new JWT.
+            Fresh access token and current user.
         """
         logger.info(
             "%s | user_id=%s",
@@ -1640,8 +1366,10 @@ class AuthService:
             current_user,
         )
 
-        access_token = self._generate_access_token(
-            current_user,
+        access_token = (
+            self._generate_access_token(
+                current_user,
+            )
         )
 
         logger.info(
@@ -1656,7 +1384,7 @@ class AuthService:
         )
 
     # =========================================================================
-    # Authorization Helpers
+    # Active User Validation
     # =========================================================================
 
     def ensure_active_user(
@@ -1666,13 +1394,10 @@ class AuthService:
         """
         Validate that a user account is active.
 
-        This method exposes the internal validation helper
-        for use by other services.
-
         Parameters
         ----------
         user:
-            Authenticated user.
+            User ORM model.
 
         Returns
         -------
@@ -1683,15 +1408,16 @@ class AuthService:
             user,
         )
 
+    # =========================================================================
+    # Administrator Validation
+    # =========================================================================
+
     def ensure_admin(
         self,
         user: User,
     ) -> User:
         """
         Validate administrator privileges.
-
-        This method exposes administrator validation
-        for other services.
 
         Parameters
         ----------
@@ -1722,41 +1448,36 @@ class AuthService:
         return validated_user
 
     # =========================================================================
-    # End Token Management
-    # =========================================================================
-        # =========================================================================
     # Logout
     # =========================================================================
 
     def logout(
         self,
         user: User,
-    ) -> dict[str, str]:
+    ) -> None:
         """
         Logout an authenticated user.
 
-        Notes
-        -----
-        JWT authentication is stateless. Therefore, logout simply informs the
-        client to discard the current access token.
+        Current JWT Design
+        ------------------
+        The current access-token implementation is stateless.
 
-        Future Enhancements
-        -------------------
-        • Refresh token revocation
-        • Redis token blacklist
-        • Device session tracking
+        Therefore logout does not revoke a JWT.
+
+        The client is expected to discard its access token.
+
+        Future support may introduce:
+
+        • Refresh-token revocation
+        • Token blacklisting
+        • Session tracking
+        • Device management
         • Multi-device logout
-        • Token rotation
 
         Parameters
         ----------
         user:
             Authenticated user.
-
-        Returns
-        -------
-        dict[str, str]
-            Logout confirmation message.
         """
         logger.info(
             "%s | user_id=%s",
@@ -1774,12 +1495,8 @@ class AuthService:
             user.id,
         )
 
-        return {
-            "message": "Logout successful."
-        }
-
     # =========================================================================
-    # Utility Methods
+    # Utility: Email Exists
     # =========================================================================
 
     def email_exists(
@@ -1787,21 +1504,29 @@ class AuthService:
         email: str,
     ) -> bool:
         """
-        Determine whether an email address already exists.
+        Determine whether an email address exists.
 
         Parameters
         ----------
         email:
-            Email address to search.
+            Email address.
 
         Returns
         -------
         bool
-            True if the email exists; otherwise False.
+            True when the email exists.
         """
-        return self._repository().email_exists(
-            email.strip(),
+        normalized_email = (
+            self._normalize_email(email)
         )
+
+        return self._repository().email_exists(
+            normalized_email,
+        )
+
+    # =========================================================================
+    # Utility: Get User
+    # =========================================================================
 
     def get_user(
         self,
@@ -1818,30 +1543,20 @@ class AuthService:
         Returns
         -------
         User
-            Existing user.
+            User ORM model.
 
         Raises
         ------
-        HTTPException
-            If the user cannot be found.
+        UserNotFoundError
+            If the user does not exist.
         """
-        user = self._repository().get_by_id(
+        return self._require_user(
             user_id,
         )
 
-        if user is not None:
-            return user
-
-        logger.warning(
-            "%s | unknown user_id=%s",
-            self.LOG_VALIDATE,
-            user_id,
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
-        )
+    # =========================================================================
+    # Utility: Validate Credentials
+    # =========================================================================
 
     def validate_credentials(
         self,
@@ -1850,7 +1565,9 @@ class AuthService:
         password: str,
     ) -> User:
         """
-        Public wrapper around the authentication workflow.
+        Validate authentication credentials.
+
+        This is a public service-level wrapper around authenticate_user().
 
         Parameters
         ----------
@@ -1874,29 +1591,29 @@ class AuthService:
     # Service Metadata
     # =========================================================================
 
-    @property
+    @classmethod
     def service_name(
-        self,
+        cls,
     ) -> str:
         """
         Return the service name.
         """
-        return self.SERVICE_NAME
+        return cls.SERVICE_NAME
 
-    @property
+    @classmethod
     def service_version(
-        self,
+        cls,
     ) -> str:
         """
         Return the service version.
         """
-        return self.SERVICE_VERSION
+        return cls.SERVICE_VERSION
 
-    @property
+    @classmethod
     def domain_name(
-        self,
+        cls,
     ) -> str:
         """
-        Return the bounded domain name.
+        Return the service domain.
         """
-        return self.DOMAIN_NAME
+        return cls.DOMAIN_NAME
